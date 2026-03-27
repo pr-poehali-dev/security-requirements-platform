@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import MermaidViewer from "@/components/ui/mermaid-viewer";
 
 type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements";
 type DbMode = "cloud" | "local";
@@ -643,6 +644,10 @@ export default function Index() {
   const [attachDraft, setAttachDraft] = useState<Omit<Attachment,"id">>({ type:"link", name:"", content:"" });
   const [viewAttachment, setViewAttachment] = useState<Attachment | null>(null);
   const [techReqFilter, setTechReqFilter] = useState<string>("Все");
+  const [viewTechFull, setViewTechFull] = useState<Technology | null>(null);
+  const [techFullSearch, setTechFullSearch] = useState("");
+  const [techFullSortField, setTechFullSortField] = useState<string>("id");
+  const [techFullSortDir, setTechFullSortDir] = useState<"asc" | "desc">("asc");
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
     id: `tech.${String(count + 1).padStart(3, "0")}`,
@@ -1858,12 +1863,20 @@ export default function Index() {
                             onClick={(e) => { e.stopPropagation(); openEditTech2(tech); }}
                             className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
                             style={{ color: "rgba(180,200,230,0.5)" }}
+                            title="Редактировать"
                           ><Icon name="Pencil" size={13} /></button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeleteTechId2(tech.id); }}
                             className="p-1.5 rounded-lg hover:bg-red-500/10 transition-all"
                             style={{ color: "rgba(239,68,68,0.6)" }}
+                            title="Удалить"
                           ><Icon name="Trash2" size={13} /></button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewTechFull(tech); setTechFullSearch(""); setTechFullSortField("id"); setTechFullSortDir("asc"); }}
+                            className="p-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
+                            style={{ color: "#34d399" }}
+                            title="Полный просмотр"
+                          ><Icon name="Maximize2" size={13} /></button>
                         </div>
                       </div>
                     </div>
@@ -3351,12 +3364,353 @@ export default function Index() {
             </DialogTitle>
           </DialogHeader>
           <div className="mt-2">
-            <pre className="p-4 rounded-xl text-sm font-mono overflow-x-auto whitespace-pre-wrap" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a5f3fc" }}>
-              {viewAttachment?.content}
-            </pre>
+            {viewAttachment?.type === "mermaid" ? (
+              <MermaidViewer content={viewAttachment.content} />
+            ) : (
+              <pre className="p-4 rounded-xl text-sm font-mono overflow-x-auto whitespace-pre-wrap" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a5f3fc" }}>
+                {viewAttachment?.content}
+              </pre>
+            )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Technology Full View Dialog ── */}
+      {viewTechFull && (() => {
+        const tech = viewTechFull;
+        const sm = TECH_STATUS_META[tech.status] || TECH_STATUS_META["В разработке"];
+        const linkedReqs = reqs.filter((r) => r.technology_id === tech.id);
+        const mermaidAttachments = (tech.attachments || []).filter((a) => a.type === "mermaid");
+        const linkAttachments = (tech.attachments || []).filter((a) => a.type === "link");
+        const fileAttachments = (tech.attachments || []).filter((a) => a.type !== "mermaid" && a.type !== "link");
+
+        const searchLower = techFullSearch.toLowerCase();
+        const filteredReqs = linkedReqs.filter((r) =>
+          !searchLower ||
+          r.id.toLowerCase().includes(searchLower) ||
+          r.name.toLowerCase().includes(searchLower) ||
+          r.description.toLowerCase().includes(searchLower) ||
+          r.req_type.toLowerCase().includes(searchLower) ||
+          r.criticality.toLowerCase().includes(searchLower) ||
+          r.status.toLowerCase().includes(searchLower) ||
+          r.version.toLowerCase().includes(searchLower) ||
+          r.control_metric.toLowerCase().includes(searchLower)
+        );
+
+        const sortedReqs = [...filteredReqs].sort((a, b) => {
+          let va: string | number = "";
+          let vb: string | number = "";
+          if (techFullSortField === "id") { va = a.id; vb = b.id; }
+          else if (techFullSortField === "name") { va = a.name; vb = b.name; }
+          else if (techFullSortField === "criticality") { va = a.criticality; vb = b.criticality; }
+          else if (techFullSortField === "status") { va = a.status; vb = b.status; }
+          else if (techFullSortField === "req_type") { va = a.req_type; vb = b.req_type; }
+          else if (techFullSortField === "score_value") { va = a.score_value; vb = b.score_value; }
+          else if (techFullSortField === "score_weight") { va = a.score_weight; vb = b.score_weight; }
+          const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "ru");
+          return techFullSortDir === "asc" ? cmp : -cmp;
+        });
+
+        const toggleSort = (field: string) => {
+          if (techFullSortField === field) setTechFullSortDir((d) => d === "asc" ? "desc" : "asc");
+          else { setTechFullSortField(field); setTechFullSortDir("asc"); }
+        };
+
+        const SortIcon = ({ field }: { field: string }) => {
+          if (techFullSortField !== field) return <Icon name="ChevronsUpDown" size={12} style={{ color: "rgba(180,200,230,0.3)" }} />;
+          return <Icon name={techFullSortDir === "asc" ? "ChevronUp" : "ChevronDown"} size={12} style={{ color: "#34d399" }} />;
+        };
+
+        return (
+          <Dialog open onOpenChange={(o) => { if (!o) setViewTechFull(null); }}>
+            <DialogContent
+              className="border overflow-hidden flex flex-col"
+              style={{
+                background: "#080f1e",
+                borderColor: "rgba(255,255,255,0.08)",
+                maxWidth: "95vw",
+                width: "1200px",
+                maxHeight: "95vh",
+                padding: 0,
+              }}
+            >
+              {/* ── Header ── */}
+              <div className="px-8 pt-7 pb-5 flex-shrink-0" style={{ background: "linear-gradient(180deg, rgba(16,185,129,0.06) 0%, transparent 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <span className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>{tech.id}</span>
+                      {tech.versions && tech.versions.map((v) => (
+                        <span key={v} className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>v{v}</span>
+                      ))}
+                      <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                        <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={11} />{tech.status}
+                      </span>
+                    </div>
+                    <DialogTitle className="text-2xl font-bold text-white leading-tight">{tech.name}</DialogTitle>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => { setViewTechFull(null); openEditTech2(tech); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                      style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                    >
+                      <Icon name="Pencil" size={14} /> Редактировать
+                    </button>
+                    <button
+                      onClick={() => { setViewTechFull(null); setDeleteTechId2(tech.id); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.8)" }}
+                    >
+                      <Icon name="Trash2" size={14} /> Удалить
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Scrollable Body ── */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-3 gap-0 min-h-0">
+                  {/* Left column — description + meta */}
+                  <div className="col-span-1 px-6 py-6 space-y-6 border-r" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+
+                    {/* Description */}
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Описание</p>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>
+                        {tech.description || <span style={{ color: "rgba(180,200,230,0.3)" }}>Не указано</span>}
+                      </p>
+                    </div>
+
+                    {/* Tech domains */}
+                    {tech.tech_domain_ids && tech.tech_domain_ids.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Технические домены</p>
+                        <div className="flex flex-col gap-1.5">
+                          {tech.tech_domain_ids.map((id) => {
+                            const d = techDomainRefs.find((r) => r.id === id);
+                            return (
+                              <span key={id} className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ background: "rgba(16,185,129,0.07)", color: "#34d399", border: "1px solid rgba(16,185,129,0.15)" }}>
+                                <Icon name="Layers" size={11} />{d ? d.name : id}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tags */}
+                    {tech.tags && tech.tags.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tech.tags.map((tag) => (
+                            <span key={tag} className="text-xs font-mono px-2.5 py-1 rounded-full" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>#{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Links */}
+                    {linkAttachments.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Ссылки</p>
+                        <div className="flex flex-col gap-1.5">
+                          {linkAttachments.map((att) => (
+                            <a key={att.id} href={att.content} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs group hover:bg-white/5 transition-all"
+                              style={{ background: "rgba(99,176,255,0.05)", border: "1px solid rgba(99,176,255,0.15)", color: "#63b0ff" }}>
+                              <Icon name="ExternalLink" size={12} className="flex-shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* File attachments */}
+                    {fileAttachments.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Документы</p>
+                        <div className="flex flex-col gap-1.5">
+                          {fileAttachments.map((att) => (
+                            <button key={att.id} onClick={() => setViewAttachment(att)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs hover:bg-white/5 transition-all text-left"
+                              style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.15)", color: "#f59e0b" }}>
+                              <Icon name="FileText" size={12} className="flex-shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Timestamps */}
+                    {(tech.created_at || tech.updated_at) && (
+                      <div className="border-t pt-4 space-y-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        {tech.created_at && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs flex items-center gap-1.5" style={{ color: "rgba(180,200,230,0.35)" }}><Icon name="PlusCircle" size={11} />Создана</span>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{new Date(tech.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                          </div>
+                        )}
+                        {tech.updated_at && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs flex items-center gap-1.5" style={{ color: "rgba(180,200,230,0.35)" }}><Icon name="RefreshCw" size={11} />Обновлена</span>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{new Date(tech.updated_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right 2 columns — mermaid + requirements */}
+                  <div className="col-span-2 flex flex-col">
+
+                    {/* Mermaid section */}
+                    {mermaidAttachments.length > 0 && (
+                      <div className="px-6 py-6 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2" style={{ color: "rgba(180,200,230,0.3)" }}>
+                            <Icon name="GitBranch" size={13} style={{ color: "#a78bfa" }} />
+                            Mermaid-схемы
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{mermaidAttachments.length}</span>
+                          </p>
+                        </div>
+                        <div className="space-y-5">
+                          {mermaidAttachments.map((att) => (
+                            <div key={att.id}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: "rgba(167,139,250,0.1)" }}>
+                                  <Icon name="GitBranch" size={13} style={{ color: "#a78bfa" }} />
+                                </div>
+                                <span className="text-sm font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{att.name}</span>
+                              </div>
+                              <MermaidViewer content={att.content} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Requirements table */}
+                    <div className="px-6 py-6 flex-1">
+                      <div className="flex items-center justify-between mb-4 gap-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 flex-shrink-0" style={{ color: "rgba(180,200,230,0.3)" }}>
+                          <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                          Привязанные требования
+                          {linkedReqs.length > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>{linkedReqs.length}</span>
+                          )}
+                        </p>
+                        <div className="relative flex-1 max-w-xs">
+                          <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                          <input
+                            value={techFullSearch}
+                            onChange={(e) => setTechFullSearch(e.target.value)}
+                            placeholder="Поиск по любому полю..."
+                            className="w-full pl-9 pr-3 py-1.5 rounded-lg text-xs outline-none"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                          />
+                        </div>
+                      </div>
+
+                      {linkedReqs.length === 0 ? (
+                        <div className="py-10 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                          <Icon name="FileX" size={28} className="mx-auto mb-2" style={{ color: "rgba(180,200,230,0.2)" }} />
+                          <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не привязаны</p>
+                        </div>
+                      ) : sortedReqs.length === 0 ? (
+                        <div className="py-10 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                          <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Ничего не найдено</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                  {[
+                                    { field: "id", label: "ID" },
+                                    { field: "name", label: "Название" },
+                                    { field: "req_type", label: "Тип" },
+                                    { field: "criticality", label: "Критичность" },
+                                    { field: "status", label: "Статус" },
+                                    { field: "score_value", label: "Балл" },
+                                    { field: "score_weight", label: "Вес" },
+                                  ].map(({ field, label }) => (
+                                    <th key={field}
+                                      onClick={() => toggleSort(field)}
+                                      className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-white/5 select-none whitespace-nowrap"
+                                      style={{ color: techFullSortField === field ? "#34d399" : "rgba(180,200,230,0.45)" }}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        {label}
+                                        <SortIcon field={field} />
+                                      </div>
+                                    </th>
+                                  ))}
+                                  <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.45)" }}>
+                                    Описание
+                                  </th>
+                                  <th className="px-3 py-2.5" style={{ color: "rgba(180,200,230,0.45)" }}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sortedReqs.map((r, idx) => {
+                                  const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                                  const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                                  const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                                  return (
+                                    <tr key={r.id}
+                                      onClick={() => { setViewTechFull(null); setViewReq(r); }}
+                                      className="cursor-pointer transition-colors hover:bg-white/[0.03]"
+                                      style={{ borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined }}
+                                    >
+                                      <td className="px-3 py-2.5">
+                                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 min-w-[160px]">
+                                        <span className="font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{r.name}</span>
+                                        {r.version && <span className="ml-1.5 font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: tm.bg, color: tm.color }}>
+                                          <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: cm.bg, color: cm.color }}>
+                                          <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#f59e0b" }}>{r.score_value}</td>
+                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#63b0ff" }}>{r.score_weight}</td>
+                                      <td className="px-3 py-2.5 max-w-[200px]">
+                                        <span className="line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.description || "—"}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <Icon name="ChevronRight" size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Domain Detail Sheet */}
       <Sheet open={!!viewDomain} onOpenChange={(o) => { if (!o) setViewDomain(null); }}>
