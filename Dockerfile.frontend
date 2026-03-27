@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Устанавливаем bun для быстрой установки зависимостей
+RUN npm install -g bun
+
+# Копируем файлы зависимостей
+COPY package.json bun.lock* package-lock.json* ./
+
+# Устанавливаем зависимости
+RUN bun install || npm install
+
+# Копируем исходники
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "5173"]
