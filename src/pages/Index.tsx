@@ -8,6 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -23,6 +29,8 @@ interface OrgDomain {
   status: DomainStatus;
   description: string;
   createdAt: string;
+  updated_at?: string;
+  created_at?: string;
 }
 
 const DOMAIN_STATUS_META: Record<DomainStatus, { color: string; bg: string; icon: string }> = {
@@ -228,6 +236,7 @@ export default function Index() {
   const [domainSaving, setDomainSaving] = useState(false);
   const [deleteDomainId, setDeleteDomainId] = useState<string | null>(null);
   const [editingDomain, setEditingDomain] = useState<OrgDomain | null>(null);
+  const [viewDomain, setViewDomain] = useState<OrgDomain | null>(null);
   const [domainSearch, setDomainSearch] = useState("");
 
   const makeEmptyForm = (count: number): OrgDomain => ({
@@ -246,7 +255,11 @@ export default function Index() {
     try {
       const res = await fetch(DOMAINS_API);
       const data = await res.json();
-      setDomains(data.domains || []);
+      const normalized = (data.domains || []).map((d: OrgDomain & { created_at?: string }) => ({
+        ...d,
+        createdAt: d.createdAt || d.created_at || new Date().toISOString(),
+      }));
+      setDomains(normalized);
       if (data.section_description) setSectionDesc(data.section_description);
     } finally {
       setDomainsLoading(false);
@@ -784,7 +797,11 @@ export default function Index() {
                   return (
                     <div
                       key={domain.id}
-                      className="glass-card glass-card-hover rounded-xl p-5 flex flex-col gap-3"
+                      className="glass-card rounded-xl p-5 flex flex-col gap-3 cursor-pointer transition-all"
+                      style={{ borderColor: viewDomain?.id === domain.id ? "rgba(0,102,255,0.4)" : undefined }}
+                      onClick={() => setViewDomain(domain)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(15,22,41,0.85)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,102,255,0.25)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; (e.currentTarget as HTMLElement).style.borderColor = viewDomain?.id === domain.id ? "rgba(0,102,255,0.4)" : ""; (e.currentTarget as HTMLElement).style.transform = ""; }}
                     >
                       {/* Card top */}
                       <div className="flex items-start justify-between gap-2">
@@ -806,7 +823,7 @@ export default function Index() {
                       </div>
 
                       {/* Description */}
-                      <p className="text-xs leading-relaxed line-clamp-3" style={{ color: "rgba(180,200,230,0.55)" }}>
+                      <p className="text-xs leading-relaxed line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>
                         {domain.description || "Описание не указано"}
                       </p>
 
@@ -816,7 +833,14 @@ export default function Index() {
                           <Icon name="User" size={12} style={{ color: "rgba(180,200,230,0.35)" }} />
                           <span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{domain.owner}</span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setViewDomain(domain)}
+                            className="p-1.5 rounded-lg transition-all hover:bg-blue-500/10"
+                            title="Подробнее"
+                          >
+                            <Icon name="Expand" size={13} style={{ color: "rgba(0,212,255,0.6)" }} />
+                          </button>
                           <button
                             onClick={() => openEditDomain(domain)}
                             className="p-1.5 rounded-lg transition-all hover:bg-blue-500/10"
@@ -1085,6 +1109,137 @@ export default function Index() {
           </div>
         )}
       </main>
+
+      {/* Domain Detail Sheet */}
+      <Sheet open={!!viewDomain} onOpenChange={(o) => { if (!o) setViewDomain(null); }}>
+        <SheetContent
+          side="right"
+          className="w-[520px] sm:w-[520px] p-0 border-l overflow-y-auto"
+          style={{ background: "#0a1120", borderColor: "rgba(255,255,255,0.07)" }}
+        >
+          {viewDomain && (() => {
+            const meta = DOMAIN_STATUS_META[viewDomain.status];
+            return (
+              <>
+                {/* Sheet header with gradient */}
+                <div className="relative px-8 pt-8 pb-6" style={{ background: "linear-gradient(180deg, rgba(0,102,255,0.08) 0%, transparent 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  {/* Close hint */}
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(0,102,255,0.15)", color: "#63b0ff" }}>
+                        {viewDomain.id}
+                      </span>
+                      <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>
+                        v{viewDomain.version}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0" style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.color}30` }}>
+                      <Icon name={meta.icon} size={12} />
+                      {viewDomain.status}
+                    </span>
+                  </div>
+                  <SheetHeader>
+                    <SheetTitle className="text-xl font-semibold text-white text-left leading-snug">
+                      {viewDomain.name}
+                    </SheetTitle>
+                  </SheetHeader>
+                  <div className="flex items-center gap-3 mt-4">
+                    <div className="flex items-center gap-1.5">
+                      <Icon name="User" size={13} style={{ color: "rgba(180,200,230,0.35)" }} />
+                      <span className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{viewDomain.owner || "—"}</span>
+                    </div>
+                    <span style={{ color: "rgba(255,255,255,0.1)" }}>·</span>
+                    <div className="flex items-center gap-1.5">
+                      <Icon name="Calendar" size={13} style={{ color: "rgba(180,200,230,0.35)" }} />
+                      <span className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>
+                        {new Date(viewDomain.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="px-8 py-6 space-y-6">
+
+                  {/* Description */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Описание</p>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>
+                      {viewDomain.description || "Описание не указано"}
+                    </p>
+                  </div>
+
+                  {/* Attributes grid */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Атрибуты</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "ID домена", value: viewDomain.id, icon: "Hash", mono: true },
+                        { label: "Версия", value: viewDomain.version, icon: "Tag", mono: true },
+                        { label: "Владелец", value: viewDomain.owner || "—", icon: "User", mono: false },
+                        { label: "Статус", value: viewDomain.status, icon: meta.icon, mono: false, color: meta.color },
+                      ].map((attr) => (
+                        <div key={attr.label} className="rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Icon name={attr.icon} size={12} style={{ color: "rgba(180,200,230,0.3)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{attr.label}</span>
+                          </div>
+                          <span
+                            className={`text-sm font-medium ${attr.mono ? "font-mono" : ""}`}
+                            style={{ color: attr.color || "rgba(210,225,245,0.9)" }}
+                          >
+                            {attr.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Timestamps */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>История</p>
+                    <div className="space-y-2">
+                      {[
+                        { label: "Создан", value: viewDomain.createdAt, icon: "PlusCircle" },
+                        { label: "Обновлён", value: viewDomain.updated_at || viewDomain.createdAt, icon: "RefreshCw" },
+                      ].map((t) => (
+                        <div key={t.label} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
+                          <div className="flex items-center gap-2">
+                            <Icon name={t.icon} size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>{t.label}</span>
+                          </div>
+                          <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>
+                            {new Date(t.value).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer actions */}
+                <div className="px-8 pb-8 pt-2 flex gap-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <button
+                    onClick={() => { openEditDomain(viewDomain); setViewDomain(null); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{ background: "rgba(0,102,255,0.12)", border: "1px solid rgba(0,102,255,0.25)", color: "#63b0ff" }}
+                  >
+                    <Icon name="Pencil" size={14} />
+                    Редактировать
+                  </button>
+                  <button
+                    onClick={() => { setDeleteDomainId(viewDomain.id); setViewDomain(null); }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}
+                  >
+                    <Icon name="Trash2" size={14} />
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
 
       {/* Domain Create/Edit Dialog */}
       <Dialog open={domainDialogOpen} onOpenChange={setDomainDialogOpen}>
