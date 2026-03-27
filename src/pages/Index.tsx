@@ -218,28 +218,44 @@ export default function Index() {
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
 
   // Domains state
-  const [domains, setDomains] = useState<OrgDomain[]>(initialDomains);
+  const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
+  const [domains, setDomains] = useState<OrgDomain[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [sectionDesc, setSectionDesc] = useState("Реестр организационных доменов безопасности — создание, редактирование и управление статусами");
+  const [sectionDescEditing, setSectionDescEditing] = useState(false);
+  const [sectionDescDraft, setSectionDescDraft] = useState(sectionDesc);
   const [domainDialogOpen, setDomainDialogOpen] = useState(false);
+  const [domainSaving, setDomainSaving] = useState(false);
   const [deleteDomainId, setDeleteDomainId] = useState<string | null>(null);
   const [editingDomain, setEditingDomain] = useState<OrgDomain | null>(null);
   const [domainSearch, setDomainSearch] = useState("");
-  const emptyDomainForm: OrgDomain = {
-    id: `org.dom.${String(domains.length + 1).padStart(3, "0")}`,
+
+  const makeEmptyForm = (count: number): OrgDomain => ({
+    id: `org.dom.${String(count + 1).padStart(3, "0")}`,
     name: "",
     version: "1.0.0",
     owner: "",
     status: "В разработке",
     description: "",
     createdAt: new Date().toISOString().split("T")[0],
+  });
+  const [domainForm, setDomainForm] = useState<OrgDomain>(makeEmptyForm(0));
+
+  const loadDomains = async () => {
+    setDomainsLoading(true);
+    try {
+      const res = await fetch(DOMAINS_API);
+      const data = await res.json();
+      setDomains(data.domains || []);
+      if (data.section_description) setSectionDesc(data.section_description);
+    } finally {
+      setDomainsLoading(false);
+    }
   };
-  const [domainForm, setDomainForm] = useState<OrgDomain>(emptyDomainForm);
 
   const openCreateDomain = () => {
     setEditingDomain(null);
-    setDomainForm({
-      ...emptyDomainForm,
-      id: `org.dom.${String(domains.length + 1).padStart(3, "0")}`,
-    });
+    setDomainForm(makeEmptyForm(domains.length));
     setDomainDialogOpen(true);
   };
 
@@ -249,19 +265,46 @@ export default function Index() {
     setDomainDialogOpen(true);
   };
 
-  const handleSaveDomain = () => {
+  const handleSaveDomain = async () => {
     if (!domainForm.name.trim() || !domainForm.id.trim()) return;
-    if (editingDomain) {
-      setDomains((prev) => prev.map((d) => (d.id === editingDomain.id ? domainForm : d)));
-    } else {
-      setDomains((prev) => [...prev, domainForm]);
+    setDomainSaving(true);
+    try {
+      const method = editingDomain ? "PUT" : "POST";
+      const res = await fetch(DOMAINS_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(domainForm),
+      });
+      const saved = await res.json();
+      if (editingDomain) {
+        setDomains((prev) => prev.map((d) => (d.id === editingDomain.id ? { ...domainForm, ...saved } : d)));
+      } else {
+        setDomains((prev) => [...prev, { ...domainForm, ...saved }]);
+      }
+      setDomainDialogOpen(false);
+    } finally {
+      setDomainSaving(false);
     }
-    setDomainDialogOpen(false);
   };
 
-  const handleDeleteDomain = (id: string) => {
+  const handleDeleteDomain = async (id: string) => {
+    await fetch(DOMAINS_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     setDomains((prev) => prev.filter((d) => d.id !== id));
     setDeleteDomainId(null);
+  };
+
+  const handleSaveSectionDesc = async () => {
+    setSectionDesc(sectionDescDraft);
+    setSectionDescEditing(false);
+    await fetch(`${DOMAINS_API}/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: sectionDescDraft }),
+    });
   };
 
   const filteredDomains = domains.filter((d) =>
@@ -646,7 +689,9 @@ export default function Index() {
         )}
 
         {/* === DOMAINS SECTION === */}
-        {activeSection === "domains" && (
+        {activeSection === "domains" && (() => {
+          if (domains.length === 0 && !domainsLoading) loadDomains();
+          return (
           <div className="section-enter">
             {/* Header */}
             <div className="mb-8">
@@ -654,9 +699,38 @@ export default function Index() {
                 <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #10b981, #0066ff)" }} />
                 <h1 className="text-2xl font-semibold text-white">Организационные домены</h1>
               </div>
-              <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
-                Реестр организационных доменов безопасности — создание, редактирование и управление статусами
-              </p>
+              {/* Editable section description */}
+              <div className="ml-4 mt-1 group flex items-start gap-2">
+                {sectionDescEditing ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={sectionDescDraft}
+                      onChange={(e) => setSectionDescDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveSectionDesc(); if (e.key === "Escape") setSectionDescEditing(false); }}
+                      className="flex-1 text-sm px-3 py-1.5 rounded-lg outline-none font-sans"
+                      style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(0,102,255,0.4)", color: "rgba(210,225,245,0.9)" }}
+                    />
+                    <button onClick={handleSaveSectionDesc} className="p-1.5 rounded-lg" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>
+                      <Icon name="Check" size={14} />
+                    </button>
+                    <button onClick={() => setSectionDescEditing(false)} className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.4)" }}>
+                      <Icon name="X" size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{sectionDesc}</p>
+                    <button
+                      onClick={() => { setSectionDescDraft(sectionDesc); setSectionDescEditing(true); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded flex-shrink-0"
+                      title="Редактировать описание"
+                    >
+                      <Icon name="Pencil" size={12} style={{ color: "rgba(180,200,230,0.35)" }} />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Toolbar */}
@@ -693,7 +767,12 @@ export default function Index() {
             </div>
 
             {/* Domain cards grid */}
-            {filteredDomains.length === 0 ? (
+            {domainsLoading ? (
+              <div className="glass-card rounded-xl py-20 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
+                <Icon name="Loader" size={28} className="mx-auto mb-3 animate-spin opacity-50" />
+                <p className="text-sm">Загрузка доменов...</p>
+              </div>
+            ) : filteredDomains.length === 0 ? (
               <div className="glass-card rounded-xl py-20 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
                 <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-40" />
                 <p className="text-sm">Домены не найдены</p>
@@ -760,7 +839,8 @@ export default function Index() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* === ANALYTICS SECTION === */}
         {activeSection === "analytics" && (
@@ -1126,18 +1206,19 @@ export default function Index() {
                 Отмена
               </Button>
               <button
-                className="flex-1 rounded-lg text-sm font-medium py-2 transition-all"
+                className="flex-1 rounded-lg text-sm font-medium py-2 transition-all flex items-center justify-center gap-2"
                 onClick={handleSaveDomain}
-                disabled={!domainForm.name.trim() || !domainForm.id.trim()}
+                disabled={!domainForm.name.trim() || !domainForm.id.trim() || domainSaving}
                 style={{
-                  background: !domainForm.name.trim() || !domainForm.id.trim()
+                  background: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving
                     ? "rgba(255,255,255,0.05)"
                     : "linear-gradient(135deg, #10b981 0%, #0066ff 100%)",
-                  color: !domainForm.name.trim() || !domainForm.id.trim() ? "rgba(180,200,230,0.3)" : "white",
-                  cursor: !domainForm.name.trim() || !domainForm.id.trim() ? "not-allowed" : "pointer",
+                  color: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving ? "rgba(180,200,230,0.3)" : "white",
+                  cursor: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving ? "not-allowed" : "pointer",
                 }}
               >
-                {editingDomain ? "Сохранить изменения" : "Создать домен"}
+                {domainSaving && <Icon name="Loader" size={14} className="animate-spin" />}
+                {domainSaving ? "Сохранение..." : editingDomain ? "Сохранить изменения" : "Создать домен"}
               </button>
             </div>
           </div>
