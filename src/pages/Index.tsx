@@ -3056,54 +3056,101 @@ export default function Index() {
 
       {/* ── Technology Detail Sheet ── */}
       <Sheet open={!!viewTech2} onOpenChange={(o) => { if (!o) { setViewTech2(null); setTechReqFilter("Все"); } }}>
-        <SheetContent side="right" className="w-[540px] sm:w-[540px] p-0 border-l overflow-y-auto" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)" }}>
+        <SheetContent side="right" className="w-[580px] sm:w-[580px] p-0 border-l overflow-y-auto" style={{ background: "#0a1120", borderColor: "rgba(255,255,255,0.07)" }}>
           {viewTech2 && (() => {
             const sm = TECH_STATUS_META[viewTech2.status] || TECH_STATUS_META["В разработке"];
+            const linkedReqs = reqs.filter((r) => r.technology_id === viewTech2.id);
+            const critOptions = ["Все", ...Array.from(new Set(linkedReqs.map((r) => r.criticality)))];
+            const filteredReqs = techReqFilter === "Все" ? linkedReqs : linkedReqs.filter((r) => r.criticality === techReqFilter);
             return (
               <>
-                <SheetHeader className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <span className="inline-flex items-center gap-1.5 font-mono text-xs px-2 py-0.5 rounded mb-2" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                {/* ── Gradient Header ── */}
+                <div className="relative px-8 pt-8 pb-6" style={{ background: "linear-gradient(180deg, rgba(16,185,129,0.07) 0%, transparent 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs px-2.5 py-1 rounded-lg flex items-center gap-1" style={{ background: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
                         <Icon name="Hash" size={11} />{viewTech2.id}
                       </span>
-                      <SheetTitle className="text-white text-xl font-semibold">{viewTech2.name}</SheetTitle>
+                      {viewTech2.versions && viewTech2.versions.length > 0 && (
+                        <span className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                          v{viewTech2.versions[viewTech2.versions.length - 1]}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: sm.bg, color: sm.color }}>
-                        <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{viewTech2.status}
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                      <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />
+                      {viewTech2.status}
+                    </span>
                   </div>
-                </SheetHeader>
-
-                <div className="px-6 py-5 space-y-6">
-                  {viewTech2.description && (
-                    <div>
-                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Описание</p>
-                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>{viewTech2.description}</p>
+                  <SheetHeader>
+                    <SheetTitle className="text-xl font-semibold text-white text-left leading-snug">{viewTech2.name}</SheetTitle>
+                  </SheetHeader>
+                  {linkedReqs.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-4">
+                      <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                      <span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
+                        {linkedReqs.length} {linkedReqs.length === 1 ? "требование" : linkedReqs.length < 5 ? "требования" : "требований"}
+                      </span>
                     </div>
                   )}
+                </div>
 
+                {/* ── Body ── */}
+                <div className="px-8 py-6 space-y-7">
+
+                  {/* Description */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Описание</p>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>
+                      {viewTech2.description || <span style={{ color: "rgba(180,200,230,0.3)" }}>Описание не указано</span>}
+                    </p>
+                  </div>
+
+                  {/* Attributes grid */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Атрибуты</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "ID технологии", value: viewTech2.id, icon: "Hash", mono: true },
+                        { label: "Статус", value: viewTech2.status, icon: sm.icon, mono: false, color: sm.color },
+                        { label: "Версий", value: viewTech2.versions?.length ? viewTech2.versions.length.toString() : "—", icon: "Tag", mono: true },
+                        { label: "Доменов", value: viewTech2.tech_domain_ids?.length ? viewTech2.tech_domain_ids.length.toString() : "—", icon: "Layers", mono: true },
+                      ].map((attr) => (
+                        <div key={attr.label} className="rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Icon name={attr.icon as Parameters<typeof Icon>[0]["name"]} size={12} style={{ color: "rgba(180,200,230,0.3)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{attr.label}</span>
+                          </div>
+                          <span className={`text-sm font-medium ${attr.mono ? "font-mono" : ""}`} style={{ color: attr.color || "rgba(210,225,245,0.9)" }}>
+                            {attr.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Versions */}
                   {viewTech2.versions && viewTech2.versions.length > 0 && (
                     <div>
-                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Версии</p>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Версии</p>
                       <div className="flex flex-wrap gap-2">
                         {viewTech2.versions.map((v) => (
-                          <span key={v} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>v{v}</span>
+                          <span key={v} className="text-xs font-mono px-3 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>v{v}</span>
                         ))}
                       </div>
                     </div>
                   )}
 
+                  {/* Technical Domains */}
                   {viewTech2.tech_domain_ids && viewTech2.tech_domain_ids.length > 0 && (
                     <div>
-                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Технические домены</p>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Технические домены</p>
                       <div className="flex flex-wrap gap-2">
                         {viewTech2.tech_domain_ids.map((id) => {
                           const d = techDomainRefs.find((r) => r.id === id);
                           return (
-                            <span key={id} className="text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                            <span key={id} className="text-xs px-3 py-1 rounded-lg flex items-center gap-1.5" style={{ background: "rgba(16,185,129,0.08)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                              <Icon name="Layers" size={11} />
                               {d ? d.name : id}
                             </span>
                           );
@@ -3112,32 +3159,43 @@ export default function Index() {
                     </div>
                   )}
 
+                  {/* Tags */}
                   {viewTech2.tags && viewTech2.tags.length > 0 && (
                     <div>
-                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Теги</p>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
                       <div className="flex flex-wrap gap-2">
                         {viewTech2.tags.map((tag) => (
-                          <span key={tag} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{tag}</span>
+                          <span key={tag} className="text-xs font-mono px-3 py-1 rounded-full font-medium" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>#{tag}</span>
                         ))}
                       </div>
                     </div>
                   )}
 
+                  {/* Attachments */}
                   {viewTech2.attachments && viewTech2.attachments.length > 0 && (
                     <div>
-                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Вложения</p>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Вложения</p>
                       <div className="space-y-2">
                         {viewTech2.attachments.map((att) => (
-                          <div key={att.id} className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Icon name={att.type === "link" ? "ExternalLink" : att.type === "mermaid" ? "GitBranch" : "FileText"} size={14} style={{ color: att.type === "link" ? "#63b0ff" : att.type === "mermaid" ? "#a78bfa" : "#f59e0b", flexShrink: 0 }} />
-                              <span className="text-sm truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{att.name}</span>
+                          <div key={att.id} className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: att.type === "link" ? "rgba(99,176,255,0.1)" : att.type === "mermaid" ? "rgba(167,139,250,0.1)" : "rgba(245,158,11,0.1)" }}>
+                                <Icon name={att.type === "link" ? "ExternalLink" : att.type === "mermaid" ? "GitBranch" : "FileText"} size={14} style={{ color: att.type === "link" ? "#63b0ff" : att.type === "mermaid" ? "#a78bfa" : "#f59e0b" }} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm truncate font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{att.name}</p>
+                                <p className="text-[11px] capitalize" style={{ color: "rgba(180,200,230,0.4)" }}>{att.type === "link" ? "Ссылка" : att.type === "mermaid" ? "Диаграмма" : "Документ"}</p>
+                              </div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               {att.type === "link" ? (
-                                <a href={att.content} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-white/5 transition-all" style={{ color: "#63b0ff" }} onClick={(e) => e.stopPropagation()}><Icon name="ExternalLink" size={13} /></a>
+                                <a href={att.content} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1.5 text-xs font-medium" style={{ color: "#63b0ff" }} onClick={(e) => e.stopPropagation()}>
+                                  <Icon name="ExternalLink" size={13} /> Открыть
+                                </a>
                               ) : (
-                                <button onClick={() => setViewAttachment(att)} className="p-1.5 rounded hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }}><Icon name="Eye" size={13} /></button>
+                                <button onClick={() => setViewAttachment(att)} className="p-2 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1.5 text-xs font-medium" style={{ color: "rgba(180,200,230,0.6)" }}>
+                                  <Icon name="Eye" size={13} /> Просмотр
+                                </button>
                               )}
                             </div>
                           </div>
@@ -3146,86 +3204,115 @@ export default function Index() {
                     </div>
                   )}
 
-                  {/* ── Linked Requirements ── */}
-                  {(() => {
-                    const linked = reqs.filter((r) => r.technology_id === viewTech2.id);
-                    const critOptions = ["Все", ...Array.from(new Set(linked.map((r) => r.criticality)))];
-                    const filtered = techReqFilter === "Все" ? linked : linked.filter((r) => r.criticality === techReqFilter);
-                    return (
-                      <div className="border-t pt-5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs uppercase tracking-wide font-medium flex items-center gap-2" style={{ color: "rgba(180,200,230,0.4)" }}>
-                            <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
-                            Требования
-                            {linked.length > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
-                                {linked.length}
-                              </span>
-                            )}
-                          </p>
-                          {linked.length > 0 && critOptions.length > 2 && (
-                            <div className="flex gap-1">
-                              {critOptions.map((c) => {
-                                const m = c !== "Все" ? REQ_CRITICALITY_META[c as ReqCriticality] : null;
-                                return (
-                                  <button key={c} onClick={() => setTechReqFilter(c)}
-                                    className="px-2 py-0.5 rounded-md text-[11px] font-medium transition-all"
-                                    style={{ background: techReqFilter === c ? (m ? m.bg : "rgba(255,255,255,0.08)") : "rgba(255,255,255,0.03)", border: `1px solid ${techReqFilter === c ? (m ? m.color + "40" : "rgba(255,255,255,0.15)") : "rgba(255,255,255,0.06)"}`, color: techReqFilter === c ? (m ? m.color : "white") : "rgba(180,200,230,0.4)" }}>
-                                    {c}
-                                  </button>
-                                );
-                              })}
+                  {/* Timestamps */}
+                  {(viewTech2.created_at || viewTech2.updated_at) && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>История</p>
+                      <div className="space-y-2">
+                        {[
+                          { label: "Создана", value: viewTech2.created_at, icon: "PlusCircle" },
+                          { label: "Обновлена", value: viewTech2.updated_at, icon: "RefreshCw" },
+                        ].filter((t) => t.value).map((t) => (
+                          <div key={t.label} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
+                            <div className="flex items-center gap-2">
+                              <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                              <span className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>{t.label}</span>
                             </div>
-                          )}
-                        </div>
-                        {linked.length === 0 ? (
-                          <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не привязаны</p>
-                        ) : filtered.length === 0 ? (
-                          <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований с такой критичностью</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {filtered.map((r) => {
-                              const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
-                              const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
-                              const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
-                              return (
-                                <button key={r.id} onClick={() => { setViewTech2(null); setViewReq(r); }}
-                                  className="w-full text-left px-3 py-2.5 rounded-xl transition-all hover:border-amber-500/20 group"
-                                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1" style={{ background: cm.bg, color: cm.color }}>
-                                        <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.criticality}
-                                      </span>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
-                                    </div>
-                                  </div>
-                                  <p className="text-xs font-medium text-white leading-snug mb-1.5 line-clamp-2 group-hover:text-amber-300 transition-colors">{r.name}</p>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] flex items-center gap-1" style={{ background: tm.bg, color: tm.color, padding: "2px 6px", borderRadius: 6 }}>
-                                      <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.req_type}
-                                    </span>
-                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>Балл: <span style={{ color: "#f59e0b" }}>{r.score_value}</span> · Вес: <span style={{ color: "#63b0ff" }}>{r.score_weight}</span></span>
-                                    <Icon name="ChevronRight" size={11} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#f59e0b" }} />
-                                  </div>
-                                </button>
-                              );
-                            })}
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>
+                              {new Date(t.value!).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                            </span>
                           </div>
-                        )}
+                        ))}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
 
-                  <div className="flex gap-3 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                    <button onClick={() => { setViewTech2(null); openEditTech2(viewTech2); }} className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}>
-                      <Icon name="Pencil" size={14} /> Редактировать
-                    </button>
-                    <button onClick={() => { setViewTech2(null); setDeleteTechId2(viewTech2.id); }} className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
-                      <Icon name="Trash2" size={14} />
-                    </button>
+                  {/* ── Linked Requirements ── */}
+                  <div className="border-t pt-6" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs font-medium uppercase tracking-widest flex items-center gap-2" style={{ color: "rgba(180,200,230,0.3)" }}>
+                        <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                        Требования
+                        {linkedReqs.length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                            {linkedReqs.length}
+                          </span>
+                        )}
+                      </p>
+                      {linkedReqs.length > 0 && critOptions.length > 2 && (
+                        <div className="flex gap-1">
+                          {critOptions.map((c) => {
+                            const m = c !== "Все" ? REQ_CRITICALITY_META[c as ReqCriticality] : null;
+                            return (
+                              <button key={c} onClick={() => setTechReqFilter(c)}
+                                className="px-2 py-0.5 rounded-md text-[11px] font-medium transition-all"
+                                style={{ background: techReqFilter === c ? (m ? m.bg : "rgba(255,255,255,0.08)") : "rgba(255,255,255,0.03)", border: `1px solid ${techReqFilter === c ? (m ? m.color + "40" : "rgba(255,255,255,0.15)") : "rgba(255,255,255,0.06)"}`, color: techReqFilter === c ? (m ? m.color : "white") : "rgba(180,200,230,0.4)" }}>
+                                {c}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {linkedReqs.length === 0 ? (
+                      <div className="py-6 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                        <Icon name="FileX" size={24} className="mx-auto mb-2" style={{ color: "rgba(180,200,230,0.2)" }} />
+                        <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не привязаны</p>
+                      </div>
+                    ) : filteredReqs.length === 0 ? (
+                      <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований с такой критичностью</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {filteredReqs.map((r) => {
+                          const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                          const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                          const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                          return (
+                            <button key={r.id} onClick={() => { setViewTech2(null); setViewReq(r); }}
+                              className="w-full text-left px-4 py-3 rounded-xl transition-all hover:border-amber-500/20 group"
+                              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1" style={{ background: cm.bg, color: cm.color }}>
+                                    <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.criticality}
+                                  </span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                </div>
+                              </div>
+                              <p className="text-sm font-medium text-white leading-snug mb-2 line-clamp-2 group-hover:text-amber-300 transition-colors">{r.name}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] flex items-center gap-1" style={{ background: tm.bg, color: tm.color, padding: "2px 6px", borderRadius: 6 }}>
+                                  <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.req_type}
+                                </span>
+                                <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>Балл: <span style={{ color: "#f59e0b" }}>{r.score_value}</span> · Вес: <span style={{ color: "#63b0ff" }}>{r.score_weight}</span></span>
+                                <Icon name="ChevronRight" size={11} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#f59e0b" }} />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                {/* ── Footer actions ── */}
+                <div className="px-8 pb-8 pt-4 flex gap-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <button
+                    onClick={() => { setViewTech2(null); openEditTech2(viewTech2); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                    style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                  >
+                    <Icon name="Pencil" size={14} />
+                    Редактировать
+                  </button>
+                  <button
+                    onClick={() => { setViewTech2(null); setDeleteTechId2(viewTech2.id); }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}
+                  >
+                    <Icon name="Trash2" size={14} />
+                  </button>
                 </div>
               </>
             );
