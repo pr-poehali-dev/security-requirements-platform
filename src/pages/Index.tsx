@@ -28,6 +28,7 @@ interface OrgDomain {
   owner: string;
   status: DomainStatus;
   description: string;
+  tags: string[];
   createdAt: string;
   updated_at?: string;
   created_at?: string;
@@ -246,9 +247,30 @@ export default function Index() {
     owner: "",
     status: "В разработке",
     description: "",
+    tags: [],
     createdAt: new Date().toISOString().split("T")[0],
   });
   const [domainForm, setDomainForm] = useState<OrgDomain>(makeEmptyForm(0));
+  const [tagInput, setTagInput] = useState("");
+  const [nameError, setNameError] = useState("");
+
+  const validateName = (val: string) => {
+    if (!val.trim()) return "Название обязательно";
+    if (val.trim().length < 3) return "Минимум 3 символа";
+    if (val.trim().length > 100) return "Максимум 100 символов";
+    return "";
+  };
+
+  const addTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || domainForm.tags.includes(tag) || domainForm.tags.length >= 10) return;
+    setDomainForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) => {
+    setDomainForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }));
+  };
 
   const loadDomains = async () => {
     setDomainsLoading(true);
@@ -269,12 +291,16 @@ export default function Index() {
   const openCreateDomain = () => {
     setEditingDomain(null);
     setDomainForm(makeEmptyForm(domains.length));
+    setTagInput("");
+    setNameError("");
     setDomainDialogOpen(true);
   };
 
   const openEditDomain = (d: OrgDomain) => {
     setEditingDomain(d);
-    setDomainForm({ ...d });
+    setDomainForm({ ...d, tags: d.tags || [] });
+    setTagInput("");
+    setNameError("");
     setDomainDialogOpen(true);
   };
 
@@ -827,6 +853,23 @@ export default function Index() {
                         {domain.description || "Описание не указано"}
                       </p>
 
+                      {/* Tags */}
+                      {domain.tags && domain.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {domain.tags.slice(0, 4).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-medium font-mono"
+                              style={{ background: "rgba(0,212,255,0.08)", color: "rgba(0,212,255,0.7)", border: "1px solid rgba(0,212,255,0.15)" }}>
+                              #{tag}
+                            </span>
+                          ))}
+                          {domain.tags.length > 4 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: "rgba(180,200,230,0.35)" }}>
+                              +{domain.tags.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* Footer */}
                       <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                         <div className="flex items-center gap-1.5">
@@ -1169,6 +1212,21 @@ export default function Index() {
                     </p>
                   </div>
 
+                  {/* Tags */}
+                  {viewDomain.tags && viewDomain.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewDomain.tags.map((tag) => (
+                          <span key={tag} className="text-xs px-3 py-1 rounded-full font-mono font-medium"
+                            style={{ background: "rgba(0,212,255,0.08)", color: "rgba(0,212,255,0.8)", border: "1px solid rgba(0,212,255,0.2)" }}>
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Attributes grid */}
                   <div>
                     <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Атрибуты</p>
@@ -1283,14 +1341,36 @@ export default function Index() {
 
             {/* Name */}
             <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название организационного домена</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название организационного домена</Label>
+                {nameError && (
+                  <span className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <Icon name="AlertCircle" size={11} />
+                    {nameError}
+                  </span>
+                )}
+              </div>
               <Input
                 value={domainForm.name}
-                onChange={(e) => setDomainForm({ ...domainForm, name: e.target.value })}
+                onChange={(e) => {
+                  setDomainForm({ ...domainForm, name: e.target.value });
+                  setNameError(validateName(e.target.value));
+                }}
+                onBlur={(e) => setNameError(validateName(e.target.value))}
                 placeholder="Введите название домена"
                 className="text-sm"
-                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                style={{
+                  background: "rgba(15,22,41,0.8)",
+                  border: `1px solid ${nameError ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}`,
+                  color: "white",
+                }}
               />
+              <div className="flex justify-between">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Минимум 3 символа</span>
+                <span className="text-xs font-mono" style={{ color: domainForm.name.length > 90 ? "#f59e0b" : "rgba(180,200,230,0.3)" }}>
+                  {domainForm.name.length}/100
+                </span>
+              </div>
             </div>
 
             {/* Owner + Status row */}
@@ -1323,6 +1403,79 @@ export default function Index() {
                   <Icon name="ChevronDown" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "rgba(180,200,230,0.4)" }} />
                 </div>
               </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+                <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.3)" }}>
+                  {domainForm.tags.length}/10
+                </span>
+              </div>
+              {/* Tag input */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Icon name="Hash" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(0,212,255,0.4)" }} />
+                  <input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value.replace(/[^a-zA-Zа-яёА-ЯЁ0-9\-_]/g, ""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === "," || e.key === " ") {
+                        e.preventDefault();
+                        addTag(tagInput);
+                      }
+                    }}
+                    placeholder="Введите тег и нажмите Enter"
+                    maxLength={30}
+                    disabled={domainForm.tags.length >= 10}
+                    className="w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none font-mono"
+                    style={{
+                      background: "rgba(15,22,41,0.8)",
+                      border: "1px solid rgba(0,212,255,0.15)",
+                      color: "rgba(210,225,245,0.9)",
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = "rgba(0,212,255,0.4)")}
+                    onBlur={(e) => (e.target.style.borderColor = "rgba(0,212,255,0.15)")}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addTag(tagInput)}
+                  disabled={!tagInput.trim() || domainForm.tags.length >= 10}
+                  className="px-3 py-2 rounded-lg text-sm transition-all"
+                  style={{
+                    background: tagInput.trim() ? "rgba(0,212,255,0.12)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${tagInput.trim() ? "rgba(0,212,255,0.3)" : "rgba(255,255,255,0.07)"}`,
+                    color: tagInput.trim() ? "rgba(0,212,255,0.8)" : "rgba(180,200,230,0.2)",
+                    cursor: !tagInput.trim() || domainForm.tags.length >= 10 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {/* Tag chips */}
+              {domainForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  {domainForm.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-mono"
+                      style={{ background: "rgba(0,212,255,0.1)", color: "rgba(0,212,255,0.85)", border: "1px solid rgba(0,212,255,0.2)" }}>
+                      #{tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="ml-0.5 rounded-full transition-all hover:text-white"
+                        style={{ color: "rgba(0,212,255,0.5)", lineHeight: 1 }}
+                      >
+                        <Icon name="X" size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>
+                Нажмите Enter, пробел или запятую для добавления тега
+              </p>
             </div>
 
             {/* Description */}
@@ -1363,13 +1516,13 @@ export default function Index() {
               <button
                 className="flex-1 rounded-lg text-sm font-medium py-2 transition-all flex items-center justify-center gap-2"
                 onClick={handleSaveDomain}
-                disabled={!domainForm.name.trim() || !domainForm.id.trim() || domainSaving}
+                disabled={!domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving}
                 style={{
-                  background: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving
+                  background: !domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving
                     ? "rgba(255,255,255,0.05)"
                     : "linear-gradient(135deg, #10b981 0%, #0066ff 100%)",
-                  color: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving ? "rgba(180,200,230,0.3)" : "white",
-                  cursor: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving ? "not-allowed" : "pointer",
+                  color: !domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving ? "rgba(180,200,230,0.3)" : "white",
+                  cursor: !domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving ? "not-allowed" : "pointer",
                 }}
               >
                 {domainSaving && <Icon name="Loader" size={14} className="animate-spin" />}
