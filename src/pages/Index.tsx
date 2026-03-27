@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -38,6 +38,35 @@ interface OrgDomainRef {
   id: string;
   name: string;
   status: DomainStatus;
+}
+
+type TechStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface TechDomainRef {
+  id: string;
+  name: string;
+}
+
+type AttachmentType = "file" | "mermaid" | "link";
+
+interface Attachment {
+  id: string;
+  type: AttachmentType;
+  name: string;
+  content: string;
+}
+
+interface Technology {
+  id: string;
+  name: string;
+  status: TechStatus;
+  description: string;
+  versions: string[];
+  tech_domain_ids: string[];
+  tags: string[];
+  attachments: Attachment[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface OrgDomain {
@@ -510,6 +539,187 @@ export default function Index() {
     d.id.toLowerCase().includes(techSearch.toLowerCase()) ||
     d.owner.toLowerCase().includes(techSearch.toLowerCase())
   );
+
+  // ── Technologies state ──────────────────────────────────────────
+  const TECH_STATUS_META: Record<TechStatus, { color: string; bg: string; icon: string }> = {
+    "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+    "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+    "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+    "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+    "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+  };
+  const TECH_STATUSES: TechStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+
+  const TECHNOLOGIES_API = "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8";
+  const [technologies, setTechnologies] = useState<Technology[]>([]);
+  const [techDomainRefs, setTechDomainRefs] = useState<TechDomainRef[]>([]);
+  const [techSectionDesc2, setTechSectionDesc2] = useState("Реестр технологий ИБ — JWT, OAuth 2.0, шифрование, контейнеризация и другие технические решения");
+  const [techSectionDesc2Editing, setTechSectionDesc2Editing] = useState(false);
+  const [techSectionDesc2Draft, setTechSectionDesc2Draft] = useState(techSectionDesc2);
+  const [techsLoading, setTechsLoading] = useState(false);
+  const [techDialogOpen2, setTechDialogOpen2] = useState(false);
+  const [techSaving2, setTechSaving2] = useState(false);
+  const [techSaveError2, setTechSaveError2] = useState("");
+  const [deleteTechId2, setDeleteTechId2] = useState<string | null>(null);
+  const [editingTech2, setEditingTech2] = useState<Technology | null>(null);
+  const [viewTech2, setViewTech2] = useState<Technology | null>(null);
+  const [techSearch2, setTechSearch2] = useState("");
+  const [techTagInput2, setTechTagInput2] = useState("");
+  const [techNameError2, setTechNameError2] = useState("");
+  const [techVersionInput, setTechVersionInput] = useState("");
+  const [existingTechNames, setExistingTechNames] = useState<{id:string;name:string}[]>([]);
+  const [techLibraryOpen, setTechLibraryOpen] = useState(false);
+  const [techLibrarySearch, setTechLibrarySearch] = useState("");
+  const [attachmentTab, setAttachmentTab] = useState<AttachmentType>("link");
+  const [attachDraft, setAttachDraft] = useState<Omit<Attachment,"id">>({ type:"link", name:"", content:"" });
+  const [viewAttachment, setViewAttachment] = useState<Attachment | null>(null);
+
+  const makeEmptyTechForm2 = (count: number): Technology => ({
+    id: `tech.${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    status: "В разработке",
+    description: "",
+    versions: [],
+    tech_domain_ids: [],
+    tags: [],
+    attachments: [],
+  });
+  const [techForm2, setTechForm2] = useState<Technology>(makeEmptyTechForm2(0));
+
+  const loadTechnologies = async () => {
+    setTechsLoading(true);
+    try {
+      const res = await fetch(TECHNOLOGIES_API);
+      const data = await res.json();
+      setTechnologies(data.items || []);
+      setTechDomainRefs(data.tech_domains || []);
+      if (data.section_description) setTechSectionDesc2(data.section_description);
+    } finally {
+      setTechsLoading(false);
+    }
+  };
+
+  const loadExistingTechNames = async () => {
+    const res = await fetch(`${TECHNOLOGIES_API}/names`);
+    const data = await res.json();
+    setExistingTechNames(data.names || []);
+  };
+
+  const openCreateTech2 = () => {
+    setEditingTech2(null);
+    setTechForm2(makeEmptyTechForm2(technologies.length));
+    setTechTagInput2(""); setTechNameError2(""); setTechSaveError2("");
+    setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
+    setAttachmentTab("link");
+    loadExistingTechNames();
+    setTechDialogOpen2(true);
+  };
+
+  const openEditTech2 = (t: Technology) => {
+    setEditingTech2(t);
+    setTechForm2({ ...t, tags: t.tags || [], versions: t.versions || [], tech_domain_ids: t.tech_domain_ids || [], attachments: t.attachments || [] });
+    setTechTagInput2(""); setTechNameError2(""); setTechSaveError2("");
+    setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
+    setAttachmentTab("link");
+    loadExistingTechNames();
+    setTechDialogOpen2(true);
+  };
+
+  const validateTechName2 = (val: string) => {
+    if (!val.trim()) return "Название обязательно";
+    if (val.trim().length < 2) return "Минимум 2 символа";
+    if (val.trim().length > 100) return "Максимум 100 символов";
+    const dup = existingTechNames.find(
+      (n) => n.name.toLowerCase() === val.trim().toLowerCase() && n.id !== (editingTech2?.id || "")
+    );
+    if (dup) return `Технология «${dup.name}» уже существует`;
+    return "";
+  };
+
+  const addTechTag2 = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || techForm2.tags.includes(tag) || techForm2.tags.length >= 10) return;
+    setTechForm2((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setTechTagInput2("");
+  };
+
+  const addVersion = (raw: string) => {
+    const v = raw.trim();
+    if (!v || techForm2.versions.includes(v)) return;
+    setTechForm2((f) => ({ ...f, versions: [...f.versions, v] }));
+    setTechVersionInput("");
+  };
+
+  const toggleTechDomainRef = (id: string) => {
+    setTechForm2((f) => ({
+      ...f,
+      tech_domain_ids: f.tech_domain_ids.includes(id)
+        ? f.tech_domain_ids.filter((x) => x !== id)
+        : [...f.tech_domain_ids, id],
+    }));
+  };
+
+  const addAttachment = () => {
+    if (!attachDraft.name.trim() || !attachDraft.content.trim()) return;
+    const att: Attachment = { id: Date.now().toString(), ...attachDraft };
+    setTechForm2((f) => ({ ...f, attachments: [...f.attachments, att] }));
+    setAttachDraft({ type: attachmentTab, name: "", content: "" });
+  };
+
+  const removeAttachment = (id: string) => {
+    setTechForm2((f) => ({ ...f, attachments: f.attachments.filter((a) => a.id !== id) }));
+  };
+
+  const handleSaveTech2 = async () => {
+    const nameErr = validateTechName2(techForm2.name);
+    if (nameErr || !techForm2.id.trim()) { setTechNameError2(nameErr); return; }
+    setTechSaving2(true); setTechSaveError2("");
+    try {
+      const method = editingTech2 ? "PUT" : "POST";
+      const res = await fetch(TECHNOLOGIES_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(techForm2),
+      });
+      const data = await res.json();
+      if (data.error) { setTechSaveError2(data.error); return; }
+      if (editingTech2) {
+        setTechnologies((prev) => prev.map((t) => (t.id === editingTech2.id ? data : t)));
+      } else {
+        setTechnologies((prev) => [...prev, data]);
+      }
+      setTechDialogOpen2(false);
+    } finally {
+      setTechSaving2(false);
+    }
+  };
+
+  const handleDeleteTech2 = async (id: string) => {
+    await fetch(TECHNOLOGIES_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setTechnologies((prev) => prev.filter((t) => t.id !== id));
+    setDeleteTechId2(null);
+    if (viewTech2?.id === id) setViewTech2(null);
+  };
+
+  const handleSaveTechSectionDesc2 = async () => {
+    setTechSectionDesc2(techSectionDesc2Draft);
+    setTechSectionDesc2Editing(false);
+    await fetch(`${TECHNOLOGIES_API}/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: techSectionDesc2Draft }),
+    });
+  };
+
+  const filteredTechnologies = technologies.filter((t) =>
+    t.name.toLowerCase().includes(techSearch2.toLowerCase()) ||
+    t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
+    (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
+  );
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -640,6 +850,12 @@ export default function Index() {
               onClick={() => setActiveSection("tech-domains")}
             >
               Тех. домены
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "technologies" ? "active" : ""}`}
+              onClick={() => setActiveSection("technologies")}
+            >
+              Технологии
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -1242,6 +1458,180 @@ export default function Index() {
           );
         })()}
 
+        {/* === TECHNOLOGIES SECTION === */}
+        {activeSection === "technologies" && (() => {
+          if (technologies.length === 0 && !techsLoading) loadTechnologies();
+          return (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #10b981, #00d4ff)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Технологии</h1>
+                </div>
+                <button
+                  onClick={openCreateTech2}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #10b981 0%, #0d9488 100%)", color: "white" }}
+                >
+                  <Icon name="Plus" size={16} />
+                  Добавить технологию
+                </button>
+              </div>
+              {techSectionDesc2Editing ? (
+                <div className="flex items-center gap-2 ml-4">
+                  <input
+                    value={techSectionDesc2Draft}
+                    onChange={(e) => setTechSectionDesc2Draft(e.target.value)}
+                    className="flex-1 text-sm px-3 py-1.5 rounded-lg bg-transparent border outline-none"
+                    style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(180,200,230,0.8)" }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveTechSectionDesc2(); if (e.key === "Escape") setTechSectionDesc2Editing(false); }}
+                    autoFocus
+                  />
+                  <button onClick={handleSaveTechSectionDesc2} className="p-1.5 rounded-lg hover:bg-green-500/10 text-green-400"><Icon name="Check" size={14} /></button>
+                  <button onClick={() => setTechSectionDesc2Editing(false)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400"><Icon name="X" size={14} /></button>
+                </div>
+              ) : (
+                <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setTechSectionDesc2Draft(techSectionDesc2); setTechSectionDesc2Editing(true); }}>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{techSectionDesc2}</p>
+                  <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: "rgba(180,200,230,0.6)" }} />
+                </button>
+              )}
+            </div>
+
+            {/* Search + counter */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="relative flex-1 max-w-sm">
+                <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <Input
+                  value={techSearch2}
+                  onChange={(e) => setTechSearch2(e.target.value)}
+                  placeholder="Поиск по названию, ID, тегу..."
+                  className="pl-9 text-sm"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                />
+              </div>
+              <span className="text-sm font-mono px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#34d399" }}>
+                {filteredTechnologies.length} / {technologies.length}
+              </span>
+            </div>
+
+            {/* Loading */}
+            {techsLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#10b981" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!techsLoading && technologies.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)" }}>
+                  <Icon name="Cpu" size={28} style={{ color: "#10b981" }} />
+                </div>
+                <div className="text-center">
+                  <p className="text-white font-medium mb-1">Технологии не добавлены</p>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>Нажмите «Добавить технологию» чтобы начать</p>
+                </div>
+              </div>
+            )}
+
+            {/* Cards grid */}
+            {!techsLoading && filteredTechnologies.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredTechnologies.map((tech) => {
+                  const sm = TECH_STATUS_META[tech.status] || TECH_STATUS_META["В разработке"];
+                  return (
+                    <div
+                      key={tech.id}
+                      className="group glass-card rounded-2xl p-5 flex flex-col gap-3 cursor-pointer hover:border-emerald-500/30 transition-all"
+                      style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                      onClick={() => setViewTech2(tech)}
+                    >
+                      {/* Card top */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                              {tech.id}
+                            </span>
+                          </div>
+                          <h3 className="text-white font-semibold text-sm truncate">{tech.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium" style={{ background: sm.bg, color: sm.color }}>
+                            <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={11} />
+                            {tech.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {tech.description && (
+                        <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.6)" }}>{tech.description}</p>
+                      )}
+
+                      {/* Versions */}
+                      {tech.versions && tech.versions.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tech.versions.slice(0,3).map((v) => (
+                            <span key={v} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>v{v}</span>
+                          ))}
+                          {tech.versions.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>+{tech.versions.length - 3}</span>}
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      {tech.tags && tech.tags.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tech.tags.slice(0,4).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>
+                              {tag}
+                            </span>
+                          ))}
+                          {tech.tags.length > 4 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>+{tech.tags.length - 4}</span>}
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center gap-2">
+                          {tech.tech_domain_ids && tech.tech_domain_ids.length > 0 && (
+                            <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                              <Icon name="Link2" size={10} />
+                              {tech.tech_domain_ids.length} домен{tech.tech_domain_ids.length === 1 ? "" : tech.tech_domain_ids.length < 5 ? "а" : "ов"}
+                            </span>
+                          )}
+                          {tech.attachments && tech.attachments.length > 0 && (
+                            <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                              <Icon name="Paperclip" size={10} />
+                              {tech.attachments.length}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditTech2(tech); }}
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
+                            style={{ color: "rgba(180,200,230,0.5)" }}
+                          ><Icon name="Pencil" size={13} /></button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteTechId2(tech.id); }}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 transition-all"
+                            style={{ color: "rgba(239,68,68,0.6)" }}
+                          ><Icon name="Trash2" size={13} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
         {/* === ANALYTICS SECTION === */}
         {activeSection === "analytics" && (
           <div className="section-enter">
@@ -1485,6 +1875,432 @@ export default function Index() {
           </div>
         )}
       </main>
+
+      {/* ── Technology Create/Edit Dialog ── */}
+      <Dialog open={techDialogOpen2} onOpenChange={(o) => { if (!o) setTechDialogOpen2(false); }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "90vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                <Icon name="Cpu" size={15} style={{ color: "#10b981" }} />
+              </div>
+              {editingTech2 ? "Редактировать технологию" : "Добавить технологию"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* ID */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID технологии</Label>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#34d399" }}>
+                <Icon name="Hash" size={13} style={{ color: "rgba(52,211,153,0.4)" }} />
+                {techForm2.id}
+              </div>
+            </div>
+
+            {/* Name + Library */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название *</Label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input
+                    value={techForm2.name}
+                    onChange={(e) => { setTechForm2((f) => ({ ...f, name: e.target.value })); setTechNameError2(validateTechName2(e.target.value)); }}
+                    placeholder="Например: JWT, OAuth 2.0, RBAC..."
+                    className="text-sm"
+                    style={{ background: "rgba(15,22,41,0.8)", border: `1px solid ${techNameError2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}`, color: "white" }}
+                  />
+                  {techNameError2 && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{techNameError2}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setTechLibrarySearch(""); setTechLibraryOpen(true); }}
+                  title="Библиотека технологий"
+                  className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all hover:opacity-80"
+                  style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                >
+                  <Icon name="BookOpen" size={14} />
+                  Библиотека
+                </button>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+              <div className="flex flex-wrap gap-2">
+                {TECH_STATUSES.map((s) => {
+                  const sm = TECH_STATUS_META[s];
+                  const active = techForm2.status === s;
+                  return (
+                    <button key={s} onClick={() => setTechForm2((f) => ({ ...f, status: s }))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: active ? sm.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? sm.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? sm.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea
+                value={techForm2.description}
+                onChange={(e) => setTechForm2((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+                placeholder="Краткое описание технологии и её роли в архитектуре ИБ..."
+                className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+              />
+            </div>
+
+            {/* Versions */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версии</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={techVersionInput}
+                  onChange={(e) => setTechVersionInput(e.target.value)}
+                  placeholder="2.0.0"
+                  className="text-sm font-mono"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVersion(techVersionInput); } }}
+                />
+                <button onClick={() => addVersion(techVersionInput)} className="px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-80" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {techForm2.versions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {techForm2.versions.map((v) => (
+                    <span key={v} className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>
+                      v{v}
+                      <button onClick={() => setTechForm2((f) => ({ ...f, versions: f.versions.filter((x) => x !== v) }))} className="hover:text-red-400 transition-colors"><Icon name="X" size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tech Domain binding */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технические домены</Label>
+              <div className="flex flex-wrap gap-2 p-3 rounded-lg max-h-32 overflow-y-auto" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {techDomainRefs.length === 0 && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Нет доменов</span>}
+                {techDomainRefs.map((d) => {
+                  const sel = techForm2.tech_domain_ids.includes(d.id);
+                  return (
+                    <button key={d.id} onClick={() => toggleTechDomainRef(d.id)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: sel ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${sel ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)"}`, color: sel ? "#34d399" : "rgba(180,200,230,0.5)" }}>
+                      {sel && <Icon name="Check" size={11} />}
+                      {d.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={techTagInput2}
+                  onChange={(e) => setTechTagInput2(e.target.value)}
+                  placeholder="authn, encryption, token..."
+                  className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTechTag2(techTagInput2); } if (e.key === ",") { e.preventDefault(); addTechTag2(techTagInput2); } }}
+                />
+                <button onClick={() => addTechTag2(techTagInput2)} className="px-3 rounded-lg text-xs font-medium" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}>
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {techForm2.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {techForm2.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>
+                      {tag}
+                      <button onClick={() => setTechForm2((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:text-red-400 transition-colors"><Icon name="X" size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Вложения</Label>
+              {/* Tab switcher */}
+              <div className="flex gap-1 p-1 rounded-lg w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {(["link","mermaid","file"] as AttachmentType[]).map((t) => (
+                  <button key={t} onClick={() => { setAttachmentTab(t); setAttachDraft({ type:t, name:"", content:"" }); }}
+                    className="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                    style={{ background: attachmentTab === t ? "rgba(255,255,255,0.08)" : "transparent", color: attachmentTab === t ? "white" : "rgba(180,200,230,0.4)" }}>
+                    {t === "link" ? "Ссылка" : t === "mermaid" ? "Mermaid" : "Файл"}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Input
+                  value={attachDraft.name}
+                  onChange={(e) => setAttachDraft((d) => ({ ...d, name: e.target.value }))}
+                  placeholder={attachmentTab === "link" ? "Название ссылки" : attachmentTab === "mermaid" ? "Название схемы" : "Имя файла"}
+                  className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                />
+                {attachmentTab === "mermaid" ? (
+                  <textarea
+                    value={attachDraft.content}
+                    onChange={(e) => setAttachDraft((d) => ({ ...d, content: e.target.value }))}
+                    rows={4}
+                    placeholder={"graph TD\n  A[Client] --> B[Auth Server]\n  B --> C[Resource]"}
+                    className="w-full px-3 py-2 rounded-lg text-sm font-mono resize-none outline-none"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "#a5f3fc" }}
+                  />
+                ) : (
+                  <Input
+                    value={attachDraft.content}
+                    onChange={(e) => setAttachDraft((d) => ({ ...d, content: e.target.value }))}
+                    placeholder={attachmentTab === "link" ? "https://..." : "base64 или путь к файлу"}
+                    className="text-sm"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  />
+                )}
+                <button
+                  onClick={addAttachment}
+                  disabled={!attachDraft.name.trim() || !attachDraft.content.trim()}
+                  className="w-full py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: attachDraft.name.trim() && attachDraft.content.trim() ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(16,185,129,0.2)", color: attachDraft.name.trim() && attachDraft.content.trim() ? "#34d399" : "rgba(180,200,230,0.2)" }}>
+                  Добавить вложение
+                </button>
+              </div>
+
+              {/* Existing attachments */}
+              {techForm2.attachments.length > 0 && (
+                <div className="space-y-1.5">
+                  {techForm2.attachments.map((att) => (
+                    <div key={att.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icon name={att.type === "link" ? "ExternalLink" : att.type === "mermaid" ? "GitBranch" : "FileText"} size={13} style={{ color: att.type === "link" ? "#63b0ff" : att.type === "mermaid" ? "#a78bfa" : "#f59e0b", flexShrink: 0 }} />
+                        <span className="text-xs truncate" style={{ color: "rgba(210,225,245,0.8)" }}>{att.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.4)" }}>{att.type}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => setViewAttachment(att)} className="p-1 rounded hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }}><Icon name="Eye" size={12} /></button>
+                        <button onClick={() => removeAttachment(att.id)} className="p-1 rounded hover:bg-red-500/10 transition-all" style={{ color: "rgba(239,68,68,0.5)" }}><Icon name="Trash2" size={12} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Error */}
+            {techSaveError2 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <Icon name="AlertTriangle" size={14} style={{ color: "#ef4444" }} />
+                <span className="text-xs" style={{ color: "#ef4444" }}>{techSaveError2}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1 text-sm" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setTechDialogOpen2(false)}>
+                Отмена
+              </Button>
+              <button
+                onClick={handleSaveTech2}
+                disabled={techSaving2 || !!techNameError2}
+                className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all"
+                style={{ background: techSaving2 || techNameError2 ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #10b981 0%, #0d9488 100%)", color: techSaving2 || techNameError2 ? "rgba(180,200,230,0.3)" : "white", border: "1px solid rgba(16,185,129,0.3)", cursor: techSaving2 || techNameError2 ? "not-allowed" : "pointer" }}
+              >
+                {techSaving2 && <Icon name="Loader" size={14} className="animate-spin" />}
+                {editingTech2 ? "Сохранить изменения" : "Добавить технологию"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Technology Library Popover ── */}
+      <Dialog open={techLibraryOpen} onOpenChange={setTechLibraryOpen}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)" }}>
+          <DialogHeader className="px-4 pt-4 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white text-sm flex items-center gap-2">
+              <Icon name="BookOpen" size={15} style={{ color: "#10b981" }} />
+              Библиотека технологий
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-4 py-3 space-y-3">
+            <div className="relative">
+              <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+              <Input value={techLibrarySearch} onChange={(e) => setTechLibrarySearch(e.target.value)} placeholder="Поиск..." className="pl-8 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {existingTechNames.filter((n) => n.name.toLowerCase().includes(techLibrarySearch.toLowerCase())).length === 0 && (
+                <p className="text-xs text-center py-4" style={{ color: "rgba(180,200,230,0.4)" }}>Ничего не найдено</p>
+              )}
+              {existingTechNames.filter((n) => n.name.toLowerCase().includes(techLibrarySearch.toLowerCase())).map((n) => (
+                <button key={n.id} onClick={() => { setTechForm2((f) => ({ ...f, name: n.name })); setTechNameError2(""); setTechLibraryOpen(false); }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all hover:bg-white/5"
+                  style={{ color: "rgba(210,225,245,0.85)" }}>
+                  <span>{n.name}</span>
+                  <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{n.id}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Technology Detail Sheet ── */}
+      <Sheet open={!!viewTech2} onOpenChange={(o) => { if (!o) setViewTech2(null); }}>
+        <SheetContent side="right" className="w-[540px] sm:w-[540px] p-0 border-l overflow-y-auto" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)" }}>
+          {viewTech2 && (() => {
+            const sm = TECH_STATUS_META[viewTech2.status] || TECH_STATUS_META["В разработке"];
+            return (
+              <>
+                <SheetHeader className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-xs px-2 py-0.5 rounded mb-2" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                        <Icon name="Hash" size={11} />{viewTech2.id}
+                      </span>
+                      <SheetTitle className="text-white text-xl font-semibold">{viewTech2.name}</SheetTitle>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: sm.bg, color: sm.color }}>
+                        <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{viewTech2.status}
+                      </div>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                <div className="px-6 py-5 space-y-6">
+                  {viewTech2.description && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Описание</p>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>{viewTech2.description}</p>
+                    </div>
+                  )}
+
+                  {viewTech2.versions && viewTech2.versions.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Версии</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech2.versions.map((v) => (
+                          <span key={v} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>v{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewTech2.tech_domain_ids && viewTech2.tech_domain_ids.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Технические домены</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech2.tech_domain_ids.map((id) => {
+                          const d = techDomainRefs.find((r) => r.id === id);
+                          return (
+                            <span key={id} className="text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                              {d ? d.name : id}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewTech2.tags && viewTech2.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech2.tags.map((tag) => (
+                          <span key={tag} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewTech2.attachments && viewTech2.attachments.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Вложения</p>
+                      <div className="space-y-2">
+                        {viewTech2.attachments.map((att) => (
+                          <div key={att.id} className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Icon name={att.type === "link" ? "ExternalLink" : att.type === "mermaid" ? "GitBranch" : "FileText"} size={14} style={{ color: att.type === "link" ? "#63b0ff" : att.type === "mermaid" ? "#a78bfa" : "#f59e0b", flexShrink: 0 }} />
+                              <span className="text-sm truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{att.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {att.type === "link" ? (
+                                <a href={att.content} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-white/5 transition-all" style={{ color: "#63b0ff" }} onClick={(e) => e.stopPropagation()}><Icon name="ExternalLink" size={13} /></a>
+                              ) : (
+                                <button onClick={() => setViewAttachment(att)} className="p-1.5 rounded hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }}><Icon name="Eye" size={13} /></button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <button onClick={() => { setViewTech2(null); openEditTech2(viewTech2); }} className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}>
+                      <Icon name="Pencil" size={14} /> Редактировать
+                    </button>
+                    <button onClick={() => { setViewTech2(null); setDeleteTechId2(viewTech2.id); }} className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+                      <Icon name="Trash2" size={14} />
+                    </button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Technology Delete Confirm ── */}
+      <Dialog open={!!deleteTechId2} onOpenChange={(o) => { if (!o) setDeleteTechId2(null); }}>
+        <DialogContent className="max-w-sm border" style={{ background: "#0b1628", borderColor: "rgba(239,68,68,0.2)" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Icon name="AlertTriangle" size={18} style={{ color: "#ef4444" }} />
+              Удалить технологию?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm" style={{ color: "rgba(180,200,230,0.7)" }}>
+            Технология <span className="font-mono text-white">{deleteTechId2}</span> будет удалена без возможности восстановления.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setDeleteTechId2(null)}>Отмена</Button>
+            <button onClick={() => handleDeleteTech2(deleteTechId2!)} className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
+              <Icon name="Trash2" size={14} /> Удалить
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Attachment Viewer ── */}
+      <Dialog open={!!viewAttachment} onOpenChange={(o) => { if (!o) setViewAttachment(null); }}>
+        <DialogContent className="max-w-2xl border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "80vh", overflowY: "auto" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2 text-sm">
+              <Icon name={viewAttachment?.type === "mermaid" ? "GitBranch" : "FileText"} size={15} style={{ color: viewAttachment?.type === "mermaid" ? "#a78bfa" : "#f59e0b" }} />
+              {viewAttachment?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            <pre className="p-4 rounded-xl text-sm font-mono overflow-x-auto whitespace-pre-wrap" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a5f3fc" }}>
+              {viewAttachment?.content}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Domain Detail Sheet */}
       <Sheet open={!!viewDomain} onOpenChange={(o) => { if (!o) setViewDomain(null); }}>
