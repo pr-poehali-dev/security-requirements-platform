@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Check invalid host returns connected=false",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "host": "invalid-host-that-does-not-exist",
+        "port": "5432",
+        "name": "test",
+        "user": "postgres",
+        "password": ""
+      },
+      "expectedStatus": 200
+    }
+  ]
+}

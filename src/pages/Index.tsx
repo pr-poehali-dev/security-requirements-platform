@@ -130,8 +130,10 @@ const complianceData = [
 export default function Index() {
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
+  // cloud = сервисная БД (Локальная для платформы), local = внешняя PostgreSQL
   const [dbMode, setDbMode] = useState<DbMode>("cloud");
-  const [dbLocalConnected, setDbLocalConnected] = useState(false);
+  const [dbExternalConnected, setDbExternalConnected] = useState(false);
+  const [dbExternalVersion, setDbExternalVersion] = useState("");
   const [dbConfig, setDbConfig] = useState<DbConfig>({
     host: "localhost",
     port: "5432",
@@ -140,11 +142,13 @@ export default function Index() {
     password: "",
   });
   const [pendingMode, setPendingMode] = useState<DbMode>("cloud");
+  const [checkState, setCheckState] = useState<"idle" | "checking" | "ok" | "error">("idle");
+  const [checkError, setCheckError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
 
-  const isConnected = dbMode === "cloud" || (dbMode === "local" && dbLocalConnected);
+  const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
 
   const filteredRequirements = requirements.filter((r) => {
     const matchSearch =
@@ -157,15 +161,42 @@ export default function Index() {
 
   const handleOpenDialog = () => {
     setPendingMode(dbMode);
+    setCheckState("idle");
+    setCheckError("");
     setDbDialogOpen(true);
   };
 
+  const handleCheckConnection = async () => {
+    setCheckState("checking");
+    setCheckError("");
+    try {
+      const res = await fetch("https://functions.poehali.dev/5622928b-26f7-4ee8-b41f-03e43463dcc9", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dbConfig),
+      });
+      const data = await res.json();
+      if (data.connected) {
+        setCheckState("ok");
+        setDbExternalVersion(data.version || "");
+      } else {
+        setCheckState("error");
+        setCheckError(data.error || "Не удалось подключиться");
+      }
+    } catch {
+      setCheckState("error");
+      setCheckError("Ошибка сети — функция недоступна");
+    }
+  };
+
   const handleDbSave = () => {
+    if (pendingMode === "local" && checkState !== "ok") return;
     setDbMode(pendingMode);
     if (pendingMode === "cloud") {
-      setDbLocalConnected(false);
+      setDbExternalConnected(false);
+      setDbExternalVersion("");
     } else {
-      setDbLocalConnected(true);
+      setDbExternalConnected(true);
     }
     setDbDialogOpen(false);
   };
@@ -262,9 +293,9 @@ export default function Index() {
                 style={{ color: isConnected ? "#22c55e" : "#ef4444" }}
               >
                 {dbMode === "cloud"
-                  ? "Облачная БД"
-                  : dbLocalConnected
-                  ? `Локальная: ${dbConfig.host}`
+                  ? "Сервисная БД"
+                  : dbExternalConnected
+                  ? `Внешняя: ${dbConfig.host}`
                   : "Нет подключения"}
               </span>
               <span
@@ -274,7 +305,7 @@ export default function Index() {
                   color: dbMode === "cloud" ? "#00d4ff" : "#a78bfa",
                 }}
               >
-                {dbMode === "cloud" ? "Внешняя" : "Локальная"}
+                {dbMode === "cloud" ? "Локальная" : "Внешняя"}
               </span>
               <Icon name="Settings2" size={14} className="text-slate-400" />
             </button>
@@ -762,52 +793,43 @@ export default function Index() {
             >
               {(["cloud", "local"] as DbMode[]).map((mode) => {
                 const isActive = pendingMode === mode;
+                // cloud = Локальная (сервисная), local = Внешняя (PostgreSQL)
+                const label = mode === "cloud" ? "Сервисная (Локальная)" : "PostgreSQL (Внешняя)";
+                const activeColor = mode === "cloud" ? "#00d4ff" : "#a78bfa";
+                const activeBg = mode === "cloud" ? "rgba(0,212,255,0.15)" : "rgba(124,58,237,0.2)";
+                const activeBorder = mode === "cloud" ? "rgba(0,212,255,0.35)" : "rgba(124,58,237,0.4)";
                 return (
                   <button
                     key={mode}
-                    onClick={() => setPendingMode(mode)}
+                    onClick={() => { setPendingMode(mode); setCheckState("idle"); setCheckError(""); }}
                     className="flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all"
                     style={{
-                      background: isActive
-                        ? mode === "cloud"
-                          ? "rgba(0,212,255,0.15)"
-                          : "rgba(124,58,237,0.2)"
-                        : "transparent",
-                      border: isActive
-                        ? `1px solid ${mode === "cloud" ? "rgba(0,212,255,0.35)" : "rgba(124,58,237,0.4)"}`
-                        : "1px solid transparent",
-                      color: isActive
-                        ? mode === "cloud" ? "#00d4ff" : "#a78bfa"
-                        : "rgba(180,200,230,0.45)",
+                      background: isActive ? activeBg : "transparent",
+                      border: isActive ? `1px solid ${activeBorder}` : "1px solid transparent",
+                      color: isActive ? activeColor : "rgba(180,200,230,0.45)",
                     }}
                   >
-                    <Icon
-                      name={mode === "cloud" ? "Cloud" : "Server"}
-                      size={14}
-                    />
-                    {mode === "cloud" ? "Облачная (Внешняя)" : "PostgreSQL (Локальная)"}
+                    <Icon name={mode === "cloud" ? "Database" : "Server"} size={14} />
+                    {label}
                   </button>
                 );
               })}
             </div>
 
-            {/* Cloud info */}
+            {/* Сервисная (Локальная) БД */}
             {pendingMode === "cloud" && (
               <div
                 className="rounded-xl p-4 space-y-3"
-                style={{
-                  background: "rgba(0,212,255,0.06)",
-                  border: "1px solid rgba(0,212,255,0.18)",
-                }}
+                style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.18)" }}
               >
                 <div className="flex items-center gap-2">
                   <div className="status-dot" style={{ backgroundColor: "#22c55e", color: "#22c55e" }} />
                   <span className="text-sm font-medium" style={{ color: "#00d4ff" }}>
-                    Облачная база данных активна
+                    Сервисная база данных активна
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>
-                  Используется встроенная облачная PostgreSQL платформы. Подключение настроено автоматически — данные доступны без дополнительной конфигурации.
+                  Используется встроенная сервисная PostgreSQL платформы. Подключение настроено автоматически — данные доступны без дополнительной конфигурации.
                 </p>
                 <div
                   className="flex items-center gap-2 px-3 py-2 rounded-lg"
@@ -821,7 +843,7 @@ export default function Index() {
               </div>
             )}
 
-            {/* Local PostgreSQL fields */}
+            {/* Внешняя PostgreSQL */}
             {pendingMode === "local" && (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
@@ -829,7 +851,7 @@ export default function Index() {
                     <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Хост</Label>
                     <Input
                       value={dbConfig.host}
-                      onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
+                      onChange={(e) => { setDbConfig({ ...dbConfig, host: e.target.value }); setCheckState("idle"); }}
                       placeholder="localhost"
                       className="font-mono text-sm"
                       style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
@@ -839,7 +861,7 @@ export default function Index() {
                     <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Порт</Label>
                     <Input
                       value={dbConfig.port}
-                      onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
+                      onChange={(e) => { setDbConfig({ ...dbConfig, port: e.target.value }); setCheckState("idle"); }}
                       placeholder="5432"
                       className="font-mono text-sm"
                       style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
@@ -850,7 +872,7 @@ export default function Index() {
                   <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>База данных</Label>
                   <Input
                     value={dbConfig.name}
-                    onChange={(e) => setDbConfig({ ...dbConfig, name: e.target.value })}
+                    onChange={(e) => { setDbConfig({ ...dbConfig, name: e.target.value }); setCheckState("idle"); }}
                     placeholder="securearch"
                     className="font-mono text-sm"
                     style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
@@ -861,7 +883,7 @@ export default function Index() {
                     <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Пользователь</Label>
                     <Input
                       value={dbConfig.user}
-                      onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
+                      onChange={(e) => { setDbConfig({ ...dbConfig, user: e.target.value }); setCheckState("idle"); }}
                       placeholder="postgres"
                       className="font-mono text-sm"
                       style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
@@ -872,25 +894,73 @@ export default function Index() {
                     <Input
                       type="password"
                       value={dbConfig.password}
-                      onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
+                      onChange={(e) => { setDbConfig({ ...dbConfig, password: e.target.value }); setCheckState("idle"); }}
                       placeholder="••••••••"
                       className="font-mono text-sm"
                       style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
                     />
                   </div>
                 </div>
+
+                {/* Connection string */}
                 <div
                   className="rounded-lg p-3 flex items-start gap-3"
                   style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)" }}
                 >
                   <Icon name="Info" size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#a78bfa" }} />
                   <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
-                    Строка подключения:{" "}
                     <span className="font-mono" style={{ color: "#a78bfa" }}>
                       postgresql://{dbConfig.user}@{dbConfig.host}:{dbConfig.port}/{dbConfig.name}
                     </span>
                   </p>
                 </div>
+
+                {/* Check result */}
+                {checkState === "ok" && (
+                  <div
+                    className="rounded-lg p-3 flex items-start gap-2"
+                    style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}
+                  >
+                    <Icon name="CheckCircle2" size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#22c55e" }} />
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: "#22c55e" }}>Подключение успешно</p>
+                      {dbExternalVersion && (
+                        <p className="text-xs mt-0.5 font-mono" style={{ color: "rgba(180,200,230,0.45)" }}>
+                          {dbExternalVersion.split(" ").slice(0, 3).join(" ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {checkState === "error" && (
+                  <div
+                    className="rounded-lg p-3 flex items-start gap-2"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}
+                  >
+                    <Icon name="XCircle" size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+                    <p className="text-xs" style={{ color: "#ef4444" }}>{checkError}</p>
+                  </div>
+                )}
+
+                {/* Check button */}
+                <button
+                  onClick={handleCheckConnection}
+                  disabled={checkState === "checking"}
+                  className="w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: "rgba(124,58,237,0.12)",
+                    border: "1px solid rgba(124,58,237,0.3)",
+                    color: checkState === "checking" ? "rgba(167,139,250,0.5)" : "#a78bfa",
+                    cursor: checkState === "checking" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Icon
+                    name={checkState === "checking" ? "Loader" : "Plug"}
+                    size={14}
+                    className={checkState === "checking" ? "animate-spin" : ""}
+                  />
+                  {checkState === "checking" ? "Проверяю подключение..." : "Проверить подключение"}
+                </button>
               </div>
             )}
 
@@ -908,10 +978,21 @@ export default function Index() {
                 Отмена
               </Button>
               <button
-                className="btn-primary flex-1 rounded-lg text-sm font-medium py-2"
+                className="flex-1 rounded-lg text-sm font-medium py-2 transition-all"
                 onClick={handleDbSave}
+                disabled={pendingMode === "local" && checkState !== "ok"}
+                style={{
+                  background: pendingMode === "local" && checkState !== "ok"
+                    ? "rgba(255,255,255,0.05)"
+                    : "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)",
+                  color: pendingMode === "local" && checkState !== "ok"
+                    ? "rgba(180,200,230,0.3)"
+                    : "white",
+                  cursor: pendingMode === "local" && checkState !== "ok" ? "not-allowed" : "pointer",
+                  border: "1px solid rgba(0,102,255,0.3)",
+                }}
               >
-                {pendingMode === "cloud" ? "Использовать облако" : "Подключить"}
+                {pendingMode === "cloud" ? "Использовать сервисную БД" : "Подключить внешнюю БД"}
               </button>
             </div>
           </div>
