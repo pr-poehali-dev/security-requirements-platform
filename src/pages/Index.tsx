@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type Section = "library" | "analytics";
+type DbMode = "cloud" | "local";
 
 interface DbConfig {
   host: string;
@@ -129,7 +130,8 @@ const complianceData = [
 export default function Index() {
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
-  const [dbConnected, setDbConnected] = useState(false);
+  const [dbMode, setDbMode] = useState<DbMode>("cloud");
+  const [dbLocalConnected, setDbLocalConnected] = useState(false);
   const [dbConfig, setDbConfig] = useState<DbConfig>({
     host: "localhost",
     port: "5432",
@@ -137,9 +139,12 @@ export default function Index() {
     user: "postgres",
     password: "",
   });
+  const [pendingMode, setPendingMode] = useState<DbMode>("cloud");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
+
+  const isConnected = dbMode === "cloud" || (dbMode === "local" && dbLocalConnected);
 
   const filteredRequirements = requirements.filter((r) => {
     const matchSearch =
@@ -150,8 +155,18 @@ export default function Index() {
     return matchSearch && matchLevel;
   });
 
+  const handleOpenDialog = () => {
+    setPendingMode(dbMode);
+    setDbDialogOpen(true);
+  };
+
   const handleDbSave = () => {
-    setDbConnected(true);
+    setDbMode(pendingMode);
+    if (pendingMode === "cloud") {
+      setDbLocalConnected(false);
+    } else {
+      setDbLocalConnected(true);
+    }
     setDbDialogOpen(false);
   };
 
@@ -228,25 +243,38 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setDbDialogOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg border text-sm transition-all hover:border-blue-500/40"
+              onClick={handleOpenDialog}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all hover:border-blue-500/40"
               style={{
                 background: "rgba(15,22,41,0.8)",
-                borderColor: dbConnected ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
+                borderColor: isConnected ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
               }}
             >
               <div
                 className="status-dot"
                 style={{
-                  color: dbConnected ? "#22c55e" : "#ef4444",
-                  backgroundColor: dbConnected ? "#22c55e" : "#ef4444",
+                  backgroundColor: isConnected ? "#22c55e" : "#ef4444",
+                  color: isConnected ? "#22c55e" : "#ef4444",
                 }}
               />
               <span
                 className="font-mono text-xs"
-                style={{ color: dbConnected ? "#22c55e" : "#ef4444" }}
+                style={{ color: isConnected ? "#22c55e" : "#ef4444" }}
               >
-                {dbConnected ? `PG: ${dbConfig.host}` : "Нет подключения"}
+                {dbMode === "cloud"
+                  ? "Облачная БД"
+                  : dbLocalConnected
+                  ? `Локальная: ${dbConfig.host}`
+                  : "Нет подключения"}
+              </span>
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{
+                  background: dbMode === "cloud" ? "rgba(0,212,255,0.12)" : "rgba(124,58,237,0.15)",
+                  color: dbMode === "cloud" ? "#00d4ff" : "#a78bfa",
+                }}
+              >
+                {dbMode === "cloud" ? "Внешняя" : "Локальная"}
               </span>
               <Icon name="Settings2" size={14} className="text-slate-400" />
             </button>
@@ -722,142 +750,149 @@ export default function Index() {
               >
                 <Icon name="Database" size={16} style={{ color: "#63b0ff" }} />
               </div>
-              Подключение к PostgreSQL
+              Настройка базы данных
             </DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2 space-y-1.5">
-                <Label
-                  className="text-xs"
-                  style={{ color: "rgba(180,200,230,0.6)" }}
-                >
-                  Хост
-                </Label>
-                <Input
-                  value={dbConfig.host}
-                  onChange={(e) =>
-                    setDbConfig({ ...dbConfig, host: e.target.value })
-                  }
-                  placeholder="localhost"
-                  className="font-mono text-sm"
-                  style={{
-                    background: "rgba(15,22,41,0.8)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "white",
-                  }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label
-                  className="text-xs"
-                  style={{ color: "rgba(180,200,230,0.6)" }}
-                >
-                  Порт
-                </Label>
-                <Input
-                  value={dbConfig.port}
-                  onChange={(e) =>
-                    setDbConfig({ ...dbConfig, port: e.target.value })
-                  }
-                  placeholder="5432"
-                  className="font-mono text-sm"
-                  style={{
-                    background: "rgba(15,22,41,0.8)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "white",
-                  }}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label
-                className="text-xs"
-                style={{ color: "rgba(180,200,230,0.6)" }}
-              >
-                База данных
-              </Label>
-              <Input
-                value={dbConfig.name}
-                onChange={(e) =>
-                  setDbConfig({ ...dbConfig, name: e.target.value })
-                }
-                placeholder="securearch"
-                className="font-mono text-sm"
-                style={{
-                  background: "rgba(15,22,41,0.8)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "white",
-                }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label
-                  className="text-xs"
-                  style={{ color: "rgba(180,200,230,0.6)" }}
-                >
-                  Пользователь
-                </Label>
-                <Input
-                  value={dbConfig.user}
-                  onChange={(e) =>
-                    setDbConfig({ ...dbConfig, user: e.target.value })
-                  }
-                  placeholder="postgres"
-                  className="font-mono text-sm"
-                  style={{
-                    background: "rgba(15,22,41,0.8)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "white",
-                  }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label
-                  className="text-xs"
-                  style={{ color: "rgba(180,200,230,0.6)" }}
-                >
-                  Пароль
-                </Label>
-                <Input
-                  type="password"
-                  value={dbConfig.password}
-                  onChange={(e) =>
-                    setDbConfig({ ...dbConfig, password: e.target.value })
-                  }
-                  placeholder="••••••••"
-                  className="font-mono text-sm"
-                  style={{
-                    background: "rgba(15,22,41,0.8)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "white",
-                  }}
-                />
-              </div>
+            {/* Mode switcher */}
+            <div
+              className="grid grid-cols-2 gap-1 p-1 rounded-xl"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            >
+              {(["cloud", "local"] as DbMode[]).map((mode) => {
+                const isActive = pendingMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setPendingMode(mode)}
+                    className="flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{
+                      background: isActive
+                        ? mode === "cloud"
+                          ? "rgba(0,212,255,0.15)"
+                          : "rgba(124,58,237,0.2)"
+                        : "transparent",
+                      border: isActive
+                        ? `1px solid ${mode === "cloud" ? "rgba(0,212,255,0.35)" : "rgba(124,58,237,0.4)"}`
+                        : "1px solid transparent",
+                      color: isActive
+                        ? mode === "cloud" ? "#00d4ff" : "#a78bfa"
+                        : "rgba(180,200,230,0.45)",
+                    }}
+                  >
+                    <Icon
+                      name={mode === "cloud" ? "Cloud" : "Server"}
+                      size={14}
+                    />
+                    {mode === "cloud" ? "Облачная (Внешняя)" : "PostgreSQL (Локальная)"}
+                  </button>
+                );
+              })}
             </div>
 
-            <div
-              className="rounded-lg p-3 flex items-start gap-3"
-              style={{
-                background: "rgba(0,102,255,0.08)",
-                border: "1px solid rgba(0,102,255,0.2)",
-              }}
-            >
-              <Icon
-                name="Info"
-                size={14}
-                className="mt-0.5 flex-shrink-0"
-                style={{ color: "#63b0ff" }}
-              />
-              <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
-                Строка подключения:{" "}
-                <span className="font-mono" style={{ color: "#63b0ff" }}>
-                  postgresql://{dbConfig.user}@{dbConfig.host}:{dbConfig.port}/
-                  {dbConfig.name}
-                </span>
-              </p>
-            </div>
+            {/* Cloud info */}
+            {pendingMode === "cloud" && (
+              <div
+                className="rounded-xl p-4 space-y-3"
+                style={{
+                  background: "rgba(0,212,255,0.06)",
+                  border: "1px solid rgba(0,212,255,0.18)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="status-dot" style={{ backgroundColor: "#22c55e", color: "#22c55e" }} />
+                  <span className="text-sm font-medium" style={{ color: "#00d4ff" }}>
+                    Облачная база данных активна
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>
+                  Используется встроенная облачная PostgreSQL платформы. Подключение настроено автоматически — данные доступны без дополнительной конфигурации.
+                </p>
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                  style={{ background: "rgba(0,0,0,0.25)" }}
+                >
+                  <Icon name="Lock" size={12} style={{ color: "rgba(180,200,230,0.4)" }} />
+                  <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
+                    Управляется платформой · SSL · Автобэкап
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Local PostgreSQL fields */}
+            {pendingMode === "local" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Хост</Label>
+                    <Input
+                      value={dbConfig.host}
+                      onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
+                      placeholder="localhost"
+                      className="font-mono text-sm"
+                      style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Порт</Label>
+                    <Input
+                      value={dbConfig.port}
+                      onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
+                      placeholder="5432"
+                      className="font-mono text-sm"
+                      style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>База данных</Label>
+                  <Input
+                    value={dbConfig.name}
+                    onChange={(e) => setDbConfig({ ...dbConfig, name: e.target.value })}
+                    placeholder="securearch"
+                    className="font-mono text-sm"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Пользователь</Label>
+                    <Input
+                      value={dbConfig.user}
+                      onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
+                      placeholder="postgres"
+                      className="font-mono text-sm"
+                      style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Пароль</Label>
+                    <Input
+                      type="password"
+                      value={dbConfig.password}
+                      onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
+                      placeholder="••••••••"
+                      className="font-mono text-sm"
+                      style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                    />
+                  </div>
+                </div>
+                <div
+                  className="rounded-lg p-3 flex items-start gap-3"
+                  style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)" }}
+                >
+                  <Icon name="Info" size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#a78bfa" }} />
+                  <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
+                    Строка подключения:{" "}
+                    <span className="font-mono" style={{ color: "#a78bfa" }}>
+                      postgresql://{dbConfig.user}@{dbConfig.host}:{dbConfig.port}/{dbConfig.name}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-1">
               <Button
@@ -876,7 +911,7 @@ export default function Index() {
                 className="btn-primary flex-1 rounded-lg text-sm font-medium py-2"
                 onClick={handleDbSave}
               >
-                Подключить
+                {pendingMode === "cloud" ? "Использовать облако" : "Подключить"}
               </button>
             </div>
           </div>
