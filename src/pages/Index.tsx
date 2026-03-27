@@ -642,6 +642,7 @@ export default function Index() {
   const [attachmentTab, setAttachmentTab] = useState<AttachmentType>("link");
   const [attachDraft, setAttachDraft] = useState<Omit<Attachment,"id">>({ type:"link", name:"", content:"" });
   const [viewAttachment, setViewAttachment] = useState<Attachment | null>(null);
+  const [techReqFilter, setTechReqFilter] = useState<string>("Все");
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
     id: `tech.${String(count + 1).padStart(3, "0")}`,
@@ -1693,6 +1694,7 @@ export default function Index() {
         {/* === TECHNOLOGIES SECTION === */}
         {activeSection === "technologies" && (() => {
           if (technologies.length === 0 && !techsLoading) loadTechnologies();
+          if (reqs.length === 0 && !reqsLoading) loadReqs();
           return (
           <div className="section-enter">
             {/* Header */}
@@ -1841,6 +1843,15 @@ export default function Index() {
                               {tech.attachments.length}
                             </span>
                           )}
+                          {(() => {
+                            const cnt = reqs.filter((r) => r.technology_id === tech.id).length;
+                            return cnt > 0 ? (
+                              <span className="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                <Icon name="FileCheck" size={10} />
+                                {cnt} треб.
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
@@ -3044,7 +3055,7 @@ export default function Index() {
       </Dialog>
 
       {/* ── Technology Detail Sheet ── */}
-      <Sheet open={!!viewTech2} onOpenChange={(o) => { if (!o) setViewTech2(null); }}>
+      <Sheet open={!!viewTech2} onOpenChange={(o) => { if (!o) { setViewTech2(null); setTechReqFilter("Все"); } }}>
         <SheetContent side="right" className="w-[540px] sm:w-[540px] p-0 border-l overflow-y-auto" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)" }}>
           {viewTech2 && (() => {
             const sm = TECH_STATUS_META[viewTech2.status] || TECH_STATUS_META["В разработке"];
@@ -3134,6 +3145,78 @@ export default function Index() {
                       </div>
                     </div>
                   )}
+
+                  {/* ── Linked Requirements ── */}
+                  {(() => {
+                    const linked = reqs.filter((r) => r.technology_id === viewTech2.id);
+                    const critOptions = ["Все", ...Array.from(new Set(linked.map((r) => r.criticality)))];
+                    const filtered = techReqFilter === "Все" ? linked : linked.filter((r) => r.criticality === techReqFilter);
+                    return (
+                      <div className="border-t pt-5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs uppercase tracking-wide font-medium flex items-center gap-2" style={{ color: "rgba(180,200,230,0.4)" }}>
+                            <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                            Требования
+                            {linked.length > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                {linked.length}
+                              </span>
+                            )}
+                          </p>
+                          {linked.length > 0 && critOptions.length > 2 && (
+                            <div className="flex gap-1">
+                              {critOptions.map((c) => {
+                                const m = c !== "Все" ? REQ_CRITICALITY_META[c as ReqCriticality] : null;
+                                return (
+                                  <button key={c} onClick={() => setTechReqFilter(c)}
+                                    className="px-2 py-0.5 rounded-md text-[11px] font-medium transition-all"
+                                    style={{ background: techReqFilter === c ? (m ? m.bg : "rgba(255,255,255,0.08)") : "rgba(255,255,255,0.03)", border: `1px solid ${techReqFilter === c ? (m ? m.color + "40" : "rgba(255,255,255,0.15)") : "rgba(255,255,255,0.06)"}`, color: techReqFilter === c ? (m ? m.color : "white") : "rgba(180,200,230,0.4)" }}>
+                                    {c}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        {linked.length === 0 ? (
+                          <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не привязаны</p>
+                        ) : filtered.length === 0 ? (
+                          <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований с такой критичностью</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {filtered.map((r) => {
+                              const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                              const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                              const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                              return (
+                                <button key={r.id} onClick={() => { setViewTech2(null); setViewReq(r); }}
+                                  className="w-full text-left px-3 py-2.5 rounded-xl transition-all hover:border-amber-500/20 group"
+                                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1" style={{ background: cm.bg, color: cm.color }}>
+                                        <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.criticality}
+                                      </span>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                    </div>
+                                  </div>
+                                  <p className="text-xs font-medium text-white leading-snug mb-1.5 line-clamp-2 group-hover:text-amber-300 transition-colors">{r.name}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] flex items-center gap-1" style={{ background: tm.bg, color: tm.color, padding: "2px 6px", borderRadius: 6 }}>
+                                      <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.req_type}
+                                    </span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>Балл: <span style={{ color: "#f59e0b" }}>{r.score_value}</span> · Вес: <span style={{ color: "#63b0ff" }}>{r.score_weight}</span></span>
+                                    <Icon name="ChevronRight" size={11} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#f59e0b" }} />
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex gap-3 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                     <button onClick={() => { setViewTech2(null); openEditTech2(viewTech2); }} className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}>
