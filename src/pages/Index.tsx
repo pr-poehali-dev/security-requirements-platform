@@ -142,6 +142,7 @@ export default function Index() {
     password: "",
   });
   const [pendingMode, setPendingMode] = useState<DbMode>("cloud");
+  const [skipCheck, setSkipCheck] = useState(false);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "ok" | "error">("idle");
   const [checkError, setCheckError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -163,6 +164,7 @@ export default function Index() {
     setPendingMode(dbMode);
     setCheckState("idle");
     setCheckError("");
+    setSkipCheck(false);
     setDbDialogOpen(true);
   };
 
@@ -190,7 +192,7 @@ export default function Index() {
   };
 
   const handleDbSave = () => {
-    if (pendingMode === "local" && checkState !== "ok") return;
+    if (pendingMode === "local" && !skipCheck && checkState !== "ok") return;
     setDbMode(pendingMode);
     if (pendingMode === "cloud") {
       setDbExternalConnected(false);
@@ -915,8 +917,42 @@ export default function Index() {
                   </p>
                 </div>
 
+                {/* Skip check toggle */}
+                <button
+                  onClick={() => { setSkipCheck((v) => !v); setCheckState("idle"); setCheckError(""); }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all"
+                  style={{
+                    background: skipCheck ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${skipCheck ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.07)"}`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon
+                      name={skipCheck ? "ShieldOff" : "ShieldCheck"}
+                      size={14}
+                      style={{ color: skipCheck ? "#f59e0b" : "rgba(180,200,230,0.4)" }}
+                    />
+                    <span className="text-xs" style={{ color: skipCheck ? "#f59e0b" : "rgba(180,200,230,0.5)" }}>
+                      Пропустить проверку доступности
+                    </span>
+                  </div>
+                  {/* Toggle pill */}
+                  <div
+                    className="w-9 h-5 rounded-full relative transition-all flex-shrink-0"
+                    style={{ background: skipCheck ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.1)" }}
+                  >
+                    <div
+                      className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                      style={{
+                        background: skipCheck ? "#f59e0b" : "rgba(180,200,230,0.4)",
+                        left: skipCheck ? "calc(100% - 18px)" : "2px",
+                      }}
+                    />
+                  </div>
+                </button>
+
                 {/* Check result */}
-                {checkState === "ok" && (
+                {!skipCheck && checkState === "ok" && (
                   <div
                     className="rounded-lg p-3 flex items-start gap-2"
                     style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}
@@ -932,7 +968,7 @@ export default function Index() {
                     </div>
                   </div>
                 )}
-                {checkState === "error" && (
+                {!skipCheck && checkState === "error" && (
                   <div
                     className="rounded-lg p-3 flex items-start gap-2"
                     style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}
@@ -942,25 +978,27 @@ export default function Index() {
                   </div>
                 )}
 
-                {/* Check button */}
-                <button
-                  onClick={handleCheckConnection}
-                  disabled={checkState === "checking"}
-                  className="w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
-                  style={{
-                    background: "rgba(124,58,237,0.12)",
-                    border: "1px solid rgba(124,58,237,0.3)",
-                    color: checkState === "checking" ? "rgba(167,139,250,0.5)" : "#a78bfa",
-                    cursor: checkState === "checking" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <Icon
-                    name={checkState === "checking" ? "Loader" : "Plug"}
-                    size={14}
-                    className={checkState === "checking" ? "animate-spin" : ""}
-                  />
-                  {checkState === "checking" ? "Проверяю подключение..." : "Проверить подключение"}
-                </button>
+                {/* Check button — скрыт когда skipCheck включён */}
+                {!skipCheck && (
+                  <button
+                    onClick={handleCheckConnection}
+                    disabled={checkState === "checking"}
+                    className="w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+                    style={{
+                      background: "rgba(124,58,237,0.12)",
+                      border: "1px solid rgba(124,58,237,0.3)",
+                      color: checkState === "checking" ? "rgba(167,139,250,0.5)" : "#a78bfa",
+                      cursor: checkState === "checking" ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <Icon
+                      name={checkState === "checking" ? "Loader" : "Plug"}
+                      size={14}
+                      className={checkState === "checking" ? "animate-spin" : ""}
+                    />
+                    {checkState === "checking" ? "Проверяю подключение..." : "Проверить подключение"}
+                  </button>
+                )}
               </div>
             )}
 
@@ -980,15 +1018,15 @@ export default function Index() {
               <button
                 className="flex-1 rounded-lg text-sm font-medium py-2 transition-all"
                 onClick={handleDbSave}
-                disabled={pendingMode === "local" && checkState !== "ok"}
+                disabled={pendingMode === "local" && !skipCheck && checkState !== "ok"}
                 style={{
-                  background: pendingMode === "local" && checkState !== "ok"
+                  background: pendingMode === "local" && !skipCheck && checkState !== "ok"
                     ? "rgba(255,255,255,0.05)"
                     : "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)",
-                  color: pendingMode === "local" && checkState !== "ok"
+                  color: pendingMode === "local" && !skipCheck && checkState !== "ok"
                     ? "rgba(180,200,230,0.3)"
                     : "white",
-                  cursor: pendingMode === "local" && checkState !== "ok" ? "not-allowed" : "pointer",
+                  cursor: pendingMode === "local" && !skipCheck && checkState !== "ok" ? "not-allowed" : "pointer",
                   border: "1px solid rgba(0,102,255,0.3)",
                 }}
               >
