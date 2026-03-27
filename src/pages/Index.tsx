@@ -1652,13 +1652,11 @@ export default function Index() {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID домена</Label>
-                <Input
-                  value={domainForm.id}
-                  onChange={(e) => setDomainForm({ ...domainForm, id: e.target.value })}
-                  placeholder="org.dom.001"
-                  className="font-mono text-sm"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
-                />
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#63b0ff" }}>
+                  <Icon name="Hash" size={13} style={{ color: "rgba(99,176,255,0.4)" }} />
+                  {domainForm.id}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
@@ -2078,9 +2076,11 @@ export default function Index() {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID технического домена</Label>
-                <Input value={techForm.id} onChange={(e) => setTechForm({ ...techForm, id: e.target.value })}
-                  placeholder="tech.dom.001" className="font-mono text-sm"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a78bfa" }}>
+                  <Icon name="Hash" size={13} style={{ color: "rgba(167,139,250,0.4)" }} />
+                  {techForm.id}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
