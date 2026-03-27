@@ -11,8 +11,76 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Section = "library" | "analytics";
+type Section = "library" | "analytics" | "domains";
 type DbMode = "cloud" | "local";
+type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
+
+interface OrgDomain {
+  id: string;
+  name: string;
+  version: string;
+  owner: string;
+  status: DomainStatus;
+  description: string;
+  createdAt: string;
+}
+
+const DOMAIN_STATUS_META: Record<DomainStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":    { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке":  { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":         { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+};
+
+const DOMAIN_STATUSES: DomainStatus[] = ["Активен", "Не активен", "В разработке", "Архив"];
+
+const initialDomains: OrgDomain[] = [
+  {
+    id: "org.dom.001",
+    name: "Управление идентификацией",
+    version: "1.2.0",
+    owner: "Отдел ИБ",
+    status: "Активен",
+    description: "Домен охватывает процессы управления учётными записями, ролями и привилегиями пользователей в информационных системах организации.",
+    createdAt: "2024-03-15",
+  },
+  {
+    id: "org.dom.002",
+    name: "Сетевая безопасность",
+    version: "2.0.1",
+    owner: "Сетевой отдел",
+    status: "Активен",
+    description: "Домен включает требования к сегментации сети, межсетевым экранам, VPN и мониторингу сетевого трафика.",
+    createdAt: "2024-01-10",
+  },
+  {
+    id: "org.dom.003",
+    name: "Управление инцидентами",
+    version: "1.0.0",
+    owner: "SOC",
+    status: "В разработке",
+    description: "Процессы обнаружения, регистрации, расследования и устранения инцидентов информационной безопасности.",
+    createdAt: "2024-06-01",
+  },
+  {
+    id: "org.dom.004",
+    name: "Криптографическая защита",
+    version: "1.1.3",
+    owner: "Отдел ИБ",
+    status: "Активен",
+    description: "Требования к применению криптографических алгоритмов, управлению ключами и PKI-инфраструктуре.",
+    createdAt: "2023-11-20",
+  },
+  {
+    id: "org.dom.005",
+    name: "Физическая безопасность",
+    version: "0.9.0",
+    owner: "АХО",
+    status: "Архив",
+    description: "Устаревший домен требований к физической защите серверных помещений. Заменён стандартом ISO 27001 A.11.",
+    createdAt: "2022-05-05",
+  },
+];
 
 interface DbConfig {
   host: string;
@@ -149,6 +217,59 @@ export default function Index() {
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
 
+  // Domains state
+  const [domains, setDomains] = useState<OrgDomain[]>(initialDomains);
+  const [domainDialogOpen, setDomainDialogOpen] = useState(false);
+  const [deleteDomainId, setDeleteDomainId] = useState<string | null>(null);
+  const [editingDomain, setEditingDomain] = useState<OrgDomain | null>(null);
+  const [domainSearch, setDomainSearch] = useState("");
+  const emptyDomainForm: OrgDomain = {
+    id: `org.dom.${String(domains.length + 1).padStart(3, "0")}`,
+    name: "",
+    version: "1.0.0",
+    owner: "",
+    status: "В разработке",
+    description: "",
+    createdAt: new Date().toISOString().split("T")[0],
+  };
+  const [domainForm, setDomainForm] = useState<OrgDomain>(emptyDomainForm);
+
+  const openCreateDomain = () => {
+    setEditingDomain(null);
+    setDomainForm({
+      ...emptyDomainForm,
+      id: `org.dom.${String(domains.length + 1).padStart(3, "0")}`,
+    });
+    setDomainDialogOpen(true);
+  };
+
+  const openEditDomain = (d: OrgDomain) => {
+    setEditingDomain(d);
+    setDomainForm({ ...d });
+    setDomainDialogOpen(true);
+  };
+
+  const handleSaveDomain = () => {
+    if (!domainForm.name.trim() || !domainForm.id.trim()) return;
+    if (editingDomain) {
+      setDomains((prev) => prev.map((d) => (d.id === editingDomain.id ? domainForm : d)));
+    } else {
+      setDomains((prev) => [...prev, domainForm]);
+    }
+    setDomainDialogOpen(false);
+  };
+
+  const handleDeleteDomain = (id: string) => {
+    setDomains((prev) => prev.filter((d) => d.id !== id));
+    setDeleteDomainId(null);
+  };
+
+  const filteredDomains = domains.filter((d) =>
+    d.name.toLowerCase().includes(domainSearch.toLowerCase()) ||
+    d.id.toLowerCase().includes(domainSearch.toLowerCase()) ||
+    d.owner.toLowerCase().includes(domainSearch.toLowerCase())
+  );
+
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
 
   const filteredRequirements = requirements.filter((r) => {
@@ -265,6 +386,12 @@ export default function Index() {
               onClick={() => setActiveSection("library")}
             >
               Библиотека потребителя
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "domains" ? "active" : ""}`}
+              onClick={() => setActiveSection("domains")}
+            >
+              Орг. домены
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -518,6 +645,123 @@ export default function Index() {
           </div>
         )}
 
+        {/* === DOMAINS SECTION === */}
+        {activeSection === "domains" && (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #10b981, #0066ff)" }} />
+                <h1 className="text-2xl font-semibold text-white">Организационные домены</h1>
+              </div>
+              <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
+                Реестр организационных доменов безопасности — создание, редактирование и управление статусами
+              </p>
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="relative flex-1 max-w-md">
+                <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <input
+                  type="text"
+                  placeholder="Поиск по ID, названию, владельцу..."
+                  value={domainSearch}
+                  onChange={(e) => setDomainSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm outline-none transition-all font-sans"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                  onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(0,102,255,0.5)")}
+                  onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
+                />
+              </div>
+              {/* Stats badges */}
+              <div className="flex items-center gap-2 ml-auto">
+                {DOMAIN_STATUSES.map((s) => {
+                  const meta = DOMAIN_STATUS_META[s];
+                  const cnt = domains.filter((d) => d.status === s).length;
+                  return (
+                    <span key={s} className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: meta.bg, color: meta.color }}>
+                      {s}: {cnt}
+                    </span>
+                  );
+                })}
+              </div>
+              <button onClick={openCreateDomain} className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium">
+                <Icon name="Plus" size={15} />
+                Создать домен
+              </button>
+            </div>
+
+            {/* Domain cards grid */}
+            {filteredDomains.length === 0 ? (
+              <div className="glass-card rounded-xl py-20 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
+                <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Домены не найдены</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {filteredDomains.map((domain) => {
+                  const meta = DOMAIN_STATUS_META[domain.status];
+                  return (
+                    <div
+                      key={domain.id}
+                      className="glass-card glass-card-hover rounded-xl p-5 flex flex-col gap-3"
+                    >
+                      {/* Card top */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(0,102,255,0.15)", color: "#63b0ff" }}>
+                              {domain.id}
+                            </span>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>
+                              v{domain.version}
+                            </span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-white leading-snug">{domain.name}</h3>
+                        </div>
+                        <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full flex-shrink-0 font-medium" style={{ background: meta.bg, color: meta.color }}>
+                          <Icon name={meta.icon} size={11} />
+                          {domain.status}
+                        </span>
+                      </div>
+
+                      {/* Description */}
+                      <p className="text-xs leading-relaxed line-clamp-3" style={{ color: "rgba(180,200,230,0.55)" }}>
+                        {domain.description || "Описание не указано"}
+                      </p>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center gap-1.5">
+                          <Icon name="User" size={12} style={{ color: "rgba(180,200,230,0.35)" }} />
+                          <span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{domain.owner}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEditDomain(domain)}
+                            className="p-1.5 rounded-lg transition-all hover:bg-blue-500/10"
+                            title="Редактировать"
+                          >
+                            <Icon name="Pencil" size={13} style={{ color: "rgba(99,176,255,0.6)" }} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteDomainId(domain.id)}
+                            className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
+                            title="Удалить"
+                          >
+                            <Icon name="Trash2" size={13} style={{ color: "rgba(239,68,68,0.5)" }} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* === ANALYTICS SECTION === */}
         {activeSection === "analytics" && (
           <div className="section-enter">
@@ -761,6 +1005,187 @@ export default function Index() {
           </div>
         )}
       </main>
+
+      {/* Domain Create/Edit Dialog */}
+      <Dialog open={domainDialogOpen} onOpenChange={setDomainDialogOpen}>
+        <DialogContent
+          className="sm:max-w-lg"
+          style={{ background: "#0d1528", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                <Icon name={editingDomain ? "Pencil" : "Plus"} size={15} style={{ color: "#10b981" }} />
+              </div>
+              {editingDomain ? "Редактировать домен" : "Создать организационный домен"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* ID + Version row */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID домена</Label>
+                <Input
+                  value={domainForm.id}
+                  onChange={(e) => setDomainForm({ ...domainForm, id: e.target.value })}
+                  placeholder="org.dom.001"
+                  className="font-mono text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input
+                  value={domainForm.version}
+                  onChange={(e) => setDomainForm({ ...domainForm, version: e.target.value })}
+                  placeholder="1.0.0"
+                  className="font-mono text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                />
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название организационного домена</Label>
+              <Input
+                value={domainForm.name}
+                onChange={(e) => setDomainForm({ ...domainForm, name: e.target.value })}
+                placeholder="Введите название домена"
+                className="text-sm"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+              />
+            </div>
+
+            {/* Owner + Status row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Владелец</Label>
+                <Input
+                  value={domainForm.owner}
+                  onChange={(e) => setDomainForm({ ...domainForm, owner: e.target.value })}
+                  placeholder="Отдел / ФИО"
+                  className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <div className="relative">
+                  <select
+                    value={domainForm.status}
+                    onChange={(e) => setDomainForm({ ...domainForm, status: e.target.value as DomainStatus })}
+                    className="w-full px-3 py-2 rounded-lg text-sm appearance-none outline-none"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: DOMAIN_STATUS_META[domainForm.status].color }}
+                  >
+                    {DOMAIN_STATUSES.map((s) => (
+                      <option key={s} value={s} style={{ background: "#0d1528", color: DOMAIN_STATUS_META[s].color }}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon name="ChevronDown" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "rgba(180,200,230,0.4)" }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea
+                value={domainForm.description}
+                onChange={(e) => setDomainForm({ ...domainForm, description: e.target.value })}
+                placeholder="Опишите назначение и область применения домена..."
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none font-sans"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(210,225,245,0.9)" }}
+                onFocus={(e) => (e.target.style.borderColor = "rgba(0,102,255,0.5)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+              />
+            </div>
+
+            {/* Status preview */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: `${DOMAIN_STATUS_META[domainForm.status].bg}` }}>
+              <Icon name={DOMAIN_STATUS_META[domainForm.status].icon} size={13} style={{ color: DOMAIN_STATUS_META[domainForm.status].color }} />
+              <span className="text-xs font-medium" style={{ color: DOMAIN_STATUS_META[domainForm.status].color }}>
+                Статус домена: {domainForm.status}
+              </span>
+              <span className="font-mono text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>
+                {domainForm.id}
+              </span>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1 text-sm"
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}
+                onClick={() => setDomainDialogOpen(false)}
+              >
+                Отмена
+              </Button>
+              <button
+                className="flex-1 rounded-lg text-sm font-medium py-2 transition-all"
+                onClick={handleSaveDomain}
+                disabled={!domainForm.name.trim() || !domainForm.id.trim()}
+                style={{
+                  background: !domainForm.name.trim() || !domainForm.id.trim()
+                    ? "rgba(255,255,255,0.05)"
+                    : "linear-gradient(135deg, #10b981 0%, #0066ff 100%)",
+                  color: !domainForm.name.trim() || !domainForm.id.trim() ? "rgba(180,200,230,0.3)" : "white",
+                  cursor: !domainForm.name.trim() || !domainForm.id.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {editingDomain ? "Сохранить изменения" : "Создать домен"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Domain Delete Confirm Dialog */}
+      <Dialog open={!!deleteDomainId} onOpenChange={() => setDeleteDomainId(null)}>
+        <DialogContent
+          className="sm:max-w-sm"
+          style={{ background: "#0d1528", border: "1px solid rgba(239,68,68,0.2)", color: "white" }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                <Icon name="Trash2" size={15} style={{ color: "#ef4444" }} />
+              </div>
+              Удалить домен
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pt-2 space-y-4">
+            <p className="text-sm" style={{ color: "rgba(180,200,230,0.7)" }}>
+              Домен{" "}
+              <span className="font-mono font-medium" style={{ color: "#ef4444" }}>
+                {deleteDomainId}
+              </span>{" "}
+              будет удалён без возможности восстановления.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 text-sm"
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}
+                onClick={() => setDeleteDomainId(null)}
+              >
+                Отмена
+              </Button>
+              <button
+                className="flex-1 rounded-lg text-sm font-medium py-2"
+                onClick={() => deleteDomainId && handleDeleteDomain(deleteDomainId)}
+                style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* DB Config Dialog */}
       <Dialog open={dbDialogOpen} onOpenChange={setDbDialogOpen}>
