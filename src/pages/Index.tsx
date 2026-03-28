@@ -23,7 +23,7 @@ import {
   type ExportEntity,
 } from "@/utils/exportUtils";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io" | "products";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -211,6 +211,36 @@ interface MermaidDiagram {
   name: string;
   content: string;
 }
+
+type ProductStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  status: ProductStatus;
+  author: string;
+  version: string;
+  cmdb_mnemonic: string;
+  tags: string[];
+  arch_template_ids: string[];
+  approved_ib: boolean;
+  approved_it: boolean;
+  image_url: string;
+  diagrams: MermaidDiagram[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+const PRODUCT_STATUSES: ProductStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+
+const PRODUCT_STATUS_META: Record<ProductStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
 
 interface ArchTemplate {
   id: string;
@@ -1523,6 +1553,128 @@ export default function Index() {
   };
   // ─────────────────────────────────────────────────────────────────
 
+  // ── Products state ────────────────────────────────────────────────
+  const PRODUCTS_API = "https://functions.poehali.dev/83496f55-f31c-499a-8d22-618295a6da0f";
+  const [products, setProducts] = useState<Product[]>([]);
+  const [prodLoading, setProdLoading] = useState(false);
+  const [prodSectionDesc, setProdSectionDesc] = useState("Реестр бизнес-продуктов — привязка к типовым архитектурам безопасности и требованиям");
+  const [prodSectionDescEditing, setProdSectionDescEditing] = useState(false);
+  const [prodSectionDescDraft, setProdSectionDescDraft] = useState("");
+  const [prodDialogOpen, setProdDialogOpen] = useState(false);
+  const [prodSaving, setProdSaving] = useState(false);
+  const [prodSaveError, setProdSaveError] = useState("");
+  const [deleteProdId, setDeleteProdId] = useState<string | null>(null);
+  const [editingProd, setEditingProd] = useState<Product | null>(null);
+  const [viewProd, setViewProd] = useState<Product | null>(null);
+  const [prodSearch, setProdSearch] = useState("");
+  const [prodFilterStatus, setProdFilterStatus] = useState<string>("Все");
+  const [prodFilterTag, setProdFilterTag] = useState<string>("");
+  const [prodFilterArch, setProdFilterArch] = useState<string>("");
+  const [prodFilterIb, setProdFilterIb] = useState<string>("Все");
+  const [prodFilterIt, setProdFilterIt] = useState<string>("Все");
+  const [prodTagInput, setProdTagInput] = useState("");
+  const [prodArchSearch, setProdArchSearch] = useState("");
+  const [prodActiveDiagramTab, setProdActiveDiagramTab] = useState(0);
+  const [viewProdReqSearch, setViewProdReqSearch] = useState("");
+  const [viewProdReqFilterLevel, setViewProdReqFilterLevel] = useState("Все");
+  const [viewProdReqFilterCat, setViewProdReqFilterCat] = useState("Все");
+  const [prodImagePreview, setProdImagePreview] = useState<string>("");
+
+  const makeEmptyProdForm = (count: number): Product => ({
+    id: `BizProd-${String(count + 1).padStart(3, "0")}`,
+    name: "", description: "", status: "В разработке",
+    author: "", version: "1.0.0", cmdb_mnemonic: "",
+    tags: [], arch_template_ids: [],
+    approved_ib: false, approved_it: false,
+    image_url: "", diagrams: [],
+  });
+  const [prodForm, setProdForm] = useState<Product>(makeEmptyProdForm(0));
+
+  const loadProducts = async () => {
+    setProdLoading(true);
+    try {
+      const [res, archRes] = await Promise.all([
+        fetch(PRODUCTS_API),
+        archTemplates.length === 0 ? fetch(ARCH_TEMPLATES_API) : Promise.resolve(null),
+      ]);
+      const data = await res.json();
+      setProducts(data.items || []);
+      if (data.section_description) setProdSectionDesc(data.section_description);
+      if (archRes) { const d = await archRes.json(); setArchTemplates(d.items || []); }
+    } finally { setProdLoading(false); }
+  };
+
+  const handleSaveProdSectionDesc = async () => {
+    setProdSectionDesc(prodSectionDescDraft);
+    setProdSectionDescEditing(false);
+    await fetch(`${PRODUCTS_API}?mode=settings`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: prodSectionDescDraft }),
+    });
+  };
+
+  const openNewProd = () => {
+    setEditingProd(null);
+    setProdForm(makeEmptyProdForm(products.length));
+    setProdTagInput(""); setProdSaveError(""); setProdArchSearch(""); setProdImagePreview("");
+    if (archTemplates.length === 0) loadArchTemplates();
+    setProdDialogOpen(true);
+  };
+
+  const openEditProd = (p: Product) => {
+    setEditingProd(p);
+    setProdForm({ ...p, tags: p.tags||[], arch_template_ids: p.arch_template_ids||[], diagrams: p.diagrams||[] });
+    setProdTagInput(""); setProdSaveError(""); setProdArchSearch(""); setProdImagePreview(p.image_url||"");
+    if (archTemplates.length === 0) loadArchTemplates();
+    setProdDialogOpen(true);
+  };
+
+  const handleSaveProd = async () => {
+    if (!prodForm.name.trim() || !prodForm.id.trim()) { setProdSaveError("Название и ID обязательны"); return; }
+    setProdSaving(true); setProdSaveError("");
+    try {
+      const method = editingProd ? "PUT" : "POST";
+      const res = await fetch(PRODUCTS_API, {
+        method, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...prodForm, image_url: prodImagePreview }),
+      });
+      const data = await res.json();
+      if (data.error) { setProdSaveError(data.error); return; }
+      if (editingProd) {
+        setProducts((prev) => prev.map((p) => p.id === editingProd.id ? data : p));
+        if (viewProd?.id === editingProd.id) setViewProd(data);
+      } else {
+        setProducts((prev) => [...prev, data]);
+      }
+      setProdDialogOpen(false);
+    } finally { setProdSaving(false); }
+  };
+
+  const handleDeleteProd = async (id: string) => {
+    await fetch(`${PRODUCTS_API}?id=${id}`, { method: "DELETE" });
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setDeleteProdId(null);
+  };
+
+  const filteredProducts = products.filter((p) => {
+    const q = prodSearch.toLowerCase();
+    const matchQ = !q ||
+      (p.id||"").toLowerCase().includes(q) ||
+      (p.name||"").toLowerCase().includes(q) ||
+      (p.description||"").toLowerCase().includes(q) ||
+      (p.author||"").toLowerCase().includes(q) ||
+      (p.cmdb_mnemonic||"").toLowerCase().includes(q) ||
+      (p.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
+      (p.arch_template_ids||[]).some((id) => id.toLowerCase().includes(q));
+    const matchStatus = prodFilterStatus === "Все" || p.status === prodFilterStatus;
+    const matchTag = !prodFilterTag || (p.tags||[]).some((t) => t.toLowerCase().includes(prodFilterTag.toLowerCase()));
+    const matchArch = !prodFilterArch || (p.arch_template_ids||[]).includes(prodFilterArch);
+    const matchIb = prodFilterIb === "Все" || (prodFilterIb === "Да" ? p.approved_ib : !p.approved_ib);
+    const matchIt = prodFilterIt === "Все" || (prodFilterIt === "Да" ? p.approved_it : !p.approved_it);
+    return matchQ && matchStatus && matchTag && matchArch && matchIb && matchIt;
+  });
+  // ─────────────────────────────────────────────────────────────────
+
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
 
   const filteredRequirements = requirements.filter((r) => {
@@ -1699,6 +1851,7 @@ export default function Index() {
                 { key: "tech-solutions", label: "Тех. решения",           onClick: () => { setActiveSection("tech-solutions"); loadTechSolutions(); } },
                 { key: "hardening",      label: "Харденинг",              onClick: () => { setActiveSection("hardening"); loadHardenings(); } },
                 { key: "arch-templates", label: "Типовые архитектуры",    onClick: () => { setActiveSection("arch-templates"); loadArchTemplates(); } },
+                { key: "products",       label: "Продукты",               onClick: () => { setActiveSection("products"); loadProducts(); } },
                 { key: "analytics",      label: "Аналитика",              onClick: () => setActiveSection("analytics") },
               ].map((item) => (
                 <button
@@ -3443,6 +3596,13 @@ export default function Index() {
                       <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                         <span className="text-xs truncate" style={{ color: "rgba(180,200,230,0.45)" }}>{a.author || "—"}</span>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => { setActiveSection("products"); setProdFilterArch(a.id); loadProducts(); }}
+                            className="p-1.5 rounded-lg transition-all hover:bg-amber-500/10"
+                            title="Продукты этой архитектуры"
+                          >
+                            <Icon name="Package" size={13} style={{ color: "rgba(245,158,11,0.6)" }} />
+                          </button>
                           <button onClick={() => { setViewArch(a); setArchActiveDiagramTab(0); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Просмотр">
                             <Icon name="Eye" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
                           </button>
@@ -3723,6 +3883,179 @@ export default function Index() {
             </div>
           );
         })()}
+
+        {/* === PRODUCTS SECTION === */}
+        {activeSection === "products" && (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #f59e0b, #ef4444)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Продукты</h1>
+                </div>
+                {prodSectionDescEditing ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <Input value={prodSectionDescDraft} onChange={(e) => setProdSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                    <button onClick={handleSaveProdSectionDesc} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                    <button onClick={() => setProdSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setProdSectionDescDraft(prodSectionDesc); setProdSectionDescEditing(true); }}>
+                    <span className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>{prodSectionDesc}</span>
+                    <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.5)" }} />
+                  </button>
+                )}
+              </div>
+              <button onClick={openNewProd} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24" }}>
+                <Icon name="Plus" size={15} /> Добавить продукт
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="glass-card rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-56">
+                <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={prodSearch} onChange={(e) => setProdSearch(e.target.value)} placeholder="Поиск по ID, названию, автору, CMDB, тегам..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              </div>
+              <select value={prodFilterStatus} onChange={(e) => setProdFilterStatus(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: prodFilterStatus === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">Все статусы</option>
+                {PRODUCT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Input value={prodFilterTag} onChange={(e) => setProdFilterTag(e.target.value)} placeholder="Фильтр по тегу..." className="text-xs w-36 h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              <select value={prodFilterIb} onChange={(e) => setProdFilterIb(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: prodFilterIb === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">ИБ: все</option>
+                <option value="Да">ИБ: согласован</option>
+                <option value="Нет">ИБ: не согласован</option>
+              </select>
+              <select value={prodFilterIt} onChange={(e) => setProdFilterIt(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: prodFilterIt === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">ИТ: все</option>
+                <option value="Да">ИТ: согласован</option>
+                <option value="Нет">ИТ: не согласован</option>
+              </select>
+              {prodFilterArch && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }}>
+                  <Icon name="LayoutTemplate" size={11} />{prodFilterArch}
+                  <button onClick={() => setProdFilterArch("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
+                </span>
+              )}
+              {(prodSearch || prodFilterStatus !== "Все" || prodFilterTag || prodFilterArch || prodFilterIb !== "Все" || prodFilterIt !== "Все") && (
+                <button onClick={() => { setProdSearch(""); setProdFilterStatus("Все"); setProdFilterTag(""); setProdFilterArch(""); setProdFilterIb("Все"); setProdFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>Сбросить</button>
+              )}
+              <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredProducts.length} / {products.length}</span>
+            </div>
+
+            {/* Loading */}
+            {prodLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#f59e0b" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!prodLoading && filteredProducts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                  <Icon name="Package" size={28} style={{ color: "rgba(245,158,11,0.4)" }} />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium" style={{ color: "rgba(180,200,230,0.6)" }}>Продуктов не найдено</p>
+                  <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.3)" }}>Создайте первый бизнес-продукт</p>
+                </div>
+                <button onClick={openNewProd} className="text-xs px-4 py-2 rounded-lg" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }}>+ Добавить продукт</button>
+              </div>
+            )}
+
+            {/* Cards grid */}
+            {!prodLoading && filteredProducts.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredProducts.map((p) => {
+                  const sm = PRODUCT_STATUS_META[p.status] ?? PRODUCT_STATUS_META["В разработке"];
+                  const linkedArchs = archTemplates.filter((a) => (p.arch_template_ids||[]).includes(a.id));
+                  return (
+                    <div
+                      key={p.id}
+                      className="glass-card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-all"
+                      onClick={() => { setViewProd(p); setProdActiveDiagramTab(0); setViewProdReqSearch(""); setViewProdReqFilterLevel("Все"); setViewProdReqFilterCat("Все"); }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.25)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ""; (e.currentTarget as HTMLElement).style.transform = ""; }}
+                    >
+                      {/* Image */}
+                      {p.image_url ? (
+                        <div className="h-32 overflow-hidden shrink-0">
+                          <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-20 shrink-0 flex items-center justify-center" style={{ background: "rgba(245,158,11,0.05)", borderBottom: "1px solid rgba(245,158,11,0.1)" }}>
+                          <Icon name="Package" size={28} style={{ color: "rgba(245,158,11,0.2)" }} />
+                        </div>
+                      )}
+
+                      <div className="p-5 flex flex-col gap-3 flex-1">
+                        {/* ID + status */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>{p.id}</span>
+                              <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>v{p.version}</span>
+                            </div>
+                            <h3 className="text-sm font-semibold text-white leading-snug">{p.name}</h3>
+                            {p.cmdb_mnemonic && <p className="text-[10px] mt-0.5 font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>CMDB: {p.cmdb_mnemonic}</p>}
+                          </div>
+                          <span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full shrink-0" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                            <Icon name={sm.icon} size={10} />{p.status}
+                          </span>
+                        </div>
+
+                        {/* Description */}
+                        {p.description && <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.6)" }}>{p.description}</p>}
+
+                        {/* Linked archs */}
+                        {linkedArchs.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {linkedArchs.slice(0, 2).map((a) => (
+                              <span key={a.id} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.08)", color: "rgba(6,182,212,0.7)", border: "1px solid rgba(6,182,212,0.15)" }}>
+                                <Icon name="LayoutTemplate" size={8} className="inline mr-1" />{a.id}
+                              </span>
+                            ))}
+                            {linkedArchs.length > 2 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{linkedArchs.length - 2}</span>}
+                          </div>
+                        )}
+
+                        {/* Tags */}
+                        {p.tags && p.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {p.tags.slice(0, 3).map((tag) => (
+                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)", border: "1px solid rgba(99,176,255,0.15)" }}>#{tag}</span>
+                            ))}
+                            {p.tags.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{p.tags.length - 3}</span>}
+                          </div>
+                        )}
+
+                        {/* Approvals + diagrams */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {p.approved_ib && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}><Icon name="ShieldCheck" size={9} /> ИБ</span>}
+                          {p.approved_it && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}><Icon name="Server" size={9} /> ИТ</span>}
+                          {p.diagrams && p.diagrams.length > 0 && <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}><Icon name="GitBranch" size={9} /> {p.diagrams.length} диагр.</span>}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                          <span className="text-xs truncate" style={{ color: "rgba(180,200,230,0.45)" }}>{p.author || "—"}</span>
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => { setViewProd(p); setProdActiveDiagramTab(0); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Просмотр"><Icon name="Eye" size={13} style={{ color: "rgba(180,200,230,0.5)" }} /></button>
+                            <button onClick={() => openEditProd(p)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Редактировать"><Icon name="Pencil" size={13} style={{ color: "rgba(180,200,230,0.5)" }} /></button>
+                            <button onClick={() => setDeleteProdId(p.id)} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить"><Icon name="Trash2" size={13} style={{ color: "rgba(248,113,113,0.5)" }} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
       </main>
 
@@ -7626,6 +7959,408 @@ export default function Index() {
                           {filteredViewReqs.length === 0 && (
                             <div className="py-8 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Требований не найдено</div>
                           )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Product Create/Edit Dialog ── */}
+      <Dialog open={prodDialogOpen} onOpenChange={(o) => { if (!o) setProdDialogOpen(false); }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                <Icon name="Package" size={15} style={{ color: "#fbbf24" }} />
+              </div>
+              {editingProd ? "Редактировать продукт" : "Новый продукт"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 py-5 space-y-5">
+            {/* ID + Version */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID продукта *</Label>
+                <Input value={prodForm.id} onChange={(e) => setProdForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" placeholder="BizProd-001" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={prodForm.version} onChange={(e) => setProdForm((f) => ({ ...f, version: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название продукта *</Label>
+              <Input value={prodForm.name} onChange={(e) => setProdForm((f) => ({ ...f, name: e.target.value }))} placeholder="Название бизнес-продукта" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              {products.filter((p) => p.name === prodForm.name && (!editingProd || p.id !== editingProd.id)).length > 0 && (
+                <p className="text-xs" style={{ color: "#f87171" }}>Продукт с таким названием уже существует</p>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Краткое описание</Label>
+              <textarea value={prodForm.description} onChange={(e) => setProdForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} placeholder="Описание продукта..." />
+            </div>
+
+            {/* Status + Author + CMDB */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <select value={prodForm.status} onChange={(e) => setProdForm((f) => ({ ...f, status: e.target.value as ProductStatus }))} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}>
+                  {PRODUCT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Автор</Label>
+                <Input value={prodForm.author} onChange={(e) => setProdForm((f) => ({ ...f, author: e.target.value }))} style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Мнемоника CMDB</Label>
+                <Input value={prodForm.cmdb_mnemonic} onChange={(e) => setProdForm((f) => ({ ...f, cmdb_mnemonic: e.target.value }))} className="font-mono text-sm" placeholder="APP-001" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {prodForm.tags.map((tag) => (
+                  <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                    #{tag}<button onClick={() => setProdForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input value={prodTagInput} onChange={(e) => setProdTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && prodTagInput.trim()) { setProdForm((f) => ({ ...f, tags: [...f.tags, prodTagInput.trim()] })); setProdTagInput(""); e.preventDefault(); } }} placeholder="Введите тег и нажмите Enter" className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <button onClick={() => { if (prodTagInput.trim()) { setProdForm((f) => ({ ...f, tags: [...f.tags, prodTagInput.trim()] })); setProdTagInput(""); } }} className="px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>+ Добавить</button>
+              </div>
+            </div>
+
+            {/* Arch templates link */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Связанные типовые архитектуры</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {prodForm.arch_template_ids.map((aid) => {
+                  const a = archTemplates.find((t) => t.id === aid);
+                  return (
+                    <span key={aid} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>
+                      {a ? a.name : aid}<button onClick={() => setProdForm((f) => ({ ...f, arch_template_ids: f.arch_template_ids.filter((id) => id !== aid) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="relative">
+                <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={prodArchSearch} onChange={(e) => setProdArchSearch(e.target.value)} placeholder="Поиск архитектуры для привязки..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              {prodArchSearch && (
+                <div className="rounded-lg overflow-hidden border max-h-40 overflow-y-auto" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                  {archTemplates.filter((a) => !prodForm.arch_template_ids.includes(a.id) && ((a.name||"").toLowerCase().includes(prodArchSearch.toLowerCase()) || (a.id||"").toLowerCase().includes(prodArchSearch.toLowerCase()))).slice(0, 8).map((a) => (
+                    <button key={a.id} onClick={() => { setProdForm((f) => ({ ...f, arch_template_ids: [...f.arch_template_ids, a.id] })); setProdArchSearch(""); }} className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-white/5 transition-all" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <span style={{ color: "rgba(210,225,245,0.8)" }}>{a.name}</span>
+                      <span className="font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{a.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Image upload */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Изображение продукта</Label>
+              <div className="flex items-start gap-3">
+                {prodImagePreview && (
+                  <div className="relative shrink-0">
+                    <img src={prodImagePreview} alt="preview" className="w-24 h-24 rounded-xl object-cover" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                    <button onClick={() => setProdImagePreview("")} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.8)" }}>
+                      <Icon name="X" size={10} className="text-white" />
+                    </button>
+                  </div>
+                )}
+                <label className="flex-1 flex flex-col items-center justify-center gap-2 rounded-xl cursor-pointer transition-all py-4" style={{ border: "2px dashed rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.04)" }}>
+                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setProdImagePreview(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }} />
+                  <Icon name="ImagePlus" size={20} style={{ color: "rgba(245,158,11,0.5)" }} />
+                  <p className="text-xs text-center" style={{ color: "rgba(180,200,230,0.4)" }}>Нажмите для загрузки изображения<br/><span style={{ color: "rgba(180,200,230,0.25)" }}>PNG, JPG, WEBP до 2 МБ</span></p>
+                </label>
+              </div>
+            </div>
+
+            {/* Mermaid diagrams */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Диаграммы Mermaid</Label>
+                <button onClick={() => setProdForm((f) => ({ ...f, diagrams: [...f.diagrams, { id: `diag-${Date.now()}`, name: `Диаграмма ${f.diagrams.length + 1}`, content: "graph TD\n    A[Начало] --> B[Конец]" }] }))} className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", color: "#fbbf24" }}>
+                  <Icon name="Plus" size={11} /> Добавить диаграмму
+                </button>
+              </div>
+              {prodForm.diagrams.map((diag, idx) => (
+                <div key={diag.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <Input value={diag.name} onChange={(e) => setProdForm((f) => ({ ...f, diagrams: f.diagrams.map((d, i) => i === idx ? { ...d, name: e.target.value } : d) }))} className="text-xs h-7 flex-1" style={{ background: "transparent", border: "none", color: "white" }} />
+                    <button onClick={() => setProdForm((f) => ({ ...f, diagrams: f.diagrams.filter((_, i) => i !== idx) }))} className="p-1 rounded hover:bg-red-500/10"><Icon name="Trash2" size={12} style={{ color: "#f87171" }} /></button>
+                  </div>
+                  <textarea value={diag.content} onChange={(e) => setProdForm((f) => ({ ...f, diagrams: f.diagrams.map((d, i) => i === idx ? { ...d, content: e.target.value } : d) }))} rows={5} className="w-full px-3 py-2 text-xs font-mono outline-none resize-y" style={{ background: "rgba(5,10,20,0.9)", color: "#fbbf24" }} />
+                  <div className="px-3 py-2" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p className="text-[10px] mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Предпросмотр:</p>
+                    <MermaidViewer content={diag.content} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Approvals */}
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" checked={prodForm.approved_ib} onChange={(e) => setProdForm((f) => ({ ...f, approved_ib: e.target.checked }))} className="sr-only" />
+                  <div className="w-10 h-5 rounded-full transition-all" style={{ background: prodForm.approved_ib ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.08)", border: `1px solid ${prodForm.approved_ib ? "rgba(34,197,94,0.5)" : "rgba(255,255,255,0.12)"}` }}>
+                    <div className="w-3.5 h-3.5 rounded-full absolute top-0.5 transition-all" style={{ background: prodForm.approved_ib ? "#22c55e" : "rgba(180,200,230,0.4)", left: prodForm.approved_ib ? "calc(100% - 18px)" : "2px" }} />
+                  </div>
+                </div>
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.7)" }}>Согласован с ИБ</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" checked={prodForm.approved_it} onChange={(e) => setProdForm((f) => ({ ...f, approved_it: e.target.checked }))} className="sr-only" />
+                  <div className="w-10 h-5 rounded-full transition-all" style={{ background: prodForm.approved_it ? "rgba(99,176,255,0.3)" : "rgba(255,255,255,0.08)", border: `1px solid ${prodForm.approved_it ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.12)"}` }}>
+                    <div className="w-3.5 h-3.5 rounded-full absolute top-0.5 transition-all" style={{ background: prodForm.approved_it ? "#63b0ff" : "rgba(180,200,230,0.4)", left: prodForm.approved_it ? "calc(100% - 18px)" : "2px" }} />
+                  </div>
+                </div>
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.7)" }}>Согласован с ИТ</span>
+              </label>
+            </div>
+
+            {prodSaveError && <p className="text-xs" style={{ color: "#f87171" }}>{prodSaveError}</p>}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t flex items-center justify-end gap-3" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <button onClick={() => setProdDialogOpen(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>Отмена</button>
+            <button onClick={handleSaveProd} disabled={prodSaving} className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24" }}>
+              {prodSaving ? <><Icon name="Loader" size={14} className="animate-spin" /> Сохранение...</> : <><Icon name="Save" size={14} />{editingProd ? "Сохранить" : "Создать продукт"}</>}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Product Delete Confirm ── */}
+      <Dialog open={!!deleteProdId} onOpenChange={(o) => { if (!o) setDeleteProdId(null); }}>
+        <DialogContent className="max-w-sm border" style={{ background: "#0b1628", borderColor: "rgba(239,68,68,0.25)" }}>
+          <DialogHeader><DialogTitle className="text-white">Удалить продукт?</DialogTitle></DialogHeader>
+          <p className="text-sm mt-2" style={{ color: "rgba(180,200,230,0.6)" }}>Это действие необратимо. Продукт <span className="font-mono text-white">{deleteProdId}</span> будет удалён.</p>
+          <div className="flex gap-3 mt-4">
+            <button onClick={() => setDeleteProdId(null)} className="flex-1 py-2 rounded-lg text-sm" style={{ border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.6)" }}>Отмена</button>
+            <button onClick={() => deleteProdId && handleDeleteProd(deleteProdId)} className="flex-1 py-2 rounded-lg text-sm font-medium" style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}>Удалить</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Product View Dialog ── */}
+      <Dialog open={!!viewProd} onOpenChange={(o) => { if (!o) setViewProd(null); }}>
+        <DialogContent className="p-0 overflow-hidden border flex flex-col" style={{ background: "#080f1e", borderColor: "rgba(255,255,255,0.08)", width: "min(1050px, 96vw)", maxWidth: "none", maxHeight: "93vh" }}>
+          {viewProd && (() => {
+            const sm = PRODUCT_STATUS_META[viewProd.status] ?? PRODUCT_STATUS_META["В разработке"];
+            const linkedArchs = archTemplates.filter((a) => (viewProd.arch_template_ids||[]).includes(a.id));
+            const archTsolIds = [...new Set(linkedArchs.flatMap((a) => a.tech_solution_ids||[]))];
+            const linkedTsols = techSolutions.filter((ts) => archTsolIds.includes(ts.id));
+            const linkedTechDomainIds = [...new Set(linkedTsols.map((ts) => ts.tech_domain).filter(Boolean) as string[])];
+            const linkedTechDomains = techDomains.filter((td) => linkedTechDomainIds.includes(td.id));
+            const linkedReqs = linkedTsols.flatMap((ts) => reqs.filter((r) => ts.technology_ids?.includes(r.technology_id)));
+            const uniqueReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
+            const filteredViewReqs = uniqueReqs.filter((r) => {
+              const q = viewProdReqSearch.toLowerCase();
+              const matchQ = !q || (r.name||"").toLowerCase().includes(q) || (r.description||"").toLowerCase().includes(q) || (r.req_type||"").toLowerCase().includes(q);
+              const matchLevel = viewProdReqFilterLevel === "Все" || r.criticality === viewProdReqFilterLevel;
+              const matchCat = viewProdReqFilterCat === "Все" || r.req_type === viewProdReqFilterCat;
+              return matchQ && matchLevel && matchCat;
+            });
+            const reqTypes = [...new Set(uniqueReqs.map((r) => r.req_type).filter(Boolean))];
+            const criticalityLevels = [...new Set(uniqueReqs.map((r) => r.criticality).filter(Boolean))];
+            return (
+              <>
+                {/* Header */}
+                <div className="px-6 pt-6 pb-5 border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start gap-5">
+                    {viewProd.image_url && (
+                      <img src={viewProd.image_url} alt={viewProd.name} className="w-16 h-16 rounded-xl object-cover shrink-0" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>{viewProd.id}</span>
+                        <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewProd.version}</span>
+                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}><Icon name={sm.icon} size={11} />{viewProd.status}</span>
+                      </div>
+                      <h2 className="text-xl font-semibold text-white leading-snug">{viewProd.name}</h2>
+                      {viewProd.cmdb_mnemonic && <p className="text-xs mt-1 font-mono" style={{ color: "rgba(180,200,230,0.45)" }}>CMDB: {viewProd.cmdb_mnemonic}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { setViewProd(null); openEditProd(viewProd); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }}><Icon name="Pencil" size={12} /> Редактировать</button>
+                      <button onClick={() => { setViewProd(null); setDeleteProdId(viewProd.id); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}><Icon name="Trash2" size={12} /> Удалить</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                  {/* Meta grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-4">
+                    {[
+                      { label: "Автор", value: viewProd.author || "—" },
+                      { label: "Версия", value: viewProd.version },
+                      { label: "Мнемоника CMDB", value: viewProd.cmdb_mnemonic || "—" },
+                      { label: "Дата создания", value: viewProd.created_at ? new Date(viewProd.created_at).toLocaleDateString("ru-RU") : "—" },
+                      { label: "Дата изменения", value: viewProd.updated_at ? new Date(viewProd.updated_at).toLocaleDateString("ru-RU") : "—" },
+                    ].map((item) => (
+                      <div key={item.label}>
+                        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>{item.label}</div>
+                        <div className="text-sm" style={{ color: "rgba(210,225,245,0.85)" }}>{item.value}</div>
+                      </div>
+                    ))}
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Согласован с ИБ</div>
+                      <span className="flex items-center gap-1.5 text-xs w-fit px-2 py-0.5 rounded" style={{ background: viewProd.approved_ib ? "rgba(34,197,94,0.1)" : "rgba(107,114,128,0.1)", color: viewProd.approved_ib ? "#22c55e" : "#6b7280", border: `1px solid ${viewProd.approved_ib ? "rgba(34,197,94,0.25)" : "rgba(107,114,128,0.2)"}` }}>
+                        <Icon name={viewProd.approved_ib ? "ShieldCheck" : "ShieldOff"} size={11} />{viewProd.approved_ib ? "Согласован" : "Не согласован"}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Согласован с ИТ</div>
+                      <span className="flex items-center gap-1.5 text-xs w-fit px-2 py-0.5 rounded" style={{ background: viewProd.approved_it ? "rgba(99,176,255,0.1)" : "rgba(107,114,128,0.1)", color: viewProd.approved_it ? "#63b0ff" : "#6b7280", border: `1px solid ${viewProd.approved_it ? "rgba(99,176,255,0.25)" : "rgba(107,114,128,0.2)"}` }}>
+                        <Icon name={viewProd.approved_it ? "Server" : "ServerOff"} size={11} />{viewProd.approved_it ? "Согласован" : "Не согласован"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {viewProd.description && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</div>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.75)" }}>{viewProd.description}</p>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {viewProd.tags && viewProd.tags.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {viewProd.tags.map((tag) => <span key={tag} className="text-xs px-2.5 py-1 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)", border: "1px solid rgba(99,176,255,0.15)" }}>#{tag}</span>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Linked tech domains */}
+                  {linkedTechDomains.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Связанные технические домены</div>
+                      <div className="flex flex-wrap gap-2">
+                        {linkedTechDomains.map((td) => (
+                          <span key={td.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                            <Icon name="Layers" size={11} />{td.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Linked arch templates */}
+                  {linkedArchs.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Связанные типовые архитектуры</div>
+                      <div className="flex flex-wrap gap-2">
+                        {linkedArchs.map((a) => (
+                          <span key={a.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(6,182,212,0.08)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>
+                            <Icon name="LayoutTemplate" size={11} />{a.name}<span className="font-mono text-[10px]" style={{ color: "rgba(6,182,212,0.5)" }}>{a.id}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mermaid diagrams */}
+                  {viewProd.diagrams && viewProd.diagrams.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Диаграммы архитектуры</div>
+                      <div className="flex gap-1 mb-3 overflow-x-auto pb-1">
+                        {viewProd.diagrams.map((diag, idx) => (
+                          <button key={diag.id} onClick={() => setProdActiveDiagramTab(idx)} className="px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all" style={{ background: prodActiveDiagramTab === idx ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${prodActiveDiagramTab === idx ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.08)"}`, color: prodActiveDiagramTab === idx ? "#fbbf24" : "rgba(180,200,230,0.5)" }}>
+                            <Icon name="GitBranch" size={11} className="inline mr-1" />{diag.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                          <span className="text-xs font-medium text-white">{viewProd.diagrams[prodActiveDiagramTab]?.name}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24" }}>mermaid</span>
+                        </div>
+                        <div className="p-4"><MermaidViewer content={viewProd.diagrams[prodActiveDiagramTab]?.content || ""} /></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Requirements table */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                      Требования из связанных архитектур
+                      {uniqueReqs.length > 0 && <span className="ml-2 normal-case text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>({uniqueReqs.length} всего)</span>}
+                    </div>
+                    {uniqueReqs.length === 0 ? (
+                      <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Требования появятся после привязки архитектур с заполненными техническими решениями</p>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <div className="relative flex-1 min-w-40">
+                            <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                            <Input value={viewProdReqSearch} onChange={(e) => setViewProdReqSearch(e.target.value)} placeholder="Поиск по требованиям..." className="pl-8 text-xs h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+                          </div>
+                          {criticalityLevels.length > 0 && (
+                            <select value={viewProdReqFilterLevel} onChange={(e) => setViewProdReqFilterLevel(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewProdReqFilterLevel === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                              <option value="Все">Все уровни</option>
+                              {criticalityLevels.map((l) => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                          )}
+                          {reqTypes.length > 0 && (
+                            <select value={viewProdReqFilterCat} onChange={(e) => setViewProdReqFilterCat(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewProdReqFilterCat === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                              <option value="Все">Все типы</option>
+                              {reqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          )}
+                        </div>
+                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredViewReqs.map((r, idx) => (
+                                <tr key={r.id} style={{ borderBottom: idx < filteredViewReqs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                                  <td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td>
+                                  <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.req_type || "—"}</td>
+                                  <td className="px-3 py-2"><span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: r.criticality === "Критический" ? "rgba(239,68,68,0.1)" : r.criticality === "Высокий" ? "rgba(249,115,22,0.1)" : "rgba(245,158,11,0.1)", color: r.criticality === "Критический" ? "#f87171" : r.criticality === "Высокий" ? "#fb923c" : "#fbbf24" }}>{r.criticality || "—"}</span></td>
+                                  <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.status || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {filteredViewReqs.length === 0 && <div className="py-8 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Требований не найдено</div>}
                         </div>
                       </>
                     )}
