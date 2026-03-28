@@ -1782,6 +1782,7 @@ export default function Index() {
 
   const handleDbSave = () => {
     if (pendingMode === "local" && !skipCheck && checkState !== "ok") return;
+    const modeChanged = pendingMode !== dbMode || pendingLocalBase !== localBase;
     setApiMode(pendingMode as ApiMode);
     setLocalBase(pendingLocalBase);
     setLocalBaseState(pendingLocalBase);
@@ -1792,6 +1793,16 @@ export default function Index() {
       setDbExternalVersion("");
     } else {
       setDbExternalConnected(true);
+    }
+    if (modeChanged) {
+      setReqs([]);
+      setTechnologies([]);
+      setTechSolutions([]);
+      setArchTemplates([]);
+      setHardenings([]);
+      setDomains([]);
+      setProducts([]);
+      setTechDomains([]);
     }
     setDbDialogOpen(false);
   };
