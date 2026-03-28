@@ -2571,10 +2571,95 @@ export default function Index() {
                             </div>
                             {linkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования</p>
-                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                                  <table className="w-full text-xs"><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th></tr></thead>
-                                  <tbody>{linkedReqs.map((r, idx) => <tr key={r.id} style={{ borderBottom: idx < linkedReqs.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}><td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.5)" }}>{r.req_type||"—"}</td><td className="px-3 py-2"><span className="text-[10px] font-medium" style={{ color: critColors[r.criticality]||"#fbbf24" }}>{r.criticality||"—"}</span></td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.status||"—"}</td></tr>)}</tbody></table>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({linkedReqs.length})</span></p>
+                                <div className="space-y-2">
+                                  {linkedReqs.map((r, num) => {
+                                    const rsm = REQ_STATUS_META[r.status];
+                                    const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
+                                    const tech = reqTechRefs.find((t) => t.id === r.technology_id);
+                                    return (
+                                      <div key={r.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                                        {/* Card header */}
+                                        <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-b" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.06)" }}>
+                                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>#{num + 1}</span>
+                                          <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
+                                          {r.req_type && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>{r.req_type}</span>}
+                                          {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColors[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                          {rsm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded ml-auto" style={{ background: `${rsm.color}12`, color: rsm.color }}><Icon name={rsm.icon} size={9} />{r.status}</span>}
+                                          {r.version && <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                        </div>
+                                        {/* Card body */}
+                                        <div className="px-4 py-3 space-y-3">
+                                          <p className="text-sm font-medium text-white leading-snug">{r.name}</p>
+                                          {/* Tech + Domain */}
+                                          {(tech || dom) && (
+                                            <div className="flex flex-wrap gap-2">
+                                              {tech && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.06)", color: "#34d399", border: "1px solid rgba(52,211,153,0.15)" }}><Icon name="Cpu" size={9} />{tech.name}</span>}
+                                              {dom && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.06)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}><Icon name="Layers" size={9} />{dom.name}</span>}
+                                            </div>
+                                          )}
+                                          {/* Description */}
+                                          {r.description && <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>{r.description}</p>}
+                                          {/* Control */}
+                                          {(r.control_metric || r.control_description) && (
+                                            <div className="px-3 py-2 rounded-lg space-y-1" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                              <p className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.35)" }}>Контроль</p>
+                                              {r.control_metric && <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}><span style={{ color: "rgba(180,200,230,0.4)" }}>Метрика: </span>{r.control_metric}</p>}
+                                              {r.control_description && <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}><span style={{ color: "rgba(180,200,230,0.4)" }}>Способ: </span>{r.control_description}</p>}
+                                            </div>
+                                          )}
+                                          {/* Norm doc */}
+                                          {r.norm_doc_link && <p className="text-[10px] font-mono break-all" style={{ color: "#a78bfa" }}><span style={{ color: "rgba(180,200,230,0.35)" }}>Норм.документ: </span>{r.norm_doc_link}</p>}
+                                          {/* Environments + Stages */}
+                                          {(r.environments?.length > 0 || r.stages?.length > 0) && (
+                                            <div className="flex flex-wrap gap-3">
+                                              {r.environments?.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Среды</p><div className="flex flex-wrap gap-1">{r.environments.map((e) => <span key={e} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "#63b0ff" }}>{e}</span>)}</div></div>}
+                                              {r.stages?.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Стадии</p><div className="flex flex-wrap gap-1">{r.stages.map((s) => <span key={s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.07)", color: "#a78bfa" }}>{s}</span>)}</div></div>}
+                                            </div>
+                                          )}
+                                          {/* Interactions */}
+                                          {(r.ext_with_iod || r.ext_without_iod || r.int_with_iod || r.int_without_iod) && (
+                                            <div className="grid grid-cols-2 gap-1.5">
+                                              {([
+                                                { key: "ext_with_iod", label: "Внешнее с ИОД" },
+                                                { key: "ext_without_iod", label: "Внешнее без ИОД" },
+                                                { key: "int_with_iod", label: "Внутреннее с ИОД" },
+                                                { key: "int_without_iod", label: "Внутреннее без ИОД" },
+                                              ] as { key: keyof Req; label: string }[]).map(({ key, label }) => {
+                                                const val = r[key] as string;
+                                                if (!val) return null;
+                                                const iColor: Record<string, string> = { "Обязательный": "#22c55e", "Рекомендуемый": "#63b0ff", "Не требуется": "#6b7280", "Запрещено": "#ef4444" };
+                                                return (
+                                                  <div key={key} className="px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                                    <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>{label}</p>
+                                                    <p className="text-[10px] font-medium mt-0.5" style={{ color: iColor[val] || "#fbbf24" }}>{val}</p>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                          {/* Score + Procurement */}
+                                          <div className="flex items-center gap-3 flex-wrap">
+                                            {(r.score_value !== undefined && r.score_value !== null) && (
+                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                                <span className="text-[10px]" style={{ color: "rgba(245,158,11,0.6)" }}>Скор.Балл</span>
+                                                <span className="text-sm font-bold" style={{ color: "#f59e0b" }}>{r.score_value}</span>
+                                              </div>
+                                            )}
+                                            {(r.score_weight !== undefined && r.score_weight !== null) && (
+                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.08)", border: "1px solid rgba(99,176,255,0.2)" }}>
+                                                <span className="text-[10px]" style={{ color: "rgba(99,176,255,0.6)" }}>Скор.Вес</span>
+                                                <span className="text-sm font-bold" style={{ color: "#63b0ff" }}>{r.score_weight}</span>
+                                              </div>
+                                            )}
+                                            {r.procurement && <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}><span style={{ color: "rgba(180,200,230,0.3)" }}>Закупки: </span>{r.procurement}</p>}
+                                          </div>
+                                          {/* Tags */}
+                                          {r.tags?.length > 0 && <div className="flex flex-wrap gap-1">{r.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>#{tg}</span>)}</div>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -2612,10 +2697,37 @@ export default function Index() {
                             </div>
                             {linkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования из связанных технологий</p>
-                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                                  <table className="w-full text-xs"><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th></tr></thead>
-                                  <tbody>{linkedReqs.map((r, idx) => <tr key={r.id} style={{ borderBottom: idx < linkedReqs.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}><td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.5)" }}>{r.req_type||"—"}</td><td className="px-3 py-2"><span className="text-[10px] font-medium" style={{ color: critColors[r.criticality]||"#fbbf24" }}>{r.criticality||"—"}</span></td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.status||"—"}</td></tr>)}</tbody></table>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования из связанных технологий <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({linkedReqs.length})</span></p>
+                                <div className="space-y-2">
+                                  {linkedReqs.map((r, num) => {
+                                    const rsm = REQ_STATUS_META[r.status];
+                                    const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
+                                    const tech = reqTechRefs.find((t) => t.id === r.technology_id);
+                                    const iColor: Record<string, string> = { "Обязательный": "#22c55e", "Рекомендуемый": "#63b0ff", "Не требуется": "#6b7280", "Запрещено": "#ef4444" };
+                                    return (
+                                      <div key={r.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                                        <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-b" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.06)" }}>
+                                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>#{num + 1}</span>
+                                          <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
+                                          {r.req_type && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>{r.req_type}</span>}
+                                          {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColors[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                          {rsm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded ml-auto" style={{ background: `${rsm.color}12`, color: rsm.color }}><Icon name={rsm.icon} size={9} />{r.status}</span>}
+                                          {r.version && <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                        </div>
+                                        <div className="px-4 py-3 space-y-3">
+                                          <p className="text-sm font-medium text-white leading-snug">{r.name}</p>
+                                          {(tech || dom) && <div className="flex flex-wrap gap-2">{tech && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.06)", color: "#34d399", border: "1px solid rgba(52,211,153,0.15)" }}><Icon name="Cpu" size={9} />{tech.name}</span>}{dom && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.06)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}><Icon name="Layers" size={9} />{dom.name}</span>}</div>}
+                                          {r.description && <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>{r.description}</p>}
+                                          {(r.control_metric || r.control_description) && <div className="px-3 py-2 rounded-lg space-y-1" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}><p className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.35)" }}>Контроль</p>{r.control_metric && <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}><span style={{ color: "rgba(180,200,230,0.4)" }}>Метрика: </span>{r.control_metric}</p>}{r.control_description && <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}><span style={{ color: "rgba(180,200,230,0.4)" }}>Способ: </span>{r.control_description}</p>}</div>}
+                                          {r.norm_doc_link && <p className="text-[10px] font-mono break-all" style={{ color: "#a78bfa" }}><span style={{ color: "rgba(180,200,230,0.35)" }}>Норм.документ: </span>{r.norm_doc_link}</p>}
+                                          {(r.environments?.length > 0 || r.stages?.length > 0) && <div className="flex flex-wrap gap-3">{r.environments?.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Среды</p><div className="flex flex-wrap gap-1">{r.environments.map((e) => <span key={e} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "#63b0ff" }}>{e}</span>)}</div></div>}{r.stages?.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Стадии</p><div className="flex flex-wrap gap-1">{r.stages.map((s) => <span key={s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.07)", color: "#a78bfa" }}>{s}</span>)}</div></div>}</div>}
+                                          {(r.ext_with_iod || r.ext_without_iod || r.int_with_iod || r.int_without_iod) && <div className="grid grid-cols-2 gap-1.5">{([{key:"ext_with_iod",label:"Внешнее с ИОД"},{key:"ext_without_iod",label:"Внешнее без ИОД"},{key:"int_with_iod",label:"Внутреннее с ИОД"},{key:"int_without_iod",label:"Внутреннее без ИОД"}] as {key:keyof Req;label:string}[]).map(({key,label})=>{ const val=r[key] as string; if(!val) return null; return <div key={key} className="px-2 py-1.5 rounded-lg" style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)"}}><p className="text-[10px]" style={{color:"rgba(180,200,230,0.35)"}}>{label}</p><p className="text-[10px] font-medium mt-0.5" style={{color:iColor[val]||"#fbbf24"}}>{val}</p></div>;})}</div>}
+                                          <div className="flex items-center gap-3 flex-wrap">{(r.score_value!==undefined&&r.score_value!==null)&&<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)"}}><span className="text-[10px]" style={{color:"rgba(245,158,11,0.6)"}}>Скор.Балл</span><span className="text-sm font-bold" style={{color:"#f59e0b"}}>{r.score_value}</span></div>}{(r.score_weight!==undefined&&r.score_weight!==null)&&<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{background:"rgba(99,176,255,0.08)",border:"1px solid rgba(99,176,255,0.2)"}}><span className="text-[10px]" style={{color:"rgba(99,176,255,0.6)"}}>Скор.Вес</span><span className="text-sm font-bold" style={{color:"#63b0ff"}}>{r.score_weight}</span></div>}{r.procurement&&<p className="text-[10px]" style={{color:"rgba(180,200,230,0.45)"}}><span style={{color:"rgba(180,200,230,0.3)"}}>Закупки: </span>{r.procurement}</p>}</div>
+                                          {r.tags?.length > 0 && <div className="flex flex-wrap gap-1">{r.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>#{tg}</span>)}</div>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -2653,10 +2765,37 @@ export default function Index() {
                             </div>
                             {linkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования (через цепочку архитектура → техрешения → технологии)</p>
-                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                                  <table className="w-full text-xs"><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th></tr></thead>
-                                  <tbody>{linkedReqs.map((r, idx) => <tr key={r.id} style={{ borderBottom: idx < linkedReqs.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}><td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.5)" }}>{r.req_type||"—"}</td><td className="px-3 py-2"><span className="text-[10px] font-medium" style={{ color: critColors[r.criticality]||"#fbbf24" }}>{r.criticality||"—"}</span></td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.status||"—"}</td></tr>)}</tbody></table>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования через цепочку архитектура → техрешения → технологии <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({linkedReqs.length})</span></p>
+                                <div className="space-y-2">
+                                  {linkedReqs.map((r, num) => {
+                                    const rsm = REQ_STATUS_META[r.status];
+                                    const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
+                                    const tech = reqTechRefs.find((t) => t.id === r.technology_id);
+                                    const iColor: Record<string, string> = { "Обязательный": "#22c55e", "Рекомендуемый": "#63b0ff", "Не требуется": "#6b7280", "Запрещено": "#ef4444" };
+                                    return (
+                                      <div key={r.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                                        <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-b" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.06)" }}>
+                                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>#{num + 1}</span>
+                                          <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
+                                          {r.req_type && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>{r.req_type}</span>}
+                                          {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColors[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                          {rsm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded ml-auto" style={{ background: `${rsm.color}12`, color: rsm.color }}><Icon name={rsm.icon} size={9} />{r.status}</span>}
+                                          {r.version && <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                        </div>
+                                        <div className="px-4 py-3 space-y-3">
+                                          <p className="text-sm font-medium text-white leading-snug">{r.name}</p>
+                                          {(tech || dom) && <div className="flex flex-wrap gap-2">{tech && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.06)", color: "#34d399", border: "1px solid rgba(52,211,153,0.15)" }}><Icon name="Cpu" size={9} />{tech.name}</span>}{dom && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.06)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}><Icon name="Layers" size={9} />{dom.name}</span>}</div>}
+                                          {r.description && <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>{r.description}</p>}
+                                          {(r.control_metric || r.control_description) && <div className="px-3 py-2 rounded-lg space-y-1" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}><p className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.35)" }}>Контроль</p>{r.control_metric && <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}><span style={{ color: "rgba(180,200,230,0.4)" }}>Метрика: </span>{r.control_metric}</p>}{r.control_description && <p className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}><span style={{ color: "rgba(180,200,230,0.4)" }}>Способ: </span>{r.control_description}</p>}</div>}
+                                          {r.norm_doc_link && <p className="text-[10px] font-mono break-all" style={{ color: "#a78bfa" }}><span style={{ color: "rgba(180,200,230,0.35)" }}>Норм.документ: </span>{r.norm_doc_link}</p>}
+                                          {(r.environments?.length > 0 || r.stages?.length > 0) && <div className="flex flex-wrap gap-3">{r.environments?.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Среды</p><div className="flex flex-wrap gap-1">{r.environments.map((e) => <span key={e} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "#63b0ff" }}>{e}</span>)}</div></div>}{r.stages?.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Стадии</p><div className="flex flex-wrap gap-1">{r.stages.map((s) => <span key={s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.07)", color: "#a78bfa" }}>{s}</span>)}</div></div>}</div>}
+                                          {(r.ext_with_iod || r.ext_without_iod || r.int_with_iod || r.int_without_iod) && <div className="grid grid-cols-2 gap-1.5">{([{key:"ext_with_iod",label:"Внешнее с ИОД"},{key:"ext_without_iod",label:"Внешнее без ИОД"},{key:"int_with_iod",label:"Внутреннее с ИОД"},{key:"int_without_iod",label:"Внутреннее без ИОД"}] as {key:keyof Req;label:string}[]).map(({key,label})=>{ const val=r[key] as string; if(!val) return null; return <div key={key} className="px-2 py-1.5 rounded-lg" style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)"}}><p className="text-[10px]" style={{color:"rgba(180,200,230,0.35)"}}>{label}</p><p className="text-[10px] font-medium mt-0.5" style={{color:iColor[val]||"#fbbf24"}}>{val}</p></div>;})}</div>}
+                                          <div className="flex items-center gap-3 flex-wrap">{(r.score_value!==undefined&&r.score_value!==null)&&<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)"}}><span className="text-[10px]" style={{color:"rgba(245,158,11,0.6)"}}>Скор.Балл</span><span className="text-sm font-bold" style={{color:"#f59e0b"}}>{r.score_value}</span></div>}{(r.score_weight!==undefined&&r.score_weight!==null)&&<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{background:"rgba(99,176,255,0.08)",border:"1px solid rgba(99,176,255,0.2)"}}><span className="text-[10px]" style={{color:"rgba(99,176,255,0.6)"}}>Скор.Вес</span><span className="text-sm font-bold" style={{color:"#63b0ff"}}>{r.score_weight}</span></div>}{r.procurement&&<p className="text-[10px]" style={{color:"rgba(180,200,230,0.45)"}}><span style={{color:"rgba(180,200,230,0.3)"}}>Закупки: </span>{r.procurement}</p>}</div>
+                                          {r.tags?.length > 0 && <div className="flex flex-wrap gap-1">{r.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>#{tg}</span>)}</div>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
