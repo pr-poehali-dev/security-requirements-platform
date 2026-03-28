@@ -1,60 +1,91 @@
-# SecureArch — запуск в Docker Desktop
+# SecureArch — локальная разработка
+
+Полный стек запускается одной командой через Docker Compose: PostgreSQL + Backend API + Frontend с hot-reload.
+
+---
 
 ## Требования
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) установлен и запущен
-- Порты **80** и **8000** свободны на локальной машине
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — установлен и запущен
+- Свободные порты: **5173** (фронтенд), **8000** (API), **5432** (БД)
 
 ---
 
 ## Быстрый старт
 
 ```bash
-# 1. Скачай код проекта (Скачать → Скачать код) и распакуй, или клонируй репозиторий
+# 1. Склонируй или скачай код (Скачать → Скачать код) и распакуй
 git clone <repo-url>
 cd <project-folder>
 
-# 2. Собери и запусти
+# 2. Собери и запусти всё
 docker compose up --build
 ```
 
-Открой браузер: **http://localhost**
+Открой браузер: **http://localhost:5173**
 
-> Первый запуск занимает 2–3 минуты: собирается фронтенд и бэкенд, инициализируется БД.
-
----
-
-## Что разворачивается
-
-| Сервис   | Адрес                 | Описание                               |
-|----------|-----------------------|----------------------------------------|
-| Frontend | http://localhost      | React SPA (nginx, собранный бандл)     |
-| Backend  | http://localhost:8000 | Python FastAPI + все API-хендлеры      |
-| Database | localhost:5432        | PostgreSQL 16 с тестовыми данными      |
-
-### Тестовые данные в базе
-
-БД инициализируется автоматически при первом запуске (`docker/init.sql`):
-
-| Раздел                | Количество |
-|-----------------------|------------|
-| Организационные домены | 5         |
-| Технические домены    | 20         |
-| Технологии ИБ         | 25         |
-| Требования безопасности | 16       |
-| Технические решения   | 11         |
-| Типовые архитектуры   | 2 (с Mermaid-диаграммами) |
+> Первый запуск: 3–5 минут (сборка образов + инициализация БД).
+> Повторный запуск без изменений — 20–30 секунд.
 
 ---
 
-## Структура Docker-файлов
+## Адреса сервисов
+
+| Сервис   | Адрес                    | Описание                                  |
+|----------|--------------------------|-------------------------------------------|
+| Frontend | http://localhost:5173    | React SPA с hot-reload (Vite dev server)  |
+| Backend  | http://localhost:8000    | Python FastAPI, все API-эндпоинты         |
+| Database | localhost:5432           | PostgreSQL 16, БД `securearch`            |
+
+---
+
+## Переключение в локальный режим в браузере
+
+По умолчанию приложение обращается к **облачному API** (poehali.dev).
+Чтобы переключить на локальный Docker-бэкенд — открой в браузере консоль (F12) и выполни:
+
+```js
+localStorage.setItem('sa_apiMode', 'local');
+localStorage.setItem('sa_localBase', 'http://localhost:8000');
+location.reload();
+```
+
+Чтобы вернуться к облаку:
+
+```js
+localStorage.removeItem('sa_apiMode');
+localStorage.removeItem('sa_localBase');
+location.reload();
+```
+
+---
+
+## Тестовые данные
+
+БД инициализируется автоматически при первом запуске из миграций в `db_migrations/`:
+
+| Раздел                    | Примерное количество |
+|---------------------------|----------------------|
+| Организационные домены    | 5                    |
+| Технические домены        | 20                   |
+| Технологии ИБ             | 25                   |
+| Требования безопасности   | 16                   |
+| Технические решения       | 11                   |
+| Типовые архитектуры       | 2 (с Mermaid-диаграммами) |
+
+---
+
+## Структура файлов
 
 ```
-docker-compose.yml      — оркестрация: db → backend → frontend
-Dockerfile.frontend     — multistage: bun build → nginx serve
-backend/Dockerfile      — Python 3.11 + uvicorn
-backend/main.py         — FastAPI-роутер Lambda-хендлеров
-docker/init.sql         — схема БД + все тестовые данные
+docker-compose.yml        — оркестрация: db → api → frontend
+Dockerfile.frontend       — Vite dev server (Node 20 + bun)
+backend/Dockerfile        — Python 3.11 + uvicorn --reload
+backend/main.py           — FastAPI-роутер
+db_migrations/            — SQL-миграции (применяются при старте)
+docker/init-schema.sql    — начальная схема БД
+docker/run-migrations.sh  — скрипт применения миграций
+src/config/endpoints.ts   — конфигурация API URL (cloud / local)
 ```
 
 ---
@@ -62,20 +93,21 @@ docker/init.sql         — схема БД + все тестовые данны
 ## Полезные команды
 
 ```bash
-# Запустить в фоне
+# Запустить в фоновом режиме
 docker compose up -d --build
 
 # Логи всех сервисов
 docker compose logs -f
 
 # Логи конкретного сервиса
-docker compose logs -f backend
+docker compose logs -f api
 docker compose logs -f frontend
+docker compose logs -f db
 
-# Остановить
+# Остановить (данные сохраняются)
 docker compose down
 
-# Полный сброс (включая данные БД)
+# Полный сброс — удалить контейнеры И данные БД
 docker compose down -v
 
 # Пересобрать после изменений кода
@@ -84,42 +116,40 @@ docker compose up --build
 
 ---
 
-## Переключение между локальным и облачным режимами
+## Hot-reload
 
-По умолчанию в Docker приложение использует **локальную БД**.
+Frontend перезагружается автоматически при изменении файлов в `src/` и `public/` — тома примонтированы как read-only внутрь контейнера.
 
-`VITE_API_BASE` встраивается в JS-бандл на этапе `docker build`.
-Чтобы изменить адрес API — отредактируй `args` в `docker-compose.yml`:
-
-```yaml
-frontend:
-  build:
-    args:
-      VITE_API_BASE: http://localhost:8000   # ← адрес бэкенда
-```
-
-Если `VITE_API_BASE` не задан (запуск без Docker, `bun run dev`) —
-приложение автоматически использует облако (poehali.dev).
+Backend перезапускается автоматически при изменении файлов в `backend/` — uvicorn запущен с флагом `--reload`, том примонтирован как `/app`.
 
 ---
 
 ## Возможные проблемы
 
-**Порт 80 занят**
+**Порт уже занят**
 ```bash
 # Найти что занимает порт (macOS/Linux)
-lsof -i :80
-# Изменить порт в docker-compose.yml:
-#   ports: "8080:80"   → открывать на http://localhost:8080
+lsof -i :5173
+lsof -i :8000
+
+# Альтернатива — изменить порт в docker-compose.yml:
+# ports: "3000:5173"  → фронтенд откроется на http://localhost:3000
 ```
 
-**БД не инициализировалась (пустые данные)**
+**БД пустая / миграции не применились**
 ```bash
-docker compose down -v   # удалить volume с данными
+docker compose down -v   # удалить volume с данными БД
 docker compose up --build
 ```
 
-**Бэкенд не стартует**
+**Бэкенд не стартует — ошибка подключения к БД**
 ```bash
-docker compose logs backend
+docker compose logs api
+# Обычно причина: db ещё не готова. Попробуй:
+docker compose restart api
 ```
+
+**Изменения в src/ не подхватываются**
+
+Убедись, что используешь `docker compose up --build` (не просто `up`) после изменений в `Dockerfile.frontend` или `package.json`.
+Изменения в `src/` применяются автоматически без пересборки.
