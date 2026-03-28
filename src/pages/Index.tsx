@@ -3038,37 +3038,69 @@ export default function Index() {
                     </div>
                   )}
 
-                  {/* Требования от технологий */}
+                  {/* Требования от технологий — таблица */}
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <Icon name="FileCheck" size={15} style={{ color: "#a78bfa" }} />
-                      <span className="text-sm font-semibold text-white">Унаследованные требования</span>
+                      <span className="text-sm font-semibold text-white">Требования из связанных технологий</span>
                       <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>{viewSolFull.requirements.length}</span>
                     </div>
-                    {viewSolFull.requirements.length === 0 && (
+                    {viewSolFull.requirements.length === 0 ? (
                       <div className="rounded-xl p-6 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Icon name="FileCheck" size={32} className="mx-auto mb-2 opacity-20" />
                         <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований у связанных технологий</p>
                       </div>
-                    )}
-                    {viewSolFull.requirements.length > 0 && (
-                      <div className="space-y-2">
-                        {viewSolFull.requirements.map((r) => {
+                    ) : (
+                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                        {/* Заголовок таблицы */}
+                        <div className="grid text-xs font-medium px-3 py-2.5" style={{
+                          gridTemplateColumns: "90px 1fr 120px 100px 90px 130px",
+                          background: "rgba(255,255,255,0.04)",
+                          borderBottom: "1px solid rgba(255,255,255,0.07)",
+                          color: "rgba(180,200,230,0.45)",
+                        }}>
+                          <span>ID</span>
+                          <span>Название</span>
+                          <span>Тип</span>
+                          <span>Критичность</span>
+                          <span>Статус</span>
+                          <span>Технология</span>
+                        </div>
+                        {/* Строки */}
+                        {viewSolFull.requirements.map((r, idx) => {
                           const rtm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
                           const rcm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
                           const rsm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
                           const srcTech = viewSolFull.technologies.find((t) => t.id === r.technology_id);
                           return (
-                            <div key={r.id} className="rounded-xl p-3" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.1)" }}>
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rtm.bg, color: rtm.color }}><Icon name={rtm.icon as "Cpu"} size={10} />{r.req_type}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rcm.bg, color: rcm.color }}><Icon name={rcm.icon as "AlertOctagon"} size={10} />{r.criticality}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: rsm.bg, color: rsm.color }}>{r.status}</span>
+                            <div key={r.id}
+                              className="grid items-center px-3 py-2.5 text-xs transition-colors hover:bg-white/[0.03]"
+                              style={{
+                                gridTemplateColumns: "90px 1fr 120px 100px 90px 130px",
+                                borderBottom: idx < viewSolFull.requirements.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                              }}
+                            >
+                              <span className="font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
+                              <div className="min-w-0 pr-2">
+                                <div className="text-white font-medium truncate">{r.name}</div>
+                                {r.description && <div className="truncate mt-0.5" style={{ color: "rgba(180,200,230,0.4)" }}>{r.description}</div>}
                               </div>
-                              <div className="text-sm font-medium text-white mb-0.5">{r.name}</div>
-                              {srcTech && <div className="text-xs" style={{ color: "rgba(52,211,153,0.6)" }}>← {srcTech.name}</div>}
-                              {r.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.description}</p>}
+                              <span>
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ background: rtm.bg, color: rtm.color }}>
+                                  <Icon name={rtm.icon as "Cpu"} size={10} />{r.req_type}
+                                </span>
+                              </span>
+                              <span>
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ background: rcm.bg, color: rcm.color }}>
+                                  <Icon name={rcm.icon as "AlertOctagon"} size={10} />{r.criticality}
+                                </span>
+                              </span>
+                              <span>
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ background: rsm.bg, color: rsm.color }}>
+                                  {r.status}
+                                </span>
+                              </span>
+                              <span className="truncate" style={{ color: "rgba(52,211,153,0.7)" }}>{srcTech?.name ?? r.technology_id}</span>
                             </div>
                           );
                         })}
