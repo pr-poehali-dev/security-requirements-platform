@@ -655,6 +655,7 @@ export default function Index() {
   const [techFullFilterStage, setTechFullFilterStage] = useState<ReqStage[]>([]);
   const [techFormLinkedReqIds, setTechFormLinkedReqIds] = useState<Set<string>>(new Set());
   const [techReqSearch, setTechReqSearch] = useState("");
+  const [techReqStatusFilter, setTechReqStatusFilter] = useState<ReqStatus | "Все">("Все");
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
     id: `tech-${String(count + 1).padStart(3, "0")}`,
@@ -694,7 +695,7 @@ export default function Index() {
     setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
     setAttachmentTab("link");
     setTechFormLinkedReqIds(new Set());
-    setTechReqSearch("");
+    setTechReqSearch(""); setTechReqStatusFilter("Все");
     loadExistingTechNames();
     setTechDialogOpen2(true);
   };
@@ -706,7 +707,7 @@ export default function Index() {
     setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
     setAttachmentTab("link");
     setTechFormLinkedReqIds(new Set(reqs.filter((r) => r.technology_id === t.id).map((r) => r.id)));
-    setTechReqSearch("");
+    setTechReqSearch(""); setTechReqStatusFilter("Все");
     loadExistingTechNames();
     setTechDialogOpen2(true);
   };
@@ -2981,73 +2982,102 @@ export default function Index() {
             </div>
 
             {/* Linked Requirements */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
-                  Связанные требования
-                  {techFormLinkedReqIds.size > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(99,176,255,0.12)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
-                      {techFormLinkedReqIds.size}
-                    </span>
-                  )}
-                </Label>
-              </div>
-              <div className="relative">
-                <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
-                <Input
-                  value={techReqSearch}
-                  onChange={(e) => setTechReqSearch(e.target.value)}
-                  placeholder="Поиск по требованиям..."
-                  className="pl-7 text-xs"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
-                />
-              </div>
-              <div className="rounded-lg overflow-hidden max-h-52 overflow-y-auto space-y-px" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-                {reqs.filter((r) => {
-                  const q = techReqSearch.toLowerCase();
-                  return !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
-                }).length === 0 && (
-                  <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
-                    {reqs.length === 0 ? "Нет доступных требований" : "Ничего не найдено"}
+            {(() => {
+              const q = techReqSearch.toLowerCase();
+              const filtered = reqs
+                .filter((r) => {
+                  const matchQ = !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
+                  const matchStatus = techReqStatusFilter === "Все" || r.status === techReqStatusFilter;
+                  return matchQ && matchStatus;
+                })
+                .sort((a, b) => {
+                  const aLinked = techFormLinkedReqIds.has(a.id) ? 0 : 1;
+                  const bLinked = techFormLinkedReqIds.has(b.id) ? 0 : 1;
+                  return aLinked - bLinked || a.name.localeCompare(b.name);
+                });
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
+                      Связанные требования
+                      {techFormLinkedReqIds.size > 0 && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(99,176,255,0.12)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                          {techFormLinkedReqIds.size}
+                        </span>
+                      )}
+                    </Label>
                   </div>
-                )}
-                {reqs.filter((r) => {
-                  const q = techReqSearch.toLowerCase();
-                  return !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
-                }).map((r) => {
-                  const linked = techFormLinkedReqIds.has(r.id);
-                  const otherTech = !linked && r.technology_id && r.technology_id !== techForm2.id;
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => {
-                        setTechFormLinkedReqIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(r.id)) next.delete(r.id);
-                          else next.add(r.id);
-                          return next;
-                        });
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-white/5"
-                      style={{ background: linked ? "rgba(99,176,255,0.06)" : "transparent" }}
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                      <Input
+                        value={techReqSearch}
+                        onChange={(e) => setTechReqSearch(e.target.value)}
+                        placeholder="Поиск по требованиям..."
+                        className="pl-7 text-xs"
+                        style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                      />
+                    </div>
+                    <select
+                      value={techReqStatusFilter}
+                      onChange={(e) => setTechReqStatusFilter(e.target.value as ReqStatus | "Все")}
+                      className="text-xs rounded-lg px-2 outline-none"
+                      style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: techReqStatusFilter === "Все" ? "rgba(180,200,230,0.5)" : REQ_STATUS_META[techReqStatusFilter as ReqStatus]?.color || "white" }}
                     >
-                      <div className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 transition-all" style={{ background: linked ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${linked ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
-                        {linked && <Icon name="Check" size={9} style={{ color: "#63b0ff" }} />}
+                      <option value="Все">Все статусы</option>
+                      {REQ_STATUSES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="rounded-lg overflow-hidden max-h-52 overflow-y-auto space-y-px" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                    {filtered.length === 0 && (
+                      <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
+                        {reqs.length === 0 ? "Нет доступных требований" : "Ничего не найдено"}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs block truncate" style={{ color: linked ? "rgba(210,225,245,0.95)" : "rgba(210,225,245,0.7)" }}>{r.name}</span>
-                        <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{r.id}</span>
-                        {otherTech && (
-                          <span className="text-[10px] ml-1" style={{ color: "rgba(245,158,11,0.6)" }}>• другая технология</span>
-                        )}
-                      </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(255,255,255,0.04)", color: "rgba(180,200,230,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}>{r.criticality}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                    )}
+                    {filtered.map((r) => {
+                      const linked = techFormLinkedReqIds.has(r.id);
+                      const otherTech = !linked && r.technology_id && r.technology_id !== techForm2.id;
+                      const sm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            setTechFormLinkedReqIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(r.id)) next.delete(r.id);
+                              else next.add(r.id);
+                              return next;
+                            });
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-white/5"
+                          style={{ background: linked ? "rgba(99,176,255,0.06)" : "transparent" }}
+                        >
+                          <div className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 transition-all" style={{ background: linked ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${linked ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                            {linked && <Icon name="Check" size={9} style={{ color: "#63b0ff" }} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs block truncate" style={{ color: linked ? "rgba(210,225,245,0.95)" : "rgba(210,225,245,0.7)" }}>{r.name}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{r.id}</span>
+                              {otherTech && (
+                                <span className="text-[10px]" style={{ color: "rgba(245,158,11,0.6)" }}>• другая технология</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>{r.status}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)", color: "rgba(180,200,230,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}>{r.criticality}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Attachments */}
             <div className="space-y-2">
