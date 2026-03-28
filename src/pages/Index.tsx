@@ -23,7 +23,7 @@ import {
   type ExportEntity,
 } from "@/utils/exportUtils";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io" | "products";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io" | "products" | "relation-map";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -493,6 +493,7 @@ export default function Index() {
   const [libAuthorFilter, setLibAuthorFilter] = useState("Все");
   const [libShowFilters, setLibShowFilters] = useState(false);
   const [libExtWithIodFilter, setLibExtWithIodFilter] = useState("Все");
+  const [rmHighlight, setRmHighlight] = useState<string | null>(null);
   const [libExtWithoutIodFilter, setLibExtWithoutIodFilter] = useState("Все");
   const [libIntWithIodFilter, setLibIntWithIodFilter] = useState("Все");
   const [libIntWithoutIodFilter, setLibIntWithoutIodFilter] = useState("Все");
@@ -1815,6 +1816,25 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => {
+                setActiveSection("relation-map");
+                if (domains.length === 0 && !domainsLoading) loadDomains();
+                if (technologies.length === 0 && !techsLoading) loadTechnologies();
+                if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
+                if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
+                if (reqs.length === 0 && !reqsLoading) loadReqs();
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
+              style={{
+                background: activeSection === "relation-map" ? "rgba(0,212,255,0.12)" : "rgba(15,22,41,0.8)",
+                border: `1px solid ${activeSection === "relation-map" ? "rgba(0,212,255,0.35)" : "rgba(255,255,255,0.1)"}`,
+                color: activeSection === "relation-map" ? "#00d4ff" : "rgba(180,200,230,0.6)",
+              }}
+            >
+              <Icon name="GitFork" size={13} />
+              Карта связей
+            </button>
+            <button
               onClick={() => { setActiveSection("data-io"); loadAllForExport(); }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
@@ -1900,6 +1920,286 @@ export default function Index() {
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-6 py-8 relative z-10">
+
+        {/* === RELATION MAP SECTION === */}
+        {activeSection === "relation-map" && (() => {
+          const isLoading = domainsLoading || techsLoading || tsolLoading || archLoading || reqsLoading;
+
+          // Collect all tech domain ids from technologies
+          const allTechDomainIds = [...new Set(technologies.flatMap((t) => t.tech_domain_ids || []))];
+          const visibleTechDomains = techDomains.filter((td) => allTechDomainIds.includes(td.id));
+
+          // Build link graph: orgDomain → techDomain → technology → [tsol/arch] → reqs
+          // We show up to 8 items per column to keep it readable
+          const MAX_NODES = 12;
+
+          type RMNode = { id: string; label: string; sub?: string; col: number; idx: number; color: string; bg: string; icon: string };
+          type RMEdge = { fromId: string; toId: string };
+
+          const colColors = [
+            { color: "#22c55e",  bg: "rgba(34,197,94,0.15)",   border: "rgba(34,197,94,0.35)",   icon: "Building2" },
+            { color: "#a78bfa",  bg: "rgba(139,92,246,0.15)",  border: "rgba(139,92,246,0.35)",  icon: "Globe" },
+            { color: "#22d3ee",  bg: "rgba(6,182,212,0.15)",   border: "rgba(6,182,212,0.35)",   icon: "Cpu" },
+            { color: "#f472b6",  bg: "rgba(236,72,153,0.15)",  border: "rgba(236,72,153,0.35)",  icon: "Layers" },
+            { color: "#fbbf24",  bg: "rgba(251,191,36,0.15)",  border: "rgba(251,191,36,0.35)",  icon: "ShieldCheck" },
+          ];
+
+          const domNodes: RMNode[] = domains.slice(0, MAX_NODES).map((d, i) => ({
+            id: `dom-${d.id}`, label: d.name, sub: d.owner || undefined,
+            col: 0, idx: i, ...colColors[0],
+          }));
+
+          const tdNodes: RMNode[] = visibleTechDomains.slice(0, MAX_NODES).map((td, i) => ({
+            id: `td-${td.id}`, label: td.name, sub: td.owner || undefined,
+            col: 1, idx: i, ...colColors[1],
+          }));
+
+          const techNodes: RMNode[] = technologies.slice(0, MAX_NODES).map((t, i) => ({
+            id: `tech-${t.id}`, label: t.name, sub: t.versions?.[0] ? `v${t.versions[0]}` : undefined,
+            col: 2, idx: i, ...colColors[2],
+          }));
+
+          // For col 3: prefer techSolutions, fallback archTemplates
+          const tsolNodes: RMNode[] = techSolutions.slice(0, MAX_NODES).map((ts, i) => ({
+            id: `tsol-${ts.id}`, label: ts.name, sub: ts.author || undefined,
+            col: 3, idx: i, ...colColors[3],
+          }));
+
+          const reqNodes: RMNode[] = reqs.slice(0, MAX_NODES).map((r, i) => ({
+            id: `req-${r.id}`, label: r.name, sub: r.criticality || undefined,
+            col: 4, idx: i, ...colColors[4],
+          }));
+
+          const allNodes: RMNode[] = [...domNodes, ...tdNodes, ...techNodes, ...tsolNodes, ...reqNodes];
+
+          // Edges
+          const edges: RMEdge[] = [];
+
+          // orgDomain → techDomain
+          techDomains.forEach((td) => {
+            (td.org_domain_ids || []).forEach((oid) => {
+              if (domNodes.find((n) => n.id === `dom-${oid}`) && tdNodes.find((n) => n.id === `td-${td.id}`))
+                edges.push({ fromId: `dom-${oid}`, toId: `td-${td.id}` });
+            });
+          });
+
+          // techDomain → technology
+          technologies.slice(0, MAX_NODES).forEach((t) => {
+            (t.tech_domain_ids || []).forEach((tdId) => {
+              if (tdNodes.find((n) => n.id === `td-${tdId}`))
+                edges.push({ fromId: `td-${tdId}`, toId: `tech-${t.id}` });
+            });
+          });
+
+          // technology → techSolution
+          techSolutions.slice(0, MAX_NODES).forEach((ts) => {
+            (ts.technology_ids || []).forEach((tid) => {
+              if (techNodes.find((n) => n.id === `tech-${tid}`))
+                edges.push({ fromId: `tech-${tid}`, toId: `tsol-${ts.id}` });
+            });
+          });
+
+          // technology → req (via technology_id)
+          reqs.slice(0, MAX_NODES).forEach((r) => {
+            if (techNodes.find((n) => n.id === `tech-${r.technology_id}`))
+              edges.push({ fromId: `tech-${r.technology_id}`, toId: `req-${r.id}` });
+            if (tsolNodes.length === 0 && techNodes.find((n) => n.id === `tech-${r.technology_id}`))
+              edges.push({ fromId: `tech-${r.technology_id}`, toId: `req-${r.id}` });
+          });
+
+          // techSolution → req (through shared technology_id)
+          if (tsolNodes.length > 0) {
+            reqs.slice(0, MAX_NODES).forEach((r) => {
+              const matchTsol = techSolutions.find((ts) => (ts.technology_ids || []).includes(r.technology_id));
+              if (matchTsol && tsolNodes.find((n) => n.id === `tsol-${matchTsol.id}`))
+                edges.push({ fromId: `tsol-${matchTsol.id}`, toId: `req-${r.id}` });
+            });
+          }
+
+          // Layout constants
+          const COL_W = 220;
+          const NODE_H = 56;
+          const NODE_GAP = 12;
+          const COL_HEADER_H = 36;
+          const COLS = 5;
+          const SVG_W = COLS * COL_W + (COLS - 1) * 32;
+
+          const nodeY = (node: RMNode) => COL_HEADER_H + node.idx * (NODE_H + NODE_GAP) + NODE_H / 2;
+          const nodeX = (node: RMNode) => node.col * (COL_W + 32) + COL_W / 2;
+
+          const maxRows = Math.max(domNodes.length, tdNodes.length, techNodes.length, tsolNodes.length, reqNodes.length);
+          const SVG_H = COL_HEADER_H + maxRows * (NODE_H + NODE_GAP) + 24;
+
+          const colLabels = ["Орг. домены", "Тех. домены", "Технологии", "Решения / Арх.", "Требования"];
+
+          const highlightedEdges = rmHighlight
+            ? edges.filter((e) => e.fromId === rmHighlight || e.toId === rmHighlight)
+            : edges;
+
+          const highlightedNodeIds = new Set<string>(
+            rmHighlight
+              ? [rmHighlight, ...highlightedEdges.map((e) => e.fromId), ...highlightedEdges.map((e) => e.toId)]
+              : []
+          );
+
+          return (
+            <div className="section-enter">
+              {/* Header */}
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #00d4ff, #0066ff)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Карта связей</h1>
+                </div>
+                <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
+                  Граф зависимостей: орг. домены → тех. домены → технологии → решения → требования
+                </p>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-32 gap-3" style={{ color: "rgba(180,200,230,0.4)" }}>
+                  <Icon name="Loader" size={22} className="animate-spin" />
+                  <span className="text-sm">Загрузка данных...</span>
+                </div>
+              ) : (
+                <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(6,11,26,0.95)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  {/* Stats row */}
+                  <div className="flex items-center gap-6 px-6 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    {[
+                      { label: "Орг. домены",    count: domains.length,       color: colColors[0].color },
+                      { label: "Тех. домены",    count: techDomains.length,   color: colColors[1].color },
+                      { label: "Технологии",     count: technologies.length,  color: colColors[2].color },
+                      { label: "Решения",        count: techSolutions.length, color: colColors[3].color },
+                      { label: "Требования",     count: reqs.length,          color: colColors[4].color },
+                      { label: "Связей",         count: edges.length,         color: "rgba(180,200,230,0.4)" },
+                    ].map((s) => (
+                      <div key={s.label} className="flex items-center gap-2">
+                        <span className="text-lg font-bold" style={{ color: s.color }}>{s.count}</span>
+                        <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{s.label}</span>
+                      </div>
+                    ))}
+                    {rmHighlight && (
+                      <button onClick={() => setRmHighlight(null)} className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>
+                        <Icon name="X" size={11} /> Сбросить выбор
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Canvas */}
+                  <div className="overflow-x-auto px-6 py-6">
+                    <div style={{ position: "relative", width: SVG_W, height: SVG_H, minWidth: SVG_W }}>
+
+                      {/* SVG edges layer */}
+                      <svg style={{ position: "absolute", inset: 0, width: SVG_W, height: SVG_H, pointerEvents: "none" }}>
+                        <defs>
+                          {colColors.map((c, i) => (
+                            <linearGradient key={i} id={`rmGrad${i}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor={colColors[i].color} stopOpacity="0.6" />
+                              <stop offset="100%" stopColor={colColors[Math.min(i + 1, 4)].color} stopOpacity="0.6" />
+                            </linearGradient>
+                          ))}
+                        </defs>
+                        {edges.map((edge, ei) => {
+                          const from = allNodes.find((n) => n.id === edge.fromId);
+                          const to = allNodes.find((n) => n.id === edge.toId);
+                          if (!from || !to) return null;
+                          const x1 = nodeX(from) + COL_W / 2 - 8;
+                          const y1 = nodeY(from);
+                          const x2 = nodeX(to) - COL_W / 2 + 8;
+                          const y2 = nodeY(to);
+                          const cx1 = x1 + (x2 - x1) * 0.45;
+                          const cx2 = x2 - (x2 - x1) * 0.45;
+                          const isHl = rmHighlight ? highlightedEdges.includes(edge) : false;
+                          const isAny = !rmHighlight;
+                          return (
+                            <path
+                              key={ei}
+                              d={`M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`}
+                              fill="none"
+                              stroke={isHl ? colColors[from.col].color : "rgba(255,255,255,0.08)"}
+                              strokeWidth={isHl ? 1.5 : isAny ? 1 : 0.5}
+                              strokeOpacity={isHl ? 0.9 : isAny ? 0.35 : 0.1}
+                            />
+                          );
+                        })}
+                      </svg>
+
+                      {/* Column headers */}
+                      {colLabels.map((label, ci) => (
+                        <div
+                          key={ci}
+                          style={{
+                            position: "absolute",
+                            left: ci * (COL_W + 32),
+                            top: 0,
+                            width: COL_W,
+                            height: COL_HEADER_H,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <span className="text-xs font-semibold" style={{ color: colColors[ci].color }}>{label}</span>
+                        </div>
+                      ))}
+
+                      {/* Nodes */}
+                      {allNodes.map((node) => {
+                        const x = node.col * (COL_W + 32);
+                        const y = COL_HEADER_H + node.idx * (NODE_H + NODE_GAP);
+                        const isDimmed = rmHighlight && !highlightedNodeIds.has(node.id);
+                        const isActive = rmHighlight === node.id;
+                        return (
+                          <div
+                            key={node.id}
+                            onClick={() => setRmHighlight(rmHighlight === node.id ? null : node.id)}
+                            style={{
+                              position: "absolute",
+                              left: x,
+                              top: y,
+                              width: COL_W,
+                              height: NODE_H,
+                              borderRadius: 10,
+                              background: isActive ? node.bg : isDimmed ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)",
+                              border: `1px solid ${isActive ? node.color : isDimmed ? "rgba(255,255,255,0.04)" : node.color + "40"}`,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: "0 12px",
+                              cursor: "pointer",
+                              transition: "all 0.18s ease",
+                              opacity: isDimmed ? 0.3 : 1,
+                            }}
+                          >
+                            <div style={{ width: 28, height: 28, borderRadius: 7, background: node.bg, border: `1px solid ${node.color}40`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <Icon name={node.icon} size={13} style={{ color: node.color }} />
+                            </div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: isDimmed ? "rgba(180,200,230,0.3)" : "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {node.label}
+                              </div>
+                              {node.sub && (
+                                <div style={{ fontSize: 10, color: isDimmed ? "rgba(180,200,230,0.2)" : node.color, opacity: 0.75, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {node.sub}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex items-center gap-4 px-6 py-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Нажмите на узел чтобы подсветить связи</span>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>·</span>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Показано до {MAX_NODES} объектов в каждой колонке</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* === LIBRARY SECTION === */}
         {activeSection === "library" && (() => {
