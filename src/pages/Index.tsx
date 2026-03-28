@@ -1858,7 +1858,7 @@ export default function Index() {
                             ) : null;
                           })()}
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={(e) => { e.stopPropagation(); openEditTech2(tech); }}
                             className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
@@ -3625,82 +3625,144 @@ export default function Index() {
                           <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Ничего не найдено</p>
                         </div>
                       ) : (
-                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                  {[
-                                    { field: "id", label: "ID" },
-                                    { field: "name", label: "Название" },
-                                    { field: "req_type", label: "Тип" },
-                                    { field: "criticality", label: "Критичность" },
-                                    { field: "status", label: "Статус" },
-                                    { field: "score_value", label: "Балл" },
-                                    { field: "score_weight", label: "Вес" },
-                                  ].map(({ field, label }) => (
-                                    <th key={field}
-                                      onClick={() => toggleSort(field)}
-                                      className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-white/5 select-none whitespace-nowrap"
-                                      style={{ color: techFullSortField === field ? "#34d399" : "rgba(180,200,230,0.45)" }}
-                                    >
-                                      <div className="flex items-center gap-1.5">
-                                        {label}
-                                        <SortIcon field={field} />
+                        <div className="flex flex-col gap-3">
+                          {sortedReqs.map((r) => {
+                            const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                            const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                            const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                            const reqDomain = domains.find((d) => d.id === r.tech_domain_id);
+                            return (
+                              <div
+                                key={r.id}
+                                onClick={() => { setViewTechFull(null); setViewReq(r); }}
+                                className="cursor-pointer rounded-xl p-4 flex flex-col gap-3 transition-colors hover:bg-white/[0.02]"
+                                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}
+                              >
+                                {/* Row 1: ID + name + version + badges + score */}
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                    <span className="font-mono text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                    <span className="font-semibold text-sm" style={{ color: "rgba(210,225,245,0.95)" }}>{r.name}</span>
+                                    {r.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1 whitespace-nowrap" style={{ background: tm.bg, color: tm.color }}>
+                                      <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
+                                    </span>
+                                    <span className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1 whitespace-nowrap" style={{ background: cm.bg, color: cm.color }}>
+                                      <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
+                                    </span>
+                                    <span className="text-[11px] px-2 py-0.5 rounded whitespace-nowrap" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                  </div>
+                                </div>
+
+                                {/* Row 2: description */}
+                                {r.description && (
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>{r.description}</p>
+                                )}
+
+                                {/* Row 3: control metric + control description */}
+                                {(r.control_metric || r.control_description) && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {r.control_metric && (
+                                      <div className="px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                        <p className="text-[10px] mb-0.5" style={{ color: "rgba(180,200,230,0.4)" }}>Контрольная метрика</p>
+                                        <p className="text-xs" style={{ color: "rgba(210,225,245,0.8)" }}>{r.control_metric}</p>
                                       </div>
-                                    </th>
-                                  ))}
-                                  <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.45)" }}>
-                                    Описание
-                                  </th>
-                                  <th className="px-3 py-2.5" style={{ color: "rgba(180,200,230,0.45)" }}></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {sortedReqs.map((r, idx) => {
-                                  const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
-                                  const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
-                                  const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
-                                  return (
-                                    <tr key={r.id}
-                                      onClick={() => { setViewTechFull(null); setViewReq(r); }}
-                                      className="cursor-pointer transition-colors hover:bg-white/[0.03]"
-                                      style={{ borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined }}
-                                    >
-                                      <td className="px-3 py-2.5">
-                                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
-                                      </td>
-                                      <td className="px-3 py-2.5 min-w-[160px]">
-                                        <span className="font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{r.name}</span>
-                                        {r.version && <span className="ml-1.5 font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
-                                      </td>
-                                      <td className="px-3 py-2.5">
-                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: tm.bg, color: tm.color }}>
-                                          <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
-                                        </span>
-                                      </td>
-                                      <td className="px-3 py-2.5">
-                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: cm.bg, color: cm.color }}>
-                                          <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
-                                        </span>
-                                      </td>
-                                      <td className="px-3 py-2.5">
-                                        <span className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
-                                      </td>
-                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#f59e0b" }}>{r.score_value}</td>
-                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#63b0ff" }}>{r.score_weight}</td>
-                                      <td className="px-3 py-2.5 max-w-[200px]">
-                                        <span className="line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.description || "—"}</span>
-                                      </td>
-                                      <td className="px-3 py-2.5">
-                                        <Icon name="ChevronRight" size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
+                                    )}
+                                    {r.control_description && (
+                                      <div className="px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                        <p className="text-[10px] mb-0.5" style={{ color: "rgba(180,200,230,0.4)" }}>Описание контроля</p>
+                                        <p className="text-xs" style={{ color: "rgba(210,225,245,0.8)" }}>{r.control_description}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Row 4: environments + stages + domain */}
+                                <div className="flex items-center flex-wrap gap-3">
+                                  {reqDomain && (
+                                    <div className="flex items-center gap-1.5">
+                                      <Icon name="Link2" size={11} style={{ color: "rgba(180,200,230,0.35)" }} />
+                                      <span className="text-[11px]" style={{ color: "rgba(180,200,230,0.55)" }}>{reqDomain.name}</span>
+                                    </div>
+                                  )}
+                                  {r.environments && r.environments.length > 0 && (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Среды:</span>
+                                      {r.environments.map((e) => (
+                                        <span key={e} className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>{e}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {r.stages && r.stages.length > 0 && (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Стадии:</span>
+                                      {r.stages.map((s) => (
+                                        <span key={s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>{s}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Row 5: interactions grid */}
+                                {(r.ext_with_iod || r.ext_without_iod || r.int_with_iod || r.int_without_iod) && (
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {([
+                                      { key: "ext_with_iod" as const, label: "Внешнее с ИОД" },
+                                      { key: "ext_without_iod" as const, label: "Внешнее без ИОД" },
+                                      { key: "int_with_iod" as const, label: "Внутреннее с ИОД" },
+                                      { key: "int_without_iod" as const, label: "Внутреннее без ИОД" },
+                                    ] as { key: "ext_with_iod" | "ext_without_iod" | "int_with_iod" | "int_without_iod"; label: string }[]).map(({ key, label }) => {
+                                      const val = r[key];
+                                      const m = REQ_INTERACTION_META[val];
+                                      return (
+                                        <div key={key} className="px-2.5 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                          <p className="text-[9px] uppercase tracking-wide mb-0.5" style={{ color: "rgba(180,200,230,0.35)" }}>{label}</p>
+                                          <p className="text-[11px] font-medium" style={{ color: m?.color || "rgba(180,200,230,0.5)" }}>{val}</p>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Row 6: tags + score + procurement + norm_doc_link + open button */}
+                                <div className="flex items-center justify-between gap-2 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {r.tags && r.tags.length > 0 && r.tags.map((tag) => (
+                                      <span key={tag} className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.07)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.12)" }}>{tag}</span>
+                                    ))}
+                                    {r.procurement && (
+                                      <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                                        <Icon name="ShoppingCart" size={10} />{r.procurement}
+                                      </span>
+                                    )}
+                                    {r.norm_doc_link && (
+                                      <a
+                                        href={r.norm_doc_link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-[10px] flex items-center gap-1 hover:underline"
+                                        style={{ color: "#63b0ff" }}
+                                      >
+                                        <Icon name="FileText" size={10} />Норм. документ
+                                      </a>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>
+                                      Балл: <span style={{ color: "#f59e0b" }}>{r.score_value}</span>
+                                    </span>
+                                    <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>
+                                      Вес: <span style={{ color: "#63b0ff" }}>{r.score_weight}</span>
+                                    </span>
+                                    <Icon name="ChevronRight" size={13} style={{ color: "rgba(180,200,230,0.25)" }} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
