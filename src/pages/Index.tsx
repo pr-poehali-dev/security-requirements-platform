@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -449,6 +450,7 @@ const complianceData = [
 ];
 
 export default function Index() {
+  const { theme, toggleTheme } = useTheme();
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
   // cloud = сервисная БД (Локальная для платформы), local = внешняя PostgreSQL
@@ -1775,7 +1777,7 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "#07101f" }}>
+    <div className="min-h-screen font-sans" style={{ background: "var(--body-bg)" }}>
       {/* Background decorative elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div
@@ -1807,7 +1809,7 @@ export default function Index() {
       {/* Header */}
       <header
         className="sticky top-0 z-50 glass-card border-b"
-        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+        style={{ borderColor: "var(--header-border)" }}
       >
         {/* Top row: logo + db control */}
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -1819,7 +1821,7 @@ export default function Index() {
               <Icon name="Shield" size={18} className="text-white" />
             </div>
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-white text-lg tracking-tight">
+              <span className="font-semibold text-lg tracking-tight" style={{ color: "var(--nav-text-active)" }}>
                 SecureArch
               </span>
               <Badge
@@ -1833,12 +1835,24 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border transition-all"
+              style={{
+                background: "var(--btn-ghost-bg)",
+                borderColor: "var(--btn-ghost-border)",
+                color: "var(--btn-ghost-text)",
+              }}
+            >
+              <Icon name={theme === "dark" ? "Sun" : "Moon"} size={15} />
+            </button>
+            <button
               onClick={() => { setActiveSection("data-io"); loadAllForExport(); }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
-                background: activeSection === "data-io" ? "rgba(99,102,241,0.15)" : "rgba(15,22,41,0.8)",
-                border: `1px solid ${activeSection === "data-io" ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
-                color: activeSection === "data-io" ? "#818cf8" : "rgba(180,200,230,0.6)",
+                background: activeSection === "data-io" ? "rgba(99,102,241,0.15)" : "var(--btn-ghost-bg)",
+                border: `1px solid ${activeSection === "data-io" ? "rgba(99,102,241,0.4)" : "var(--btn-ghost-border)"}`,
+                color: activeSection === "data-io" ? "#818cf8" : "var(--btn-ghost-text)",
               }}
             >
               <Icon name="ArrowLeftRight" size={13} />
@@ -1848,7 +1862,7 @@ export default function Index() {
               onClick={handleOpenDialog}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all hover:border-blue-500/40"
               style={{
-                background: "rgba(15,22,41,0.8)",
+                background: "var(--btn-ghost-bg)",
                 borderColor: isConnected ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
               }}
             >
@@ -1884,7 +1898,7 @@ export default function Index() {
         </div>
 
         {/* Bottom row: navigation */}
-        <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+        <div className="border-t" style={{ borderColor: "var(--header-border)" }}>
           <div className="max-w-7xl mx-auto px-6">
             <nav className="flex items-center gap-1 overflow-x-auto">
               {[
@@ -1904,7 +1918,7 @@ export default function Index() {
                   onClick={item.onClick}
                   className="relative px-3 py-3 text-xs font-medium whitespace-nowrap transition-all shrink-0"
                   style={{
-                    color: activeSection === item.key ? "white" : "rgba(180,200,230,0.5)",
+                    color: activeSection === item.key ? "var(--nav-text-active)" : "var(--nav-text)",
                     borderBottom: activeSection === item.key ? "2px solid #3b82f6" : "2px solid transparent",
                   }}
                 >

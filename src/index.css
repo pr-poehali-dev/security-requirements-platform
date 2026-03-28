@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  :root,
+  .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 94%;
 
@@ -43,13 +44,88 @@
     --sidebar-border: 220 30% 14%;
     --sidebar-ring: 217 100% 55%;
 
-    /* Custom platform vars */
+    /* Custom platform vars — dark */
     --glow-blue: rgba(0, 102, 255, 0.15);
     --glow-cyan: rgba(0, 212, 255, 0.1);
     --glass-bg: rgba(15, 22, 41, 0.7);
     --glass-border: rgba(255, 255, 255, 0.08);
     --gradient-primary: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
     --gradient-dark: linear-gradient(180deg, #0a0f1e 0%, #060b14 100%);
+    --body-bg: #07101f;
+    --body-glow1: rgba(0, 102, 255, 0.15);
+    --body-glow2: rgba(0, 212, 255, 0.07);
+    --scrollbar-track: #07101f;
+    --scrollbar-thumb: rgba(0, 102, 255, 0.4);
+    --scrollbar-thumb-hover: rgba(0, 102, 255, 0.7);
+    --header-bg: rgba(15, 22, 41, 0.85);
+    --header-border: rgba(255, 255, 255, 0.06);
+    --nav-text: rgba(180, 200, 230, 0.65);
+    --nav-text-active: #ffffff;
+    --btn-ghost-bg: rgba(15, 22, 41, 0.8);
+    --btn-ghost-border: rgba(255, 255, 255, 0.1);
+    --btn-ghost-text: rgba(180, 200, 230, 0.6);
+  }
+
+  .light {
+    --background: 210 40% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 217 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 30% 92%;
+    --secondary-foreground: 222 47% 20%;
+
+    --muted: 210 30% 93%;
+    --muted-foreground: 215 20% 45%;
+
+    --accent: 217 100% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 30% 87%;
+    --input: 214 30% 91%;
+    --ring: 217 100% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 210 40% 96%;
+    --sidebar-foreground: 222 47% 20%;
+    --sidebar-primary: 217 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 30% 90%;
+    --sidebar-accent-foreground: 222 47% 20%;
+    --sidebar-border: 214 30% 87%;
+    --sidebar-ring: 217 100% 50%;
+
+    /* Custom platform vars — light */
+    --glow-blue: rgba(0, 102, 255, 0.08);
+    --glow-cyan: rgba(0, 180, 220, 0.06);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --gradient-primary: linear-gradient(135deg, #0066ff 0%, #00d4ff 100%);
+    --gradient-dark: linear-gradient(180deg, #f0f4ff 0%, #e8edf8 100%);
+    --body-bg: #f0f4ff;
+    --body-glow1: rgba(0, 102, 255, 0.06);
+    --body-glow2: rgba(0, 180, 220, 0.04);
+    --scrollbar-track: #e8edf8;
+    --scrollbar-thumb: rgba(0, 102, 255, 0.3);
+    --scrollbar-thumb-hover: rgba(0, 102, 255, 0.55);
+    --header-bg: rgba(255, 255, 255, 0.92);
+    --header-border: rgba(0, 0, 0, 0.07);
+    --nav-text: rgba(60, 80, 120, 0.65);
+    --nav-text-active: #0f172a;
+    --btn-ghost-bg: rgba(255, 255, 255, 0.8);
+    --btn-ghost-border: rgba(0, 0, 0, 0.1);
+    --btn-ghost-text: rgba(60, 80, 120, 0.7);
   }
 }
 
@@ -60,33 +136,36 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    background-color: #07101f;
+    background-color: var(--body-bg);
     background-image:
       radial-gradient(
         ellipse 80% 50% at 50% -10%,
-        rgba(0, 102, 255, 0.15) 0%,
+        var(--body-glow1) 0%,
         transparent 60%
       ),
       radial-gradient(
         ellipse 40% 30% at 80% 20%,
-        rgba(0, 212, 255, 0.07) 0%,
+        var(--body-glow2) 0%,
         transparent 50%
       );
     min-height: 100vh;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   ::-webkit-scrollbar {
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #07101f;
+    background: var(--scrollbar-track);
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 102, 255, 0.4);
+    background: var(--scrollbar-thumb);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 102, 255, 0.7);
+    background: var(--scrollbar-thumb-hover);
   }
 }
 
@@ -96,17 +175,20 @@
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    transition:
+      background 0.3s ease,
+      border-color 0.3s ease;
   }
 
   .glass-card-hover {
     transition: all 0.25s ease;
   }
   .glass-card-hover:hover {
-    background: rgba(15, 22, 41, 0.85);
+    background: var(--glass-bg);
     border-color: rgba(0, 102, 255, 0.3);
     box-shadow:
       0 0 24px rgba(0, 102, 255, 0.12),
-      0 8px 32px rgba(0, 0, 0, 0.3);
+      0 8px 32px rgba(0, 0, 0, 0.15);
     transform: translateY(-2px);
   }
 
