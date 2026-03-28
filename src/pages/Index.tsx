@@ -17,8 +17,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
+import {
+  exportJson, exportCsv, exportAllJson,
+  readFileAsText, parseCsv, parseJsonBundle,
+  type ExportEntity,
+} from "@/utils/exportUtils";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -1494,6 +1499,9 @@ export default function Index() {
     const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
     return matchQ && matchStatus && matchTag && matchTsol && matchIb && matchIt;
   });
+  // ── Data IO state ─────────────────────────────────────────────────
+  const [importResult, setImportResult] = useState<{ ok: string[]; errors: string[] } | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -1661,6 +1669,7 @@ export default function Index() {
                 { key: "hardening",      label: "Харденинг",              onClick: () => { setActiveSection("hardening"); loadHardenings(); } },
                 { key: "arch-templates", label: "Типовые архитектуры",    onClick: () => { setActiveSection("arch-templates"); loadArchTemplates(); } },
                 { key: "analytics",      label: "Аналитика",              onClick: () => setActiveSection("analytics") },
+                { key: "data-io",        label: "Экспорт / Импорт",       onClick: () => setActiveSection("data-io") },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -3422,6 +3431,212 @@ export default function Index() {
             )}
           </div>
         )}
+
+        {/* === DATA IO SECTION === */}
+        {activeSection === "data-io" && (() => {
+          const entities: ExportEntity[] = [
+            { key: "org_domains",     label: "Орг. домены",            data: domains as unknown as Record<string, unknown>[] },
+            { key: "tech_domains",    label: "Тех. домены",            data: techDomains as unknown as Record<string, unknown>[] },
+            { key: "technologies",    label: "Технологии",             data: technologies as unknown as Record<string, unknown>[] },
+            { key: "requirements",    label: "Требования",             data: reqs as unknown as Record<string, unknown>[] },
+            { key: "tech_solutions",  label: "Тех. решения",           data: techSolutions as unknown as Record<string, unknown>[] },
+            { key: "hardenings",      label: "Харденинг",              data: hardenings as unknown as Record<string, unknown>[] },
+            { key: "arch_templates",  label: "Типовые архитектуры",    data: archTemplates as unknown as Record<string, unknown>[] },
+          ];
+
+          const handleImportFile = async (file: File) => {
+            setImportLoading(true);
+            setImportResult(null);
+            const ok: string[] = [];
+            const errors: string[] = [];
+            try {
+              const text = await readFileAsText(file);
+              const isJson = file.name.toLowerCase().endsWith(".json");
+              if (isJson) {
+                const bundle = parseJsonBundle(text);
+                if (!bundle) { errors.push("Не удалось разобрать JSON файл"); }
+                else {
+                  for (const entity of entities) {
+                    const rows = bundle[entity.key];
+                    if (!rows || !Array.isArray(rows) || rows.length === 0) continue;
+                    try {
+                      const apiMap: Record<string, string> = {
+                        org_domains:    "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177",
+                        tech_domains:   "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246",
+                        technologies:   "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8",
+                        requirements:   "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177",
+                        tech_solutions: "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2",
+                        hardenings:     "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf",
+                        arch_templates: "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa",
+                      };
+                      const url = apiMap[entity.key];
+                      if (!url) continue;
+                      let imported = 0;
+                      for (const row of rows) {
+                        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
+                        const data = await res.json();
+                        if (!data.error) imported++;
+                      }
+                      ok.push(`${entity.label}: импортировано ${imported} из ${rows.length}`);
+                    } catch {
+                      errors.push(`${entity.label}: ошибка импорта`);
+                    }
+                  }
+                }
+              } else {
+                errors.push("CSV импорт поддерживает загрузку одной сущности. Используйте JSON для полного импорта.");
+              }
+            } catch {
+              errors.push("Ошибка чтения файла");
+            } finally {
+              setImportLoading(false);
+              setImportResult({ ok, errors });
+            }
+          };
+
+          const ts = new Date().toISOString().slice(0, 10);
+
+          return (
+            <div className="section-enter">
+              {/* Header */}
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #6366f1, #8b5cf6)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Экспорт и импорт данных</h1>
+                </div>
+                <p className="ml-4 text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>Выгрузка и загрузка данных портала в форматах CSV и JSON</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* ── EXPORT ── */}
+                <div className="glass-card rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)" }}>
+                      <Icon name="Download" size={17} style={{ color: "#818cf8" }} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-semibold text-white">Экспорт данных</h2>
+                      <p className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>Скачать данные раздела или весь портал</p>
+                    </div>
+                  </div>
+
+                  {/* Full export */}
+                  <div className="mb-5 p-4 rounded-xl" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                    <p className="text-xs font-medium text-white mb-3">Полный экспорт (все разделы)</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => exportAllJson(entities, `securearch-full-${ts}.json`)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+                        style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", color: "#818cf8" }}
+                      >
+                        <Icon name="FileJson" size={14} /> JSON — всё
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Per-entity export */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Экспорт по разделам</p>
+                    {entities.map((entity) => (
+                      <div key={entity.key} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="flex items-center gap-2.5">
+                          <Icon name="Database" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
+                          <span className="text-xs text-white">{entity.label}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.4)" }}>
+                            {entity.data.length} записей
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => exportJson(entity.data, `${entity.key}-${ts}.json`)}
+                            disabled={entity.data.length === 0}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30"
+                            style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", color: "#818cf8" }}
+                          >
+                            <Icon name="FileJson" size={11} /> JSON
+                          </button>
+                          <button
+                            onClick={() => exportCsv(entity.data, `${entity.key}-${ts}.csv`)}
+                            disabled={entity.data.length === 0}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30"
+                            style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                          >
+                            <Icon name="FileSpreadsheet" size={11} /> CSV
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── IMPORT ── */}
+                <div className="glass-card rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                      <Icon name="Upload" size={17} style={{ color: "#34d399" }} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-semibold text-white">Импорт данных</h2>
+                      <p className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>Загрузить JSON-бандл для восстановления или переноса данных</p>
+                    </div>
+                  </div>
+
+                  {/* Drop zone */}
+                  <label
+                    className="flex flex-col items-center justify-center gap-3 rounded-xl cursor-pointer transition-all"
+                    style={{ border: "2px dashed rgba(16,185,129,0.25)", background: "rgba(16,185,129,0.04)", minHeight: 140, padding: "24px" }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImportFile(f); }}
+                  >
+                    <input type="file" accept=".json,.csv" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ""; }} />
+                    {importLoading ? (
+                      <>
+                        <Icon name="Loader" size={28} className="animate-spin" style={{ color: "#34d399" }} />
+                        <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>Импортирование...</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                          <Icon name="FolderUp" size={22} style={{ color: "#34d399" }} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-white">Перетащите файл или нажмите для выбора</p>
+                          <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.4)" }}>Поддерживаются файлы .json (полный бандл) и .csv (отдельный раздел)</p>
+                        </div>
+                      </>
+                    )}
+                  </label>
+
+                  {/* Import result */}
+                  {importResult && (
+                    <div className="mt-4 space-y-2">
+                      {importResult.ok.map((msg, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)", color: "#4ade80" }}>
+                          <Icon name="CheckCircle2" size={13} /> {msg}
+                        </div>
+                      ))}
+                      {importResult.errors.map((msg, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                          <Icon name="AlertTriangle" size={13} /> {msg}
+                        </div>
+                      ))}
+                      <button onClick={() => setImportResult(null)} className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.4)" }}>Очистить</button>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="mt-5 p-3 rounded-xl space-y-1.5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <p className="text-[11px] font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Формат JSON-бандла</p>
+                    <p className="text-[11px]" style={{ color: "rgba(180,200,230,0.35)" }}>Файл должен содержать объект с ключами: <span className="font-mono" style={{ color: "rgba(180,200,230,0.55)" }}>org_domains, tech_domains, technologies, requirements, tech_solutions, hardenings, arch_templates</span></p>
+                    <p className="text-[11px]" style={{ color: "rgba(180,200,230,0.35)" }}>При импорте записи с уже существующим ID будут пропущены (нет перезаписи).</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          );
+        })()}
 
       </main>
 
