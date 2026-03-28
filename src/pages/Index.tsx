@@ -1503,6 +1503,24 @@ export default function Index() {
   const [importResult, setImportResult] = useState<{ ok: string[]; errors: string[] } | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [csvImportEntity, setCsvImportEntity] = useState<string>("tech_solutions");
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const loadAllForExport = async () => {
+    setExportLoading(true);
+    try {
+      await Promise.all([
+        domains.length === 0 ? loadDomains() : Promise.resolve(),
+        techDomains.length === 0 ? loadTechDomains() : Promise.resolve(),
+        technologies.length === 0 ? loadTechnologies() : Promise.resolve(),
+        reqs.length === 0 ? loadReqs() : Promise.resolve(),
+        techSolutions.length === 0 ? loadTechSolutions() : Promise.resolve(),
+        hardenings.length === 0 ? loadHardenings() : Promise.resolve(),
+        archTemplates.length === 0 ? loadArchTemplates() : Promise.resolve(),
+      ]);
+    } finally {
+      setExportLoading(false);
+    }
+  };
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -1618,7 +1636,7 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setActiveSection("data-io")}
+              onClick={() => { setActiveSection("data-io"); loadAllForExport(); }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
                 background: activeSection === "data-io" ? "rgba(99,102,241,0.15)" : "rgba(15,22,41,0.8)",
@@ -3522,12 +3540,24 @@ export default function Index() {
           return (
             <div className="section-enter">
               {/* Header */}
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #6366f1, #8b5cf6)" }} />
-                  <h1 className="text-2xl font-semibold text-white">Экспорт и импорт данных</h1>
+              <div className="mb-8 flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #6366f1, #8b5cf6)" }} />
+                    <h1 className="text-2xl font-semibold text-white">Экспорт и импорт данных</h1>
+                  </div>
+                  <p className="ml-4 text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>Выгрузка и загрузка данных портала в форматах CSV и JSON</p>
                 </div>
-                <p className="ml-4 text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>Выгрузка и загрузка данных портала в форматах CSV и JSON</p>
+                <button
+                  onClick={loadAllForExport}
+                  disabled={exportLoading}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-50"
+                  style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", color: "#818cf8" }}
+                >
+                  {exportLoading
+                    ? <><Icon name="Loader" size={13} className="animate-spin" /> Загрузка данных...</>
+                    : <><Icon name="RefreshCw" size={13} /> Обновить данные</>}
+                </button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3550,10 +3580,13 @@ export default function Index() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => exportAllJson(entities, `securearch-full-${ts}.json`)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+                        disabled={exportLoading}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
                         style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.35)", color: "#818cf8" }}
                       >
-                        <Icon name="FileJson" size={14} /> JSON — всё
+                        {exportLoading
+                          ? <><Icon name="Loader" size={14} className="animate-spin" /> Загрузка...</>
+                          : <><Icon name="FileJson" size={14} /> JSON — всё</>}
                       </button>
                     </div>
                   </div>
@@ -3566,14 +3599,14 @@ export default function Index() {
                         <div className="flex items-center gap-2.5">
                           <Icon name="Database" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
                           <span className="text-xs text-white">{entity.label}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.4)" }}>
-                            {entity.data.length} записей
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(255,255,255,0.06)", color: exportLoading ? "rgba(180,200,230,0.25)" : entity.data.length > 0 ? "rgba(52,211,153,0.7)" : "rgba(180,200,230,0.4)" }}>
+                            {exportLoading ? "…" : `${entity.data.length} записей`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => exportJson(entity.data, `${entity.key}-${ts}.json`)}
-                            disabled={entity.data.length === 0}
+                            disabled={entity.data.length === 0 || exportLoading}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30"
                             style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", color: "#818cf8" }}
                           >
@@ -3581,7 +3614,7 @@ export default function Index() {
                           </button>
                           <button
                             onClick={() => exportCsv(entity.data, `${entity.key}-${ts}.csv`)}
-                            disabled={entity.data.length === 0}
+                            disabled={entity.data.length === 0 || exportLoading}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30"
                             style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
                           >
