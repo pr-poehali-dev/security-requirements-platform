@@ -63,8 +63,8 @@ def handler(event: dict, context) -> dict:
             rows = [{"id": r[0], "name": r[1]} for r in cur.fetchall()]
             return ok({"names": rows})
 
-        # PATCH /settings
-        if method == "PATCH" and "settings" in path:
+        # PATCH ?mode=settings
+        if method == "PATCH" and (qs.get("mode") == "settings" or "settings" in path):
             desc = body.get("section_description", "")
             cur.execute(
                 f"INSERT INTO {SCHEMA}.section_settings (key, value) VALUES ('technologies_section_description', %s) "

@@ -413,7 +413,7 @@ export default function Index() {
   const [domainSearch, setDomainSearch] = useState("");
 
   const makeEmptyForm = (count: number): OrgDomain => ({
-    id: `org.dom.${String(count + 1).padStart(3, "0")}`,
+    id: `org-dom-${String(count + 1).padStart(3, "0")}`,
     name: "",
     version: "1.0.0",
     owner: "",
@@ -511,7 +511,7 @@ export default function Index() {
   const handleSaveSectionDesc = async () => {
     setSectionDesc(sectionDescDraft);
     setSectionDescEditing(false);
-    await fetch(`${DOMAINS_API}/settings`, {
+    await fetch(`${DOMAINS_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: sectionDescDraft }),
@@ -543,7 +543,7 @@ export default function Index() {
   const [techNameError, setTechNameError] = useState("");
 
   const makeEmptyTechForm = (count: number): TechDomain => ({
-    id: `tech.dom.${String(count + 1).padStart(3, "0")}`,
+    id: `tech-dom-${String(count + 1).padStart(3, "0")}`,
     name: "",
     version: "1.0.0",
     owner: "",
@@ -651,7 +651,7 @@ export default function Index() {
   const handleSaveTechSectionDesc = async () => {
     setTechSectionDesc(techSectionDescDraft);
     setTechSectionDescEditing(false);
-    await fetch(`${TECH_DOMAINS_API}/settings`, {
+    await fetch(`${TECH_DOMAINS_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: techSectionDescDraft }),
@@ -704,7 +704,7 @@ export default function Index() {
   const [techFullSortDir, setTechFullSortDir] = useState<"asc" | "desc">("asc");
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
-    id: `tech.${String(count + 1).padStart(3, "0")}`,
+    id: `tech-${String(count + 1).padStart(3, "0")}`,
     name: "",
     status: "В разработке",
     description: "",
@@ -837,7 +837,7 @@ export default function Index() {
   const handleSaveTechSectionDesc2 = async () => {
     setTechSectionDesc2(techSectionDesc2Draft);
     setTechSectionDesc2Editing(false);
-    await fetch(`${TECHNOLOGIES_API}/settings`, {
+    await fetch(`${TECHNOLOGIES_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: techSectionDesc2Draft }),
@@ -872,7 +872,7 @@ export default function Index() {
   const [reqTagInput, setReqTagInput] = useState("");
 
   const makeEmptyReqForm = (count: number): Req => ({
-    id: `req.${String(count + 1).padStart(3, "0")}`,
+    id: `req-${String(count + 1).padStart(3, "0")}`,
     name: "",
     technology_id: "",
     tech_domain_id: "",
@@ -985,7 +985,7 @@ export default function Index() {
   const handleSaveReqSectionDesc = async () => {
     setReqSectionDesc(reqSectionDescDraft);
     setReqSectionDescEditing(false);
-    await fetch(`${REQUIREMENTS_API}/settings`, {
+    await fetch(`${REQUIREMENTS_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: reqSectionDescDraft }),
@@ -1070,7 +1070,7 @@ export default function Index() {
   const [viewSolMermaid, setViewSolMermaid] = useState<SolAttachment | null>(null);
 
   const makeEmptySolForm = (count: number): TechSolution => ({
-    id: `tech.prod.${String(count + 1).padStart(3, "0")}`,
+    id: `tech-prod-${String(count + 1).padStart(3, "0")}`,
     name: "", version: "1.0.0", owner: "",
     status: "В разработке", description: "", tags: [],
     technology_ids: [], tech_domain_ids: [], attachments: [],

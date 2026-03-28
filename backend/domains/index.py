@@ -71,8 +71,9 @@ def handler(event: dict, context) -> dict:
             section_desc = row[0] if row else ""
             return ok({"domains": domains, "section_description": section_desc})
 
-        # PATCH /settings — обновить описание раздела
-        if method == "PATCH" and "settings" in path:
+        # PATCH ?mode=settings — обновить описание раздела
+        qs = event.get("queryStringParameters") or {}
+        if method == "PATCH" and (qs.get("mode") == "settings" or "settings" in path):
             desc = body.get("section_description", "")
             cur.execute(
                 f"INSERT INTO {SCHEMA}.section_settings (key, value) VALUES ('domains_section_description', %s) "
