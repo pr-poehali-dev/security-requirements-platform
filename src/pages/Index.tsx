@@ -2922,6 +2922,48 @@ export default function Index() {
                                 {linkedReqs.length > 0 && <div className="flex flex-wrap gap-1">{["Критический","Высокий","Средний","Низкий"].map((c) => { const cnt = linkedReqs.filter((r) => r.criticality === c).length; return cnt > 0 ? <span key={c} className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${critColors[c]}15`, color: critColors[c] }}>{cnt} {c}</span> : null; })}</div>}
                               </div>
                             </div>
+                            {/* ── Diagrams ── */}
+                            {a.diagrams && a.diagrams.length > 0 && (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                  Диаграммы архитектуры
+                                  <span className="ml-2 normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({a.diagrams.length} шт.)</span>
+                                </p>
+                                {/* Tabs */}
+                                <div className="flex gap-1.5 flex-wrap mb-3">
+                                  {a.diagrams.map((diag, idx) => (
+                                    <button
+                                      key={diag.id}
+                                      onClick={() => setLibExpandedDiagramTab(idx)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all"
+                                      style={{
+                                        background: libExpandedDiagramTab === idx ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
+                                        border: `1px solid ${libExpandedDiagramTab === idx ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.07)"}`,
+                                        color: libExpandedDiagramTab === idx ? "#34d399" : "rgba(180,200,230,0.5)",
+                                      }}
+                                    >
+                                      <Icon name="GitBranch" size={11} />
+                                      {diag.name}
+                                    </button>
+                                  ))}
+                                </div>
+                                {/* Active diagram */}
+                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  <div className="px-4 py-2.5 flex items-center justify-between border-b" style={{ background: "rgba(16,185,129,0.05)", borderColor: "rgba(255,255,255,0.06)" }}>
+                                    <span className="text-xs font-medium text-white">
+                                      {a.diagrams[libExpandedDiagramTab]?.name}
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>
+                                      mermaid
+                                    </span>
+                                  </div>
+                                  <div className="p-4" style={{ background: "rgba(5,10,20,0.6)" }}>
+                                    <MermaidViewer content={a.diagrams[libExpandedDiagramTab]?.content || ""} />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                             {linkedReqs.length > 0 && filteredLinkedReqs.length === 0 && (
                               <div className="py-8 text-center rounded-xl" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
                                 <Icon name="SearchX" size={24} className="mx-auto mb-2 opacity-20" />
@@ -2977,47 +3019,6 @@ export default function Index() {
                               </div>
                             )}
 
-                            {/* ── Diagrams ── */}
-                            {a.diagrams && a.diagrams.length > 0 && (
-                              <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
-                                  Диаграммы архитектуры
-                                  <span className="ml-2 normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({a.diagrams.length} шт.)</span>
-                                </p>
-                                {/* Tabs */}
-                                <div className="flex gap-1.5 flex-wrap mb-3">
-                                  {a.diagrams.map((diag, idx) => (
-                                    <button
-                                      key={diag.id}
-                                      onClick={() => setLibExpandedDiagramTab(idx)}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all"
-                                      style={{
-                                        background: libExpandedDiagramTab === idx ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
-                                        border: `1px solid ${libExpandedDiagramTab === idx ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.07)"}`,
-                                        color: libExpandedDiagramTab === idx ? "#34d399" : "rgba(180,200,230,0.5)",
-                                      }}
-                                    >
-                                      <Icon name="GitBranch" size={11} />
-                                      {diag.name}
-                                    </button>
-                                  ))}
-                                </div>
-                                {/* Active diagram */}
-                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                                  <div className="px-4 py-2.5 flex items-center justify-between border-b" style={{ background: "rgba(16,185,129,0.05)", borderColor: "rgba(255,255,255,0.06)" }}>
-                                    <span className="text-xs font-medium text-white">
-                                      {a.diagrams[libExpandedDiagramTab]?.name}
-                                    </span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>
-                                      mermaid
-                                    </span>
-                                  </div>
-                                  <div className="p-4" style={{ background: "rgba(5,10,20,0.6)" }}>
-                                    <MermaidViewer content={a.diagrams[libExpandedDiagramTab]?.content || ""} />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })()}
