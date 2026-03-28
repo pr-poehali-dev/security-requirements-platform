@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "GET hardenings list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"items": [], "section_description": ""},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "PATCH section_description",
+      "method": "PATCH",
+      "path": "/?mode=settings",
+      "body": {"section_description": "Тест харденинга"},
+      "expectedStatus": 200,
+      "expectedBody": {"section_description": "Тест харденинга"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

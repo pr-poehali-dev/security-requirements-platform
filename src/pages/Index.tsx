@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -168,6 +168,24 @@ interface TechSolution {
   updated_at?: string;
 }
 
+type HardeningStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface Hardening {
+  id: string;
+  name: string;
+  tech_solution_id: string;
+  deploy_hardening: string;
+  functional_hardening: string;
+  status: HardeningStatus;
+  author: string;
+  version: string;
+  tags: string[];
+  approved_ib: boolean;
+  approved_it: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface OrgDomain {
   id: string;
   name: string;
@@ -180,6 +198,16 @@ interface OrgDomain {
   updated_at?: string;
   created_at?: string;
 }
+
+const HARDENING_STATUS_META: Record<HardeningStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":    { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке":  { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":         { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":       { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
+
+const HARDENING_STATUSES: HardeningStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
 const DOMAIN_STATUS_META: Record<DomainStatus, { color: string; bg: string; icon: string }> = {
   "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
@@ -1169,6 +1197,136 @@ export default function Index() {
   });
   // ─────────────────────────────────────────────────────────────────
 
+  // ── Hardening state ──────────────────────────────────────────────
+  const HARDENING_API = "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf";
+  const [hardenings, setHardenings] = useState<Hardening[]>([]);
+  const [hardLoading, setHardLoading] = useState(false);
+  const [hardSectionDesc, setHardSectionDesc] = useState("Реестр харденингов технических решений — настройки безопасности развёртывания и функционала");
+  const [hardSectionDescEditing, setHardSectionDescEditing] = useState(false);
+  const [hardSectionDescDraft, setHardSectionDescDraft] = useState(hardSectionDesc);
+  const [hardDialogOpen, setHardDialogOpen] = useState(false);
+  const [hardSaving, setHardSaving] = useState(false);
+  const [hardSaveError, setHardSaveError] = useState("");
+  const [deleteHardId, setDeleteHardId] = useState<string | null>(null);
+  const [editingHard, setEditingHard] = useState<Hardening | null>(null);
+  const [viewHard, setViewHard] = useState<Hardening | null>(null);
+  const [hardSearch, setHardSearch] = useState("");
+  const [hardFilterStatus, setHardFilterStatus] = useState<string>("Все");
+  const [hardFilterTag, setHardFilterTag] = useState<string>("");
+  const [hardTagInput, setHardTagInput] = useState("");
+  const [hardTsolSearch, setHardTsolSearch] = useState("");
+
+  const makeEmptyHardForm = (count: number): Hardening => ({
+    id: `hard-${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    tech_solution_id: "",
+    deploy_hardening: "",
+    functional_hardening: "",
+    status: "В разработке",
+    author: "",
+    version: "1.0.0",
+    tags: [],
+    approved_ib: false,
+    approved_it: false,
+  });
+  const [hardForm, setHardForm] = useState<Hardening>(makeEmptyHardForm(0));
+
+  const loadHardenings = async () => {
+    setHardLoading(true);
+    try {
+      const [res, tsolRes] = await Promise.all([
+        fetch(HARDENING_API),
+        techSolutions.length === 0 ? fetch(TECH_SOLUTIONS_API) : Promise.resolve(null),
+      ]);
+      const data = await res.json();
+      setHardenings(data.items || []);
+      if (data.section_description) setHardSectionDesc(data.section_description);
+      if (tsolRes) {
+        const td = await tsolRes.json();
+        setTechSolutions(td.items || []);
+      }
+    } finally {
+      setHardLoading(false);
+    }
+  };
+
+  const openCreateHard = () => {
+    setEditingHard(null);
+    setHardForm(makeEmptyHardForm(hardenings.length));
+    setHardTagInput(""); setHardSaveError(""); setHardTsolSearch("");
+    if (techSolutions.length === 0) loadTechSolutions();
+    setHardDialogOpen(true);
+  };
+
+  const openEditHard = (h: Hardening) => {
+    setEditingHard(h);
+    setHardForm({ ...h, tags: h.tags || [] });
+    setHardTagInput(""); setHardSaveError(""); setHardTsolSearch("");
+    if (techSolutions.length === 0) loadTechSolutions();
+    setHardDialogOpen(true);
+  };
+
+  const addHardTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || hardForm.tags.includes(tag) || hardForm.tags.length >= 10) return;
+    setHardForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setHardTagInput("");
+  };
+
+  const handleSaveHard = async () => {
+    if (!hardForm.name.trim() || !hardForm.id.trim()) { setHardSaveError("Название и ID обязательны"); return; }
+    setHardSaving(true); setHardSaveError("");
+    try {
+      const method = editingHard ? "PUT" : "POST";
+      const res = await fetch(HARDENING_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(hardForm),
+      });
+      const data = await res.json();
+      if (data.error) { setHardSaveError(data.error); return; }
+      if (editingHard) {
+        setHardenings((prev) => prev.map((h) => h.id === editingHard.id ? data : h));
+        if (viewHard?.id === editingHard.id) setViewHard(data);
+      } else {
+        setHardenings((prev) => [...prev, data]);
+      }
+      setHardDialogOpen(false);
+    } finally {
+      setHardSaving(false);
+    }
+  };
+
+  const handleDeleteHard = async (id: string) => {
+    await fetch(HARDENING_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setHardenings((prev) => prev.filter((h) => h.id !== id));
+    setDeleteHardId(null);
+    if (viewHard?.id === id) setViewHard(null);
+  };
+
+  const handleSaveHardSectionDesc = async () => {
+    setHardSectionDesc(hardSectionDescDraft);
+    setHardSectionDescEditing(false);
+    await fetch(`${HARDENING_API}?mode=settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: hardSectionDescDraft }),
+    });
+  };
+
+  const filteredHardenings = hardenings.filter((h) => {
+    const q = hardSearch.toLowerCase();
+    const matchQ = !q || (h.id||"").toLowerCase().includes(q) || (h.name||"").toLowerCase().includes(q) || (h.author||"").toLowerCase().includes(q) || (h.tech_solution_id||"").toLowerCase().includes(q) || (h.deploy_hardening||"").toLowerCase().includes(q) || (h.functional_hardening||"").toLowerCase().includes(q) || (h.tags||[]).some((t) => t.toLowerCase().includes(q));
+    const matchStatus = hardFilterStatus === "Все" || h.status === hardFilterStatus;
+    const matchTag = !hardFilterTag || (h.tags||[]).some((t) => t.toLowerCase().includes(hardFilterTag.toLowerCase()));
+    return matchQ && matchStatus && matchTag;
+  });
+  // ─────────────────────────────────────────────────────────────────
+
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
 
   const filteredRequirements = requirements.filter((r) => {
@@ -1315,6 +1473,12 @@ export default function Index() {
               onClick={() => { setActiveSection("tech-solutions"); loadTechSolutions(); }}
             >
               Тех. решения
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "hardening" ? "active" : ""}`}
+              onClick={() => { setActiveSection("hardening"); loadHardenings(); }}
+            >
+              Харденинг
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -2714,6 +2878,177 @@ export default function Index() {
                           </button>
                           <button onClick={() => setDeleteTsolId(s.id)} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить">
                             <Icon name="Trash2" size={13} style={{ color: "rgba(248,113,113,0.5)" }} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === HARDENING SECTION === */}
+        {activeSection === "hardening" && (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #ef4444, #f97316)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Харденинг технических решений</h1>
+                </div>
+                {hardSectionDescEditing ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <Input value={hardSectionDescDraft} onChange={(e) => setHardSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                    <button onClick={handleSaveHardSectionDesc} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                    <button onClick={() => setHardSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setHardSectionDescDraft(hardSectionDesc); setHardSectionDescEditing(true); }}>
+                    <span className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>{hardSectionDesc}</span>
+                    <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.5)" }} />
+                  </button>
+                )}
+              </div>
+              <button onClick={openCreateHard} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90" style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.2), rgba(249,115,22,0.2))", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5" }}>
+                <Icon name="Plus" size={15} /> Добавить харденинг
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {[
+                { label: "Всего харденингов", value: hardenings.length, icon: "Shield", color: "#ef4444" },
+                { label: "Активных", value: hardenings.filter((h) => h.status === "Активен").length, icon: "CheckCircle2", color: "#22c55e" },
+                { label: "В разработке", value: hardenings.filter((h) => h.status === "В разработке").length, icon: "Wrench", color: "#f59e0b" },
+                { label: "Согласовано ИБ+ИТ", value: hardenings.filter((h) => h.approved_ib && h.approved_it).length, icon: "ShieldCheck", color: "#63b0ff" },
+              ].map((stat) => (
+                <div key={stat.label} className="glass-card rounded-xl px-5 py-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${stat.color}20`, border: `1px solid ${stat.color}30` }}>
+                    <Icon name={stat.icon} size={18} style={{ color: stat.color }} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white">{stat.value}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "rgba(180,200,230,0.5)" }}>{stat.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters */}
+            <div className="glass-card rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-56">
+                <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={hardSearch} onChange={(e) => setHardSearch(e.target.value)} placeholder="Поиск по ID, названию, автору, тегам, харденингу..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              </div>
+              <select value={hardFilterStatus} onChange={(e) => setHardFilterStatus(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: hardFilterStatus === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">Все статусы</option>
+                {HARDENING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Input value={hardFilterTag} onChange={(e) => setHardFilterTag(e.target.value)} placeholder="Фильтр по тегу..." className="text-xs w-40 h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              {(hardSearch || hardFilterStatus !== "Все" || hardFilterTag) && (
+                <button onClick={() => { setHardSearch(""); setHardFilterStatus("Все"); setHardFilterTag(""); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                  Сбросить
+                </button>
+              )}
+              <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredHardenings.length} / {hardenings.length}</span>
+            </div>
+
+            {/* Loading */}
+            {hardLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#ef4444" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!hardLoading && filteredHardenings.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                  <Icon name="ShieldOff" size={28} style={{ color: "rgba(239,68,68,0.4)" }} />
+                </div>
+                <p className="text-sm" style={{ color: "rgba(180,200,230,0.4)" }}>
+                  {hardenings.length === 0 ? "Харденинги ещё не добавлены" : "Ничего не найдено по фильтрам"}
+                </p>
+                {hardenings.length === 0 && (
+                  <button onClick={openCreateHard} className="text-xs px-4 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5" }}>
+                    Добавить первый харденинг
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Cards */}
+            {!hardLoading && filteredHardenings.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredHardenings.map((h) => {
+                  const sm = HARDENING_STATUS_META[h.status];
+                  const linkedTsol = techSolutions.find((s) => s.id === h.tech_solution_id);
+                  return (
+                    <div key={h.id} className="glass-card rounded-xl p-5 flex flex-col gap-3 transition-all hover:border-red-500/20 cursor-pointer group" style={{ borderColor: "rgba(255,255,255,0.06)" }} onClick={() => setViewHard(h)}>
+                      {/* Top row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono px-2 py-0.5 rounded-md" style={{ background: "rgba(239,68,68,0.1)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.2)" }}>{h.id}</span>
+                          <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>v{h.version}</span>
+                        </div>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                          <Icon name={sm.icon} size={10} />
+                          {h.status}
+                        </div>
+                      </div>
+
+                      {/* Name */}
+                      <div>
+                        <h3 className="font-semibold text-white text-sm leading-snug line-clamp-1">{h.name || <span style={{ color: "rgba(180,200,230,0.3)" }}>Без названия</span>}</h3>
+                        {linkedTsol && (
+                          <p className="text-xs mt-0.5" style={{ color: "rgba(99,176,255,0.7)" }}>
+                            <Icon name="Link2" size={10} className="inline mr-1" />{linkedTsol.name}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Hardening previews */}
+                      <div className="space-y-1.5">
+                        {h.deploy_hardening && (
+                          <div className="px-2.5 py-1.5 rounded-lg text-xs" style={{ background: "rgba(249,115,22,0.07)", border: "1px solid rgba(249,115,22,0.15)" }}>
+                            <span style={{ color: "#fb923c" }}>Deploy: </span>
+                            <span className="font-mono line-clamp-1" style={{ color: "rgba(210,225,245,0.6)" }}>{h.deploy_hardening.slice(0, 80)}</span>
+                          </div>
+                        )}
+                        {h.functional_hardening && (
+                          <div className="px-2.5 py-1.5 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                            <span style={{ color: "#f87171" }}>Func: </span>
+                            <span className="font-mono line-clamp-1" style={{ color: "rgba(210,225,245,0.6)" }}>{h.functional_hardening.slice(0, 80)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tags */}
+                      {h.tags && h.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {h.tags.slice(0, 4).map((tag) => (
+                            <span key={tag} className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>{tag}</span>
+                          ))}
+                          {h.tags.length > 4 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>+{h.tags.length - 4}</span>}
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center gap-2">
+                          {h.approved_ib && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>ИБ</span>}
+                          {h.approved_it && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.08)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>ИТ</span>}
+                          {h.author && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{h.author}</span>}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={(e) => { e.stopPropagation(); openEditHard(h); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Редактировать">
+                            <Icon name="Pencil" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); setDeleteHardId(h.id); }} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить">
+                            <Icon name="Trash2" size={13} style={{ color: "#f87171" }} />
                           </button>
                         </div>
                       </div>
@@ -5870,6 +6205,345 @@ export default function Index() {
               </button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Hardening Create/Edit Dialog ── */}
+      <Dialog open={hardDialogOpen} onOpenChange={(o) => { if (!o) setHardDialogOpen(false); }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                <Icon name="Shield" size={15} style={{ color: "#f87171" }} />
+              </div>
+              {editingHard ? "Редактировать харденинг" : "Добавить харденинг"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* ID */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID харденинга</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm flex-1" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#f87171" }}>
+                  <Icon name="Hash" size={13} style={{ color: "rgba(248,113,113,0.4)" }} />
+                  {editingHard ? hardForm.id : (
+                    <input value={hardForm.id} onChange={(e) => setHardForm((f) => ({ ...f, id: e.target.value }))} className="bg-transparent outline-none flex-1 font-mono" style={{ color: "#f87171" }} placeholder="hard-001" />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название харденинга *</Label>
+              <Input value={hardForm.name} onChange={(e) => setHardForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Например: Харденинг Nginx для продакшена"
+                className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+
+            {/* Tech Solution */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Техническое решение</Label>
+              <div className="relative">
+                <Input value={hardTsolSearch} onChange={(e) => setHardTsolSearch(e.target.value)} placeholder="Поиск технического решения..." className="text-sm mb-2" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <div className="max-h-36 overflow-y-auto rounded-lg border" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(15,22,41,0.8)" }}>
+                  <button onClick={() => setHardForm((f) => ({ ...f, tech_solution_id: "" }))} className="w-full text-left px-3 py-2 text-xs transition-all hover:bg-white/5" style={{ color: hardForm.tech_solution_id === "" ? "#63b0ff" : "rgba(180,200,230,0.4)" }}>
+                    — не выбрано —
+                  </button>
+                  {techSolutions.filter((s) => !hardTsolSearch || (s.name||"").toLowerCase().includes(hardTsolSearch.toLowerCase()) || s.id.toLowerCase().includes(hardTsolSearch.toLowerCase())).map((s) => (
+                    <button key={s.id} onClick={() => { setHardForm((f) => ({ ...f, tech_solution_id: s.id, name: f.name || s.name })); setHardTsolSearch(""); }}
+                      className="w-full text-left px-3 py-2 text-xs transition-all hover:bg-white/5 flex items-center justify-between"
+                      style={{ background: hardForm.tech_solution_id === s.id ? "rgba(99,176,255,0.08)" : "transparent", color: hardForm.tech_solution_id === s.id ? "#63b0ff" : "rgba(210,225,245,0.7)" }}>
+                      <span>{s.name}</span>
+                      <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>{s.id}</span>
+                    </button>
+                  ))}
+                </div>
+                {hardForm.tech_solution_id && (
+                  <div className="mt-1 px-2 py-1 rounded text-xs inline-flex items-center gap-1" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                    <Icon name="Link2" size={10} /> {hardForm.tech_solution_id}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Deploy Hardening */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Харденинг развёртывания</Label>
+              <textarea
+                value={hardForm.deploy_hardening}
+                onChange={(e) => setHardForm((f) => ({ ...f, deploy_hardening: e.target.value }))}
+                rows={6}
+                placeholder="# Конфигурация развёртывания&#10;## Шаг 1: Настройка окружения&#10;..."
+                className="w-full px-3 py-2 rounded-lg text-xs resize-y outline-none font-mono"
+                style={{ background: "rgba(15,22,41,0.95)", border: "1px solid rgba(249,115,22,0.2)", color: "#fb923c", minHeight: "120px" }}
+              />
+            </div>
+
+            {/* Functional Hardening */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Харденинг функционала</Label>
+              <textarea
+                value={hardForm.functional_hardening}
+                onChange={(e) => setHardForm((f) => ({ ...f, functional_hardening: e.target.value }))}
+                rows={6}
+                placeholder="# Функциональные настройки безопасности&#10;## Аутентификация&#10;..."
+                className="w-full px-3 py-2 rounded-lg text-xs resize-y outline-none font-mono"
+                style={{ background: "rgba(15,22,41,0.95)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", minHeight: "120px" }}
+              />
+            </div>
+
+            {/* Status + Author + Version */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <div className="flex flex-col gap-1.5">
+                  {HARDENING_STATUSES.map((s) => {
+                    const m = HARDENING_STATUS_META[s]; const active = hardForm.status === s;
+                    return <button key={s} onClick={() => setHardForm((f) => ({ ...f, status: s }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{s}
+                    </button>;
+                  })}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Автор</Label>
+                <Input value={hardForm.author} onChange={(e) => setHardForm((f) => ({ ...f, author: e.target.value }))}
+                  placeholder="Имя автора" className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={hardForm.version} onChange={(e) => setHardForm((f) => ({ ...f, version: e.target.value }))}
+                  placeholder="1.0.0" className="text-sm font-mono" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги ({hardForm.tags.length}/10)</Label>
+              <div className="flex gap-2">
+                <Input value={hardTagInput} onChange={(e) => setHardTagInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addHardTag(hardTagInput); } }}
+                  placeholder="Введите тег и нажмите Enter" className="text-sm flex-1" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <button onClick={() => addHardTag(hardTagInput)} className="px-3 rounded-lg text-xs font-medium" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", color: "#a78bfa" }}>+</button>
+              </div>
+              {hardForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {hardForm.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-md" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                      {tag}
+                      <button onClick={() => setHardForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:opacity-60 transition-opacity">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Approvals */}
+            <div className="flex gap-4">
+              <button onClick={() => setHardForm((f) => ({ ...f, approved_ib: !f.approved_ib }))} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex-1" style={{ background: hardForm.approved_ib ? "rgba(99,176,255,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${hardForm.approved_ib ? "rgba(99,176,255,0.35)" : "rgba(255,255,255,0.08)"}`, color: hardForm.approved_ib ? "#63b0ff" : "rgba(180,200,230,0.4)" }}>
+                <Icon name={hardForm.approved_ib ? "ShieldCheck" : "Shield"} size={16} />
+                Согласован с ИБ
+              </button>
+              <button onClick={() => setHardForm((f) => ({ ...f, approved_it: !f.approved_it }))} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex-1" style={{ background: hardForm.approved_it ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${hardForm.approved_it ? "rgba(52,211,153,0.35)" : "rgba(255,255,255,0.08)"}`, color: hardForm.approved_it ? "#34d399" : "rgba(180,200,230,0.4)" }}>
+                <Icon name={hardForm.approved_it ? "BadgeCheck" : "Badge"} size={16} />
+                Согласован с ИТ
+              </button>
+            </div>
+
+            {hardSaveError && <p className="text-xs py-2 px-3 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>{hardSaveError}</p>}
+          </div>
+
+          <div className="px-6 py-4 border-t flex gap-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <Button variant="outline" className="flex-1" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setHardDialogOpen(false)}>Отмена</Button>
+            <button onClick={handleSaveHard} disabled={hardSaving} className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all hover:opacity-90" style={{ background: hardSaving ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(249,115,22,0.3))", border: "1px solid rgba(239,68,68,0.3)", color: hardSaving ? "rgba(180,200,230,0.3)" : "#fca5a5" }}>
+              {hardSaving ? <><Icon name="Loader" size={14} className="animate-spin" /> Сохранение...</> : <><Icon name="Save" size={14} /> {editingHard ? "Сохранить" : "Создать харденинг"}</>}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Hardening Delete Confirm ── */}
+      <Dialog open={!!deleteHardId} onOpenChange={(o) => { if (!o) setDeleteHardId(null); }}>
+        <DialogContent className="max-w-sm border" style={{ background: "#0b1628", borderColor: "rgba(239,68,68,0.2)" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Icon name="AlertTriangle" size={18} style={{ color: "#ef4444" }} />
+              Удалить харденинг?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm" style={{ color: "rgba(180,200,230,0.7)" }}>
+            Харденинг <span className="font-mono text-white">{deleteHardId}</span> будет удалён без возможности восстановления.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setDeleteHardId(null)}>Отмена</Button>
+            <button onClick={() => handleDeleteHard(deleteHardId!)} className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
+              <Icon name="Trash2" size={14} /> Удалить
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Hardening View Sheet ── */}
+      <Dialog open={!!viewHard} onOpenChange={(o) => { if (!o) setViewHard(null); }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          {viewHard && (() => {
+            const sm = HARDENING_STATUS_META[viewHard.status];
+            const linkedTsol = techSolutions.find((s) => s.id === viewHard.tech_solution_id);
+            const linkedReqs = reqs.filter((r) => linkedTsol && (r.technology_id === linkedTsol.technology_ids?.[0] || linkedTsol.technology_ids?.includes(r.technology_id)));
+            return (
+              <>
+                <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-mono px-2 py-0.5 rounded-md" style={{ background: "rgba(239,68,68,0.1)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.2)" }}>{viewHard.id}</span>
+                        <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>v{viewHard.version}</span>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                          <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />
+                          {viewHard.status}
+                        </div>
+                      </div>
+                      <DialogTitle className="text-white text-lg font-semibold">{viewHard.name}</DialogTitle>
+                      {linkedTsol && (
+                        <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "rgba(99,176,255,0.7)" }}>
+                          <Icon name="Link2" size={11} /> Техническое решение: {linkedTsol.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {viewHard.approved_ib && <span className="text-xs px-2 py-1 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>ИБ ✓</span>}
+                      {viewHard.approved_it && <span className="text-xs px-2 py-1 rounded" style={{ background: "rgba(52,211,153,0.08)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>ИТ ✓</span>}
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                <div className="px-6 py-5 space-y-5">
+                  {/* Meta */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Автор</p>
+                      <p className="text-sm text-white">{viewHard.author || "—"}</p>
+                    </div>
+                    <div className="px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Дата создания</p>
+                      <p className="text-sm text-white">{viewHard.created_at ? new Date(viewHard.created_at).toLocaleDateString("ru-RU") : "—"}</p>
+                    </div>
+                    <div className="px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Дата изменения</p>
+                      <p className="text-sm text-white">{viewHard.updated_at ? new Date(viewHard.updated_at).toLocaleDateString("ru-RU") : "—"}</p>
+                    </div>
+                  </div>
+
+                  {/* Approvals */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="px-4 py-3 rounded-xl flex items-center gap-3" style={{ background: viewHard.approved_ib ? "rgba(99,176,255,0.08)" : "rgba(255,255,255,0.02)", border: `1px solid ${viewHard.approved_ib ? "rgba(99,176,255,0.25)" : "rgba(255,255,255,0.05)"}` }}>
+                      <Icon name={viewHard.approved_ib ? "ShieldCheck" : "ShieldOff"} size={20} style={{ color: viewHard.approved_ib ? "#63b0ff" : "rgba(180,200,230,0.2)" }} />
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: viewHard.approved_ib ? "#63b0ff" : "rgba(180,200,230,0.3)" }}>Согласован с ИБ</p>
+                        <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>{viewHard.approved_ib ? "Да" : "Нет"}</p>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 rounded-xl flex items-center gap-3" style={{ background: viewHard.approved_it ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.02)", border: `1px solid ${viewHard.approved_it ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.05)"}` }}>
+                      <Icon name={viewHard.approved_it ? "BadgeCheck" : "Badge"} size={20} style={{ color: viewHard.approved_it ? "#34d399" : "rgba(180,200,230,0.2)" }} />
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: viewHard.approved_it ? "#34d399" : "rgba(180,200,230,0.3)" }}>Согласован с ИТ</p>
+                        <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>{viewHard.approved_it ? "Да" : "Нет"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deploy Hardening */}
+                  {viewHard.deploy_hardening && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(249,115,22,0.7)" }}>Харденинг развёртывания</p>
+                      <pre className="text-xs p-4 rounded-xl overflow-x-auto font-mono leading-relaxed" style={{ background: "rgba(15,22,41,0.95)", border: "1px solid rgba(249,115,22,0.2)", color: "#fb923c", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {viewHard.deploy_hardening}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Functional Hardening */}
+                  {viewHard.functional_hardening && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(239,68,68,0.7)" }}>Харденинг функционала</p>
+                      <pre className="text-xs p-4 rounded-xl overflow-x-auto font-mono leading-relaxed" style={{ background: "rgba(15,22,41,0.95)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {viewHard.functional_hardening}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Linked TechSolution info */}
+                  {linkedTsol && (
+                    <div className="p-4 rounded-xl" style={{ background: "rgba(99,176,255,0.05)", border: "1px solid rgba(99,176,255,0.15)" }}>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(99,176,255,0.7)" }}>Техническое решение</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>Домен</p>
+                          <p className="text-sm text-white">{linkedTsol.tech_domain || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>Статус</p>
+                          <p className="text-sm text-white">{linkedTsol.status}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {viewHard.tags && viewHard.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewHard.tags.map((tag) => <span key={tag} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{tag}</span>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Related Requirements table */}
+                  {linkedTsol && linkedReqs.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Связанные требования</p>
+                      <div className="rounded-xl overflow-hidden border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                              <th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>ID</th>
+                              <th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th>
+                              <th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th>
+                              <th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th>
+                              <th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {linkedReqs.map((r, i) => (
+                              <tr key={r.id} style={{ borderBottom: i < linkedReqs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                                <td className="px-3 py-2 font-mono" style={{ color: "#f59e0b" }}>{r.id}</td>
+                                <td className="px-3 py-2 text-white">{r.name}</td>
+                                <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.6)" }}>{r.req_type}</td>
+                                <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.6)" }}>{r.criticality}</td>
+                                <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.6)" }}>{r.status}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <button onClick={() => { setViewHard(null); openEditHard(viewHard); }} className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+                      <Icon name="Pencil" size={14} /> Редактировать
+                    </button>
+                    <button onClick={() => { setViewHard(null); setDeleteHardId(viewHard.id); }} className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+                      <Icon name="Trash2" size={14} />
+                    </button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
