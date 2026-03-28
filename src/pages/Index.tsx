@@ -1818,14 +1818,11 @@ export default function Index() {
             <button
               onClick={() => {
                 setActiveSection("relation-map");
-                setRmHighlight(null);
                 if (domains.length === 0 && !domainsLoading) loadDomains();
-                if (techDomains.length === 0) loadTechDomains();
                 if (technologies.length === 0 && !techsLoading) loadTechnologies();
                 if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
                 if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
                 if (reqs.length === 0 && !reqsLoading) loadReqs();
-                if (products.length === 0 && !prodLoading) loadProducts();
               }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
@@ -1926,45 +1923,56 @@ export default function Index() {
 
         {/* === RELATION MAP SECTION === */}
         {activeSection === "relation-map" && (() => {
-          const isLoading = domainsLoading || techsLoading || tsolLoading || archLoading || reqsLoading || prodLoading;
+          const isLoading = domainsLoading || techsLoading || tsolLoading || archLoading || reqsLoading;
 
-          const MAX_NODES = 15;
+          // Collect all tech domain ids from technologies
+          const allTechDomainIds = [...new Set(technologies.flatMap((t) => t.tech_domain_ids || []))];
+          const visibleTechDomains = techDomains.filter((td) => allTechDomainIds.includes(td.id));
+
+          // Build link graph: orgDomain → techDomain → technology → [tsol/arch] → reqs
+          // We show up to 8 items per column to keep it readable
+          const MAX_NODES = 12;
 
           type RMNode = { id: string; label: string; sub?: string; col: number; idx: number; color: string; bg: string; icon: string };
           type RMEdge = { fromId: string; toId: string };
 
-          const COL_DEFS = [
-            { color: "#22c55e", bg: "rgba(34,197,94,0.13)",  icon: "Building2",    label: "Орг. домены" },
-            { color: "#a78bfa", bg: "rgba(139,92,246,0.13)", icon: "Globe",        label: "Тех. домены" },
-            { color: "#22d3ee", bg: "rgba(6,182,212,0.13)",  icon: "Cpu",          label: "Технологии" },
-            { color: "#f472b6", bg: "rgba(236,72,153,0.13)", icon: "Layers",       label: "Техрешения" },
-            { color: "#fbbf24", bg: "rgba(251,191,36,0.13)", icon: "ShieldCheck",  label: "Требования" },
-            { color: "#f97316", bg: "rgba(249,115,22,0.13)", icon: "Package",      label: "Продукты" },
+          const colColors = [
+            { color: "#22c55e",  bg: "rgba(34,197,94,0.15)",   border: "rgba(34,197,94,0.35)",   icon: "Building2" },
+            { color: "#a78bfa",  bg: "rgba(139,92,246,0.15)",  border: "rgba(139,92,246,0.35)",  icon: "Globe" },
+            { color: "#22d3ee",  bg: "rgba(6,182,212,0.15)",   border: "rgba(6,182,212,0.35)",   icon: "Cpu" },
+            { color: "#f472b6",  bg: "rgba(236,72,153,0.15)",  border: "rgba(236,72,153,0.35)",  icon: "Layers" },
+            { color: "#fbbf24",  bg: "rgba(251,191,36,0.15)",  border: "rgba(251,191,36,0.35)",  icon: "ShieldCheck" },
           ];
 
-          // ── Build nodes ────────────────────────────────────────────────
           const domNodes: RMNode[] = domains.slice(0, MAX_NODES).map((d, i) => ({
-            id: `dom-${d.id}`, label: d.name, sub: d.owner || undefined, col: 0, idx: i, ...COL_DEFS[0],
+            id: `dom-${d.id}`, label: d.name, sub: d.owner || undefined,
+            col: 0, idx: i, ...colColors[0],
           }));
-          const tdNodes: RMNode[] = techDomains.slice(0, MAX_NODES).map((td, i) => ({
-            id: `td-${td.id}`, label: td.name, sub: td.owner || undefined, col: 1, idx: i, ...COL_DEFS[1],
+
+          const tdNodes: RMNode[] = visibleTechDomains.slice(0, MAX_NODES).map((td, i) => ({
+            id: `td-${td.id}`, label: td.name, sub: td.owner || undefined,
+            col: 1, idx: i, ...colColors[1],
           }));
+
           const techNodes: RMNode[] = technologies.slice(0, MAX_NODES).map((t, i) => ({
-            id: `tech-${t.id}`, label: t.name, sub: t.versions?.[0] ? `v${t.versions[0]}` : undefined, col: 2, idx: i, ...COL_DEFS[2],
+            id: `tech-${t.id}`, label: t.name, sub: t.versions?.[0] ? `v${t.versions[0]}` : undefined,
+            col: 2, idx: i, ...colColors[2],
           }));
+
+          // For col 3: prefer techSolutions, fallback archTemplates
           const tsolNodes: RMNode[] = techSolutions.slice(0, MAX_NODES).map((ts, i) => ({
-            id: `tsol-${ts.id}`, label: ts.name, sub: ts.author || undefined, col: 3, idx: i, ...COL_DEFS[3],
+            id: `tsol-${ts.id}`, label: ts.name, sub: ts.author || undefined,
+            col: 3, idx: i, ...colColors[3],
           }));
+
           const reqNodes: RMNode[] = reqs.slice(0, MAX_NODES).map((r, i) => ({
-            id: `req-${r.id}`, label: r.name, sub: r.criticality || undefined, col: 4, idx: i, ...COL_DEFS[4],
-          }));
-          const prodNodes: RMNode[] = products.slice(0, MAX_NODES).map((p, i) => ({
-            id: `prod-${p.id}`, label: p.name, sub: p.author || undefined, col: 5, idx: i, ...COL_DEFS[5],
+            id: `req-${r.id}`, label: r.name, sub: r.criticality || undefined,
+            col: 4, idx: i, ...colColors[4],
           }));
 
-          const allNodes: RMNode[] = [...domNodes, ...tdNodes, ...techNodes, ...tsolNodes, ...reqNodes, ...prodNodes];
+          const allNodes: RMNode[] = [...domNodes, ...tdNodes, ...techNodes, ...tsolNodes, ...reqNodes];
 
-          // ── Build edges ────────────────────────────────────────────────
+          // Edges
           const edges: RMEdge[] = [];
 
           // orgDomain → techDomain
@@ -1974,6 +1982,7 @@ export default function Index() {
                 edges.push({ fromId: `dom-${oid}`, toId: `td-${td.id}` });
             });
           });
+
           // techDomain → technology
           technologies.slice(0, MAX_NODES).forEach((t) => {
             (t.tech_domain_ids || []).forEach((tdId) => {
@@ -1981,6 +1990,7 @@ export default function Index() {
                 edges.push({ fromId: `td-${tdId}`, toId: `tech-${t.id}` });
             });
           });
+
           // technology → techSolution
           techSolutions.slice(0, MAX_NODES).forEach((ts) => {
             (ts.technology_ids || []).forEach((tid) => {
@@ -1988,115 +1998,61 @@ export default function Index() {
                 edges.push({ fromId: `tech-${tid}`, toId: `tsol-${ts.id}` });
             });
           });
-          // techSolution → req (via shared technology_id)
+
+          // technology → req (via technology_id)
           reqs.slice(0, MAX_NODES).forEach((r) => {
-            const matchTsol = techSolutions.find((ts) => (ts.technology_ids || []).includes(r.technology_id));
-            if (matchTsol && tsolNodes.find((n) => n.id === `tsol-${matchTsol.id}`))
-              edges.push({ fromId: `tsol-${matchTsol.id}`, toId: `req-${r.id}` });
-            else if (techNodes.find((n) => n.id === `tech-${r.technology_id}`))
+            if (techNodes.find((n) => n.id === `tech-${r.technology_id}`))
+              edges.push({ fromId: `tech-${r.technology_id}`, toId: `req-${r.id}` });
+            if (tsolNodes.length === 0 && techNodes.find((n) => n.id === `tech-${r.technology_id}`))
               edges.push({ fromId: `tech-${r.technology_id}`, toId: `req-${r.id}` });
           });
-          // archTemplate → product (via arch_template_ids)
-          products.slice(0, MAX_NODES).forEach((p) => {
-            (p.arch_template_ids || []).forEach((archId) => {
-              // find tsol that links to this arch via tech_solution_ids (arch→tsol)
-              const arch = archTemplates.find((a) => a.id === archId);
-              if (arch) {
-                (arch.tech_solution_ids || []).forEach((tsId) => {
-                  if (tsolNodes.find((n) => n.id === `tsol-${tsId}`))
-                    edges.push({ fromId: `tsol-${tsId}`, toId: `prod-${p.id}` });
-                });
-              }
-              // also direct: req → product via tech chain
-              const linkedTechIds = [...new Set(
-                techSolutions.filter((ts) => (arch?.tech_solution_ids || []).includes(ts.id)).flatMap((ts) => ts.technology_ids || [])
-              )];
-              reqs.slice(0, MAX_NODES).forEach((r) => {
-                if (linkedTechIds.includes(r.technology_id) && reqNodes.find((n) => n.id === `req-${r.id}`))
-                  edges.push({ fromId: `req-${r.id}`, toId: `prod-${p.id}` });
-              });
+
+          // techSolution → req (through shared technology_id)
+          if (tsolNodes.length > 0) {
+            reqs.slice(0, MAX_NODES).forEach((r) => {
+              const matchTsol = techSolutions.find((ts) => (ts.technology_ids || []).includes(r.technology_id));
+              if (matchTsol && tsolNodes.find((n) => n.id === `tsol-${matchTsol.id}`))
+                edges.push({ fromId: `tsol-${matchTsol.id}`, toId: `req-${r.id}` });
             });
-          });
+          }
 
-          // ── Deduplicate edges ──────────────────────────────────────────
-          const edgeKeys = new Set<string>();
-          const dedupedEdges = edges.filter((e) => {
-            const k = `${e.fromId}→${e.toId}`;
-            if (edgeKeys.has(k)) return false;
-            edgeKeys.add(k);
-            return true;
-          });
+          // Layout constants
+          const COL_W = 220;
+          const NODE_H = 56;
+          const NODE_GAP = 12;
+          const COL_HEADER_H = 36;
+          const COLS = 5;
+          const SVG_W = COLS * COL_W + (COLS - 1) * 32;
 
-          // ── Highlight: all nodes reachable from/to rmHighlight ─────────
-          const getReachable = (startId: string): Set<string> => {
-            const visited = new Set<string>([startId]);
-            const queue = [startId];
-            while (queue.length) {
-              const cur = queue.shift()!;
-              dedupedEdges.forEach((e) => {
-                if (e.fromId === cur && !visited.has(e.toId)) { visited.add(e.toId); queue.push(e.toId); }
-                if (e.toId === cur && !visited.has(e.fromId)) { visited.add(e.fromId); queue.push(e.fromId); }
-              });
-            }
-            return visited;
-          };
-
-          const highlightedNodeIds: Set<string> = rmHighlight ? getReachable(rmHighlight) : new Set();
-          const highlightedEdges = rmHighlight
-            ? dedupedEdges.filter((e) => highlightedNodeIds.has(e.fromId) && highlightedNodeIds.has(e.toId))
-            : dedupedEdges;
-
-          // ── Layout ────────────────────────────────────────────────────
-          const COL_W = 200;
-          const COL_GAP = 28;
-          const NODE_H = 54;
-          const NODE_GAP = 10;
-          const COL_HEADER_H = 40;
-          const NCOLS = 6;
-          const SVG_W = NCOLS * COL_W + (NCOLS - 1) * COL_GAP;
-          const maxRows = Math.max(domNodes.length, tdNodes.length, techNodes.length, tsolNodes.length, reqNodes.length, prodNodes.length, 1);
-          const SVG_H = COL_HEADER_H + maxRows * (NODE_H + NODE_GAP) + 32;
-
-          const nodeX = (node: RMNode) => node.col * (COL_W + COL_GAP) + COL_W / 2;
           const nodeY = (node: RMNode) => COL_HEADER_H + node.idx * (NODE_H + NODE_GAP) + NODE_H / 2;
+          const nodeX = (node: RMNode) => node.col * (COL_W + 32) + COL_W / 2;
+
+          const maxRows = Math.max(domNodes.length, tdNodes.length, techNodes.length, tsolNodes.length, reqNodes.length);
+          const SVG_H = COL_HEADER_H + maxRows * (NODE_H + NODE_GAP) + 24;
+
+          const colLabels = ["Орг. домены", "Тех. домены", "Технологии", "Решения / Арх.", "Требования"];
+
+          const highlightedEdges = rmHighlight
+            ? edges.filter((e) => e.fromId === rmHighlight || e.toId === rmHighlight)
+            : edges;
+
+          const highlightedNodeIds = new Set<string>(
+            rmHighlight
+              ? [rmHighlight, ...highlightedEdges.map((e) => e.fromId), ...highlightedEdges.map((e) => e.toId)]
+              : []
+          );
 
           return (
             <div className="section-enter">
               {/* Header */}
-              <div className="mb-5 flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #22c55e, #f97316)" }} />
-                    <h1 className="text-2xl font-semibold text-white">Карта связей</h1>
-                  </div>
-                  <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.5)" }}>
-                    Полный граф: орг. домены → тех. домены → технологии → решения → требования → продукты
-                  </p>
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #00d4ff, #0066ff)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Карта связей</h1>
                 </div>
-                {rmHighlight && (
-                  <button onClick={() => setRmHighlight(null)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg mt-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}>
-                    <Icon name="X" size={11} /> Сбросить подсветку
-                  </button>
-                )}
-              </div>
-
-              {/* Stats chips */}
-              <div className="flex items-center gap-3 flex-wrap mb-5">
-                {[
-                  { label: "Орг. домены",  count: domains.length,       ...COL_DEFS[0] },
-                  { label: "Тех. домены",  count: techDomains.length,   ...COL_DEFS[1] },
-                  { label: "Технологии",   count: technologies.length,  ...COL_DEFS[2] },
-                  { label: "Техрешения",   count: techSolutions.length, ...COL_DEFS[3] },
-                  { label: "Требования",   count: reqs.length,          ...COL_DEFS[4] },
-                  { label: "Продукты",     count: products.length,      ...COL_DEFS[5] },
-                  { label: "Связей",       count: dedupedEdges.length,  color: "rgba(180,200,230,0.5)", bg: "rgba(255,255,255,0.04)", icon: "GitBranch" },
-                ].map((s) => (
-                  <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: s.bg, border: `1px solid ${s.color}25` }}>
-                    <Icon name={s.icon} size={12} style={{ color: s.color }} />
-                    <span className="text-sm font-bold" style={{ color: s.color }}>{s.count}</span>
-                    <span className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>{s.label}</span>
-                  </div>
-                ))}
+                <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
+                  Граф зависимостей: орг. домены → тех. домены → технологии → решения → требования
+                </p>
               </div>
 
               {isLoading ? (
@@ -2105,112 +2061,139 @@ export default function Index() {
                   <span className="text-sm">Загрузка данных...</span>
                 </div>
               ) : (
-                <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(5,10,24,0.97)", border: "1px solid rgba(255,255,255,0.07)" }}>
-
-                  {/* Column headers */}
-                  <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                    {COL_DEFS.map((col, ci) => (
-                      <div key={ci} className="flex items-center justify-center gap-1.5 py-3" style={{ width: COL_W + (ci < NCOLS - 1 ? COL_GAP : 0), flexShrink: 0 }}>
-                        <Icon name={col.icon} size={12} style={{ color: col.color }} />
-                        <span className="text-xs font-semibold" style={{ color: col.color }}>{col.label}</span>
+                <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(6,11,26,0.95)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  {/* Stats row */}
+                  <div className="flex items-center gap-6 px-6 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    {[
+                      { label: "Орг. домены",    count: domains.length,       color: colColors[0].color },
+                      { label: "Тех. домены",    count: techDomains.length,   color: colColors[1].color },
+                      { label: "Технологии",     count: technologies.length,  color: colColors[2].color },
+                      { label: "Решения",        count: techSolutions.length, color: colColors[3].color },
+                      { label: "Требования",     count: reqs.length,          color: colColors[4].color },
+                      { label: "Связей",         count: edges.length,         color: "rgba(180,200,230,0.4)" },
+                    ].map((s) => (
+                      <div key={s.label} className="flex items-center gap-2">
+                        <span className="text-lg font-bold" style={{ color: s.color }}>{s.count}</span>
+                        <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{s.label}</span>
                       </div>
                     ))}
+                    {rmHighlight && (
+                      <button onClick={() => setRmHighlight(null)} className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>
+                        <Icon name="X" size={11} /> Сбросить выбор
+                      </button>
+                    )}
                   </div>
 
                   {/* Canvas */}
-                  <div className="overflow-x-auto p-5">
-                    <div style={{ position: "relative", width: SVG_W, height: SVG_H }}>
+                  <div className="overflow-x-auto px-6 py-6">
+                    <div style={{ position: "relative", width: SVG_W, height: SVG_H, minWidth: SVG_W }}>
 
-                      {/* SVG edges */}
+                      {/* SVG edges layer */}
                       <svg style={{ position: "absolute", inset: 0, width: SVG_W, height: SVG_H, pointerEvents: "none" }}>
-                        {dedupedEdges.map((edge, ei) => {
+                        <defs>
+                          {colColors.map((c, i) => (
+                            <linearGradient key={i} id={`rmGrad${i}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor={colColors[i].color} stopOpacity="0.6" />
+                              <stop offset="100%" stopColor={colColors[Math.min(i + 1, 4)].color} stopOpacity="0.6" />
+                            </linearGradient>
+                          ))}
+                        </defs>
+                        {edges.map((edge, ei) => {
                           const from = allNodes.find((n) => n.id === edge.fromId);
-                          const to   = allNodes.find((n) => n.id === edge.toId);
+                          const to = allNodes.find((n) => n.id === edge.toId);
                           if (!from || !to) return null;
-                          const x1 = nodeX(from) + COL_W / 2 - 4;
+                          const x1 = nodeX(from) + COL_W / 2 - 8;
                           const y1 = nodeY(from);
-                          const x2 = nodeX(to)   - COL_W / 2 + 4;
+                          const x2 = nodeX(to) - COL_W / 2 + 8;
                           const y2 = nodeY(to);
-                          const mx = (x1 + x2) / 2;
+                          const cx1 = x1 + (x2 - x1) * 0.45;
+                          const cx2 = x2 - (x2 - x1) * 0.45;
                           const isHl = rmHighlight ? highlightedEdges.includes(edge) : false;
-                          const isDim = rmHighlight && !isHl;
+                          const isAny = !rmHighlight;
                           return (
                             <path
                               key={ei}
-                              d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                              d={`M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`}
                               fill="none"
-                              stroke={isHl ? COL_DEFS[from.col].color : "rgba(255,255,255,0.07)"}
-                              strokeWidth={isHl ? 1.8 : 1}
-                              strokeOpacity={isDim ? 0.05 : isHl ? 1 : 0.3}
+                              stroke={isHl ? colColors[from.col].color : "rgba(255,255,255,0.08)"}
+                              strokeWidth={isHl ? 1.5 : isAny ? 1 : 0.5}
+                              strokeOpacity={isHl ? 0.9 : isAny ? 0.35 : 0.1}
                             />
                           );
                         })}
                       </svg>
 
+                      {/* Column headers */}
+                      {colLabels.map((label, ci) => (
+                        <div
+                          key={ci}
+                          style={{
+                            position: "absolute",
+                            left: ci * (COL_W + 32),
+                            top: 0,
+                            width: COL_W,
+                            height: COL_HEADER_H,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <span className="text-xs font-semibold" style={{ color: colColors[ci].color }}>{label}</span>
+                        </div>
+                      ))}
+
                       {/* Nodes */}
                       {allNodes.map((node) => {
-                        const x = node.col * (COL_W + COL_GAP);
+                        const x = node.col * (COL_W + 32);
                         const y = COL_HEADER_H + node.idx * (NODE_H + NODE_GAP);
-                        const isActive = rmHighlight === node.id;
-                        const isConnected = rmHighlight ? highlightedNodeIds.has(node.id) : false;
                         const isDimmed = rmHighlight && !highlightedNodeIds.has(node.id);
-                        const connectedCount = rmHighlight && isActive
-                          ? dedupedEdges.filter((e) => e.fromId === node.id || e.toId === node.id).length
-                          : 0;
+                        const isActive = rmHighlight === node.id;
                         return (
                           <div
                             key={node.id}
                             onClick={() => setRmHighlight(rmHighlight === node.id ? null : node.id)}
-                            title={node.label}
                             style={{
                               position: "absolute",
-                              left: x, top: y,
-                              width: COL_W, height: NODE_H,
+                              left: x,
+                              top: y,
+                              width: COL_W,
+                              height: NODE_H,
                               borderRadius: 10,
-                              background: isActive
-                                ? node.bg
-                                : isConnected
-                                ? `${node.bg.replace("0.13", "0.08")}`
-                                : "rgba(255,255,255,0.03)",
-                              border: `1px solid ${isActive ? node.color : isConnected ? node.color + "50" : isDimmed ? "rgba(255,255,255,0.04)" : node.color + "30"}`,
-                              display: "flex", alignItems: "center", gap: 9, padding: "0 11px",
+                              background: isActive ? node.bg : isDimmed ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)",
+                              border: `1px solid ${isActive ? node.color : isDimmed ? "rgba(255,255,255,0.04)" : node.color + "40"}`,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: "0 12px",
                               cursor: "pointer",
-                              transition: "all 0.15s ease",
-                              opacity: isDimmed ? 0.2 : 1,
-                              boxShadow: isActive ? `0 0 16px ${node.color}25` : "none",
+                              transition: "all 0.18s ease",
+                              opacity: isDimmed ? 0.3 : 1,
                             }}
                           >
-                            <div style={{ width: 26, height: 26, borderRadius: 7, background: node.bg, border: `1px solid ${node.color}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                              <Icon name={node.icon} size={12} style={{ color: node.color }} />
+                            <div style={{ width: 28, height: 28, borderRadius: 7, background: node.bg, border: `1px solid ${node.color}40`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <Icon name={node.icon} size={13} style={{ color: node.color }} />
                             </div>
                             <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: isDimmed ? "rgba(180,200,230,0.25)" : "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: isDimmed ? "rgba(180,200,230,0.3)" : "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {node.label}
                               </div>
-                              <div style={{ fontSize: 10, color: isDimmed ? "rgba(180,200,230,0.15)" : node.color, opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {node.sub || ""}
-                              </div>
+                              {node.sub && (
+                                <div style={{ fontSize: 10, color: isDimmed ? "rgba(180,200,230,0.2)" : node.color, opacity: 0.75, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {node.sub}
+                                </div>
+                              )}
                             </div>
-                            {isActive && connectedCount > 0 && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: node.color, background: node.bg, border: `1px solid ${node.color}40`, borderRadius: 5, padding: "1px 5px", flexShrink: 0 }}>
-                                {connectedCount}
-                              </span>
-                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Footer hint */}
-                  <div className="flex items-center gap-3 px-5 py-2.5 border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                    <Icon name="MousePointerClick" size={11} style={{ color: "rgba(180,200,230,0.25)" }} />
-                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>
-                      Нажмите на узел — подсветятся все связанные объекты по всей цепочке. Повторный клик снимает выделение.
-                    </span>
-                    <span className="text-[10px] ml-auto" style={{ color: "rgba(180,200,230,0.2)" }}>
-                      Показано до {MAX_NODES} объектов в каждой колонке
-                    </span>
+                  {/* Legend */}
+                  <div className="flex items-center gap-4 px-6 py-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Нажмите на узел чтобы подсветить связи</span>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>·</span>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Показано до {MAX_NODES} объектов в каждой колонке</span>
                   </div>
                 </div>
               )}
