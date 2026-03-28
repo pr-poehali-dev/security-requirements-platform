@@ -24,7 +24,7 @@ import {
   type ExportEntity,
 } from "@/utils/exportUtils";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io" | "products" | "relation-map";
+type Section = "library" | "test-library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates" | "data-io" | "products" | "relation-map";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -502,6 +502,32 @@ export default function Index() {
   const [libExtWithoutIodFilter, setLibExtWithoutIodFilter] = useState("Все");
   const [libIntWithIodFilter, setLibIntWithIodFilter] = useState("Все");
   const [libIntWithoutIodFilter, setLibIntWithoutIodFilter] = useState("Все");
+
+  // === TEST LIBRARY state (duplicate of library) ===
+  const [testQuery, setTestQuery] = useState("");
+  const [testSection, setTestSection] = useState<"all" | "reqs" | "technologies" | "techsolutions" | "arch">("all");
+  const [testStatusFilter, setTestStatusFilter] = useState("Все");
+  const [testTypeFilter, setTestTypeFilter] = useState("Все");
+  const [testSelected, setTestSelected] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
+  const [testExpanded, setTestExpanded] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
+  const [testExpandedDiagramTab, setTestExpandedDiagramTab] = useState(0);
+  const [testReqSearch, setTestReqSearch] = useState("");
+  const [testReqFilterStatus, setTestReqFilterStatus] = useState("Все");
+  const [testReqFilterCriticality, setTestReqFilterCriticality] = useState("Все");
+  const [testReqFilterType, setTestReqFilterType] = useState("Все");
+  const [testReqFilterEnv, setTestReqFilterEnv] = useState("Все");
+  const [testReqFilterStage, setTestReqFilterStage] = useState("Все");
+  const [testCriticalityFilter, setTestCriticalityFilter] = useState("Все");
+  const [testEnvFilter, setTestEnvFilter] = useState("Все");
+  const [testStageFilter, setTestStageFilter] = useState("Все");
+  const [testApprovedIbFilter, setTestApprovedIbFilter] = useState("Все");
+  const [testApprovedItFilter, setTestApprovedItFilter] = useState("Все");
+  const [testAuthorFilter, setTestAuthorFilter] = useState("Все");
+  const [testShowFilters, setTestShowFilters] = useState(false);
+  const [testExtWithIodFilter, setTestExtWithIodFilter] = useState("Все");
+  const [testExtWithoutIodFilter, setTestExtWithoutIodFilter] = useState("Все");
+  const [testIntWithIodFilter, setTestIntWithIodFilter] = useState("Все");
+  const [testIntWithoutIodFilter, setTestIntWithoutIodFilter] = useState("Все");
 
   // Domains state
   const DOMAINS_API = getApiUrl("domains");
@@ -1952,6 +1978,7 @@ export default function Index() {
             <nav className="flex items-center gap-1 overflow-x-auto">
               {[
                 { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
+                { key: "test-library",   label: "Тест",                   onClick: () => { setActiveSection("test-library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
                 { key: "domains",        label: "Орг. домены",            onClick: () => setActiveSection("domains") },
                 { key: "tech-domains",   label: "Тех. домены",            onClick: () => setActiveSection("tech-domains") },
                 { key: "technologies",   label: "Технологии",             onClick: () => setActiveSection("technologies") },
@@ -3578,6 +3605,999 @@ export default function Index() {
                           </div>
                         );
                       })()}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              );
+            })()}
+          </div>
+          );
+        })()}
+
+        {/* === TEST LIBRARY SECTION === */}
+        {activeSection === "test-library" && (() => {
+          // load all data on first visit
+          if (reqs.length === 0 && !reqsLoading) loadReqs();
+          if (technologies.length === 0 && !techsLoading) loadTechnologies();
+          if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
+          if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
+
+          const tSTATUS_LIST = ["Все", "Активен", "В разработке", "Архив", "Устарел", "Не активен"];
+          const tSTATUS_META: Record<string, { color: string; icon: string }> = {
+            "Активен":      { color: "#22c55e", icon: "CheckCircle2" },
+            "В разработке": { color: "#f59e0b", icon: "Wrench" },
+            "Архив":        { color: "#8b5cf6", icon: "Archive" },
+            "Устарел":      { color: "#ef4444", icon: "AlertTriangle" },
+            "Не активен":   { color: "#6b7280", icon: "MinusCircle" },
+          };
+
+          const tq = testQuery.trim().toLowerCase();
+
+          type TestLibItem =
+            | { kind: "req"; data: Req }
+            | { kind: "tech"; data: Technology }
+            | { kind: "tsol"; data: TechSolution }
+            | { kind: "arch"; data: ArchTemplate };
+
+          const tMatchReqs: TestLibItem[] = reqs
+            .filter((r) => {
+              if (testSection !== "all" && testSection !== "reqs") return false;
+              if (testStatusFilter !== "Все" && r.status !== testStatusFilter) return false;
+              if (testTypeFilter !== "Все" && r.req_type !== testTypeFilter) return false;
+              if (testCriticalityFilter !== "Все" && r.criticality !== testCriticalityFilter) return false;
+              if (testEnvFilter !== "Все" && !(r.environments || []).includes(testEnvFilter as ReqEnv)) return false;
+              if (testStageFilter !== "Все" && !(r.stages || []).includes(testStageFilter as ReqStage)) return false;
+              if (testExtWithIodFilter !== "Все" && r.ext_with_iod !== testExtWithIodFilter) return false;
+              if (testExtWithoutIodFilter !== "Все" && r.ext_without_iod !== testExtWithoutIodFilter) return false;
+              if (testIntWithIodFilter !== "Все" && r.int_with_iod !== testIntWithIodFilter) return false;
+              if (testIntWithoutIodFilter !== "Все" && r.int_without_iod !== testIntWithoutIodFilter) return false;
+              if (!tq) return true;
+              return (
+                r.name.toLowerCase().includes(tq) ||
+                (r.description || "").toLowerCase().includes(tq) ||
+                (r.req_type || "").toLowerCase().includes(tq) ||
+                (r.criticality || "").toLowerCase().includes(tq) ||
+                (r.status || "").toLowerCase().includes(tq) ||
+                (r.control_metric || "").toLowerCase().includes(tq) ||
+                (r.control_description || "").toLowerCase().includes(tq) ||
+                (r.norm_doc_link || "").toLowerCase().includes(tq) ||
+                (r.procurement || "").toLowerCase().includes(tq) ||
+                (r.version || "").toLowerCase().includes(tq) ||
+                (r.id || "").toLowerCase().includes(tq) ||
+                (r.ext_with_iod || "").toLowerCase().includes(tq) ||
+                (r.ext_without_iod || "").toLowerCase().includes(tq) ||
+                (r.int_with_iod || "").toLowerCase().includes(tq) ||
+                (r.int_without_iod || "").toLowerCase().includes(tq) ||
+                (r.environments || []).some((e) => e.toLowerCase().includes(tq)) ||
+                (r.stages || []).some((s) => s.toLowerCase().includes(tq)) ||
+                r.tags.some((t) => t.toLowerCase().includes(tq))
+              );
+            })
+            .map((r) => ({ kind: "req" as const, data: r }));
+
+          const tMatchTechs: TestLibItem[] = technologies
+            .filter((t) => {
+              if (testSection !== "all" && testSection !== "technologies") return false;
+              if (testStatusFilter !== "Все" && t.status !== testStatusFilter) return false;
+              if (testTypeFilter !== "Все") return false;
+              if (!tq) return true;
+              return (
+                t.name.toLowerCase().includes(tq) ||
+                (t.description || "").toLowerCase().includes(tq) ||
+                (t.versions || []).some((v) => v.toLowerCase().includes(tq)) ||
+                t.tags.some((tg) => tg.toLowerCase().includes(tq)) ||
+                (t.id || "").toLowerCase().includes(tq)
+              );
+            })
+            .map((t) => ({ kind: "tech" as const, data: t }));
+
+          const tMatchTsols: TestLibItem[] = techSolutions
+            .filter((ts) => {
+              if (testSection !== "all" && testSection !== "techsolutions") return false;
+              if (testStatusFilter !== "Все" && ts.status !== testStatusFilter) return false;
+              if (testTypeFilter !== "Все") return false;
+              if (testApprovedIbFilter !== "Все" && String(ts.approved_ib) !== testApprovedIbFilter) return false;
+              if (testApprovedItFilter !== "Все" && String(ts.approved_it) !== testApprovedItFilter) return false;
+              if (testAuthorFilter !== "Все" && (ts.author || "") !== testAuthorFilter) return false;
+              if (!tq) return true;
+              return (
+                ts.name.toLowerCase().includes(tq) ||
+                (ts.description || "").toLowerCase().includes(tq) ||
+                (ts.author || "").toLowerCase().includes(tq) ||
+                (ts.version || "").toLowerCase().includes(tq) ||
+                (ts.tech_domain || "").toLowerCase().includes(tq) ||
+                (ts.id || "").toLowerCase().includes(tq) ||
+                ts.tags.some((tg) => tg.toLowerCase().includes(tq))
+              );
+            })
+            .map((ts) => ({ kind: "tsol" as const, data: ts }));
+
+          const tMatchArchs: TestLibItem[] = archTemplates
+            .filter((a) => {
+              if (testSection !== "all" && testSection !== "arch") return false;
+              if (testStatusFilter !== "Все" && a.status !== testStatusFilter) return false;
+              if (testTypeFilter !== "Все") return false;
+              if (testApprovedIbFilter !== "Все" && String(a.approved_ib) !== testApprovedIbFilter) return false;
+              if (testApprovedItFilter !== "Все" && String(a.approved_it) !== testApprovedItFilter) return false;
+              if (testAuthorFilter !== "Все" && (a.author || "") !== testAuthorFilter) return false;
+              if (!tq) return true;
+              return (
+                a.name.toLowerCase().includes(tq) ||
+                (a.description || "").toLowerCase().includes(tq) ||
+                (a.author || "").toLowerCase().includes(tq) ||
+                (a.version || "").toLowerCase().includes(tq) ||
+                (a.id || "").toLowerCase().includes(tq) ||
+                a.tags.some((tg) => tg.toLowerCase().includes(tq))
+              );
+            })
+            .map((a) => ({ kind: "arch" as const, data: a }));
+
+          const tAllResults: TestLibItem[] = [...tMatchReqs, ...tMatchTechs, ...tMatchTsols, ...tMatchArchs];
+
+          const tReqTypes = [...new Set(reqs.map((r) => r.req_type).filter(Boolean))];
+          const tReqCriticalities = [...new Set(reqs.map((r) => r.criticality).filter(Boolean))];
+          const tReqEnvs: ReqEnv[] = ["Prod", "ProdLike", "Stage", "Test", "Dev"];
+          const tReqStages: ReqStage[] = ["Стадия дизайн", "Стадия деплоя", "Стадия рантайм"];
+          const tAllAuthors = [...new Set([
+            ...techSolutions.map((ts) => ts.author).filter(Boolean),
+            ...archTemplates.map((a) => a.author).filter(Boolean),
+          ])].sort();
+          const tActiveFilterCount = [
+            testCriticalityFilter !== "Все",
+            testEnvFilter !== "Все",
+            testStageFilter !== "Все",
+            testApprovedIbFilter !== "Все",
+            testApprovedItFilter !== "Все",
+            testAuthorFilter !== "Все",
+            testExtWithIodFilter !== "Все",
+            testExtWithoutIodFilter !== "Все",
+            testIntWithIodFilter !== "Все",
+            testIntWithoutIodFilter !== "Все",
+          ].filter(Boolean).length;
+          const tResetAllFilters = () => {
+            setTestStatusFilter("Все"); setTestTypeFilter("Все");
+            setTestCriticalityFilter("Все"); setTestEnvFilter("Все");
+            setTestStageFilter("Все"); setTestApprovedIbFilter("Все");
+            setTestApprovedItFilter("Все"); setTestAuthorFilter("Все");
+            setTestExtWithIodFilter("Все"); setTestExtWithoutIodFilter("Все");
+            setTestIntWithIodFilter("Все"); setTestIntWithoutIodFilter("Все");
+            setTestQuery("");
+          };
+          const tINTERACTION_VALUES: ReqInteraction[] = ["Обязательный", "Рекомендуемый", "Не требуется", "Запрещено"];
+
+          const tCountByStatus = <T extends { status: string }>(arr: T[]) =>
+            arr.reduce((acc, item) => { acc[item.status] = (acc[item.status] || 0) + 1; return acc; }, {} as Record<string, number>);
+
+          const tReqCounters   = tCountByStatus(reqs);
+          const tTechCounters  = tCountByStatus(technologies);
+          const tTsolCounters  = tCountByStatus(techSolutions);
+          const tArchCounters  = tCountByStatus(archTemplates);
+
+          const tSECTION_DEFS = [
+            { key: "reqs",         label: "Требования",          icon: "ShieldCheck",   color: "#0066ff", counters: tReqCounters,  total: reqs.length },
+            { key: "technologies", label: "Технологии",           icon: "Cpu",           color: "#06b6d4", counters: tTechCounters,  total: technologies.length },
+            { key: "techsolutions",label: "Технические решения",  icon: "Layers",        color: "#8b5cf6", counters: tTsolCounters,  total: techSolutions.length },
+            { key: "arch",         label: "Типовые архитектуры",  icon: "LayoutTemplate",color: "#10b981", counters: tArchCounters,  total: archTemplates.length },
+          ] as const;
+
+          const tIsLoading = reqsLoading || techsLoading || tsolLoading || archLoading;
+
+          const tSECTION_TAB_LABELS: Record<string, string> = {
+            all: "Все", reqs: "Требования", technologies: "Технологии", techsolutions: "Техрешения", arch: "Архитектуры",
+          };
+
+          return (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #0066ff, #00d4ff)" }} />
+                <h1 className="text-2xl font-semibold text-white">Тест</h1>
+              </div>
+              <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
+                Глобальный поиск по всем объектам портала — требованиям, технологиям, техническим решениям и архитектурам
+              </p>
+            </div>
+
+            {/* ── Search bar ─────────────────────────────────────────────── */}
+            <div className="relative mb-5">
+              <Icon name="Search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+              <input
+                type="text"
+                placeholder="Поиск по всем объектам портала — требованиям, технологиям, техрешениям, архитектурам..."
+                value={testQuery}
+                onChange={(e) => setTestQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-all font-sans"
+                style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(210,225,245,0.9)", boxShadow: "0 2px 12px rgba(0,0,0,0.25)" }}
+                onFocus={(e) => (e.target.style.borderColor = "rgba(0,102,255,0.5)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+              />
+              {testQuery && (
+                <button onClick={() => setTestQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity">
+                  <Icon name="X" size={14} style={{ color: "rgba(180,200,230,0.7)" }} />
+                </button>
+              )}
+            </div>
+
+            {/* ── Section tabs ────────────────────────────────────────────── */}
+            <div className="flex items-center gap-2 flex-wrap mb-5">
+              {(["all", "reqs", "technologies", "techsolutions", "arch"] as const).map((sec) => {
+                const active = testSection === sec;
+                const counts: Record<string, number> = { all: reqs.length + technologies.length + techSolutions.length + archTemplates.length, reqs: reqs.length, technologies: technologies.length, techsolutions: techSolutions.length, arch: archTemplates.length };
+                const icons: Record<string, string> = { all: "Globe", reqs: "ShieldCheck", technologies: "Cpu", techsolutions: "Layers", arch: "LayoutTemplate" };
+                return (
+                  <button key={sec} onClick={() => { setTestSection(sec); setTestTypeFilter("Все"); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? "rgba(0,102,255,0.18)" : "rgba(255,255,255,0.04)", border: `1px solid ${active ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.07)"}`, color: active ? "#63b0ff" : "rgba(180,200,230,0.55)" }}>
+                    <Icon name={icons[sec]} size={12} />
+                    {tSECTION_TAB_LABELS[sec]}
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: active ? "rgba(0,102,255,0.2)" : "rgba(255,255,255,0.06)" }}>{counts[sec]}</span>
+                  </button>
+                );
+              })}
+              <div className="ml-auto flex items-center gap-2">
+                <select value={testStatusFilter} onChange={(e) => setTestStatusFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${testStatusFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testStatusFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                  {tSTATUS_LIST.map((s) => <option key={s} value={s}>{s === "Все" ? "Все статусы" : s}</option>)}
+                </select>
+                <button
+                  onClick={() => setTestShowFilters((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: testShowFilters || tActiveFilterCount > 0 ? "rgba(0,102,255,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${testShowFilters || tActiveFilterCount > 0 ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testShowFilters || tActiveFilterCount > 0 ? "#63b0ff" : "rgba(180,200,230,0.55)" }}
+                >
+                  <Icon name="SlidersHorizontal" size={12} />
+                  Фильтры
+                  {tActiveFilterCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(0,102,255,0.3)", color: "#63b0ff" }}>{tActiveFilterCount}</span>
+                  )}
+                </button>
+                {(tActiveFilterCount > 0 || testStatusFilter !== "Все" || testQuery) && (
+                  <button onClick={tResetAllFilters} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}>
+                    <Icon name="RotateCcw" size={11} />
+                    Сброс
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ── Extended filter panel ───────────────────────────────────── */}
+            {testShowFilters && (
+              <div className="mb-5 p-4 rounded-xl flex flex-wrap gap-3" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(0,102,255,0.12)" }}>
+                {(testSection === "all" || testSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Тип требования</span>
+                    <select value={testTypeFilter} onChange={(e) => setTestTypeFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testTypeFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testTypeFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все типы</option>
+                      {tReqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Критичность</span>
+                    <select value={testCriticalityFilter} onChange={(e) => setTestCriticalityFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testCriticalityFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testCriticalityFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Любая</option>
+                      {tReqCriticalities.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Окружение</span>
+                    <select value={testEnvFilter} onChange={(e) => setTestEnvFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testEnvFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testEnvFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все окружения</option>
+                      {tReqEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Стадия</span>
+                    <select value={testStageFilter} onChange={(e) => setTestStageFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testStageFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testStageFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все стадии</option>
+                      {tReqStages.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "techsolutions" || testSection === "arch") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Согласовано ИБ</span>
+                    <select value={testApprovedIbFilter} onChange={(e) => setTestApprovedIbFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testApprovedIbFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testApprovedIbFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Любое</option>
+                      <option value="true">Да</option>
+                      <option value="false">Нет</option>
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "techsolutions" || testSection === "arch") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Согласовано ИТ</span>
+                    <select value={testApprovedItFilter} onChange={(e) => setTestApprovedItFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testApprovedItFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testApprovedItFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Любое</option>
+                      <option value="true">Да</option>
+                      <option value="false">Нет</option>
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "techsolutions" || testSection === "arch") && tAllAuthors.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Автор</span>
+                    <select value={testAuthorFilter} onChange={(e) => setTestAuthorFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testAuthorFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testAuthorFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все авторы</option>
+                      {tAllAuthors.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(testSection === "all" || testSection === "reqs") && (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Внешнее с ИОД</span>
+                      <select value={testExtWithIodFilter} onChange={(e) => setTestExtWithIodFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testExtWithIodFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testExtWithIodFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                        <option value="Все">Любое</option>
+                        {tINTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Внешнее без ИОД</span>
+                      <select value={testExtWithoutIodFilter} onChange={(e) => setTestExtWithoutIodFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testExtWithoutIodFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testExtWithoutIodFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                        <option value="Все">Любое</option>
+                        {tINTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Внутреннее с ИОД</span>
+                      <select value={testIntWithIodFilter} onChange={(e) => setTestIntWithIodFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testIntWithIodFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testIntWithIodFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                        <option value="Все">Любое</option>
+                        {tINTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Внутреннее без ИОД</span>
+                      <select value={testIntWithoutIodFilter} onChange={(e) => setTestIntWithoutIodFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${testIntWithoutIodFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: testIntWithoutIodFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                        <option value="Все">Любое</option>
+                        {tINTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Summary cards ───────────────────────────────────────────── */}
+            {testSection === "all" && !tq && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                {tSECTION_DEFS.map((def) => {
+                  const activeCount = def.counters["Активен"] || 0;
+                  const devCount = def.counters["В разработке"] || 0;
+                  return (
+                    <div key={def.key} onClick={() => setTestSection(def.key as typeof testSection)} className="glass-card rounded-xl p-4 cursor-pointer hover:scale-[1.01] transition-transform" style={{ borderColor: `${def.color}25` }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${def.color}18`, border: `1px solid ${def.color}30` }}>
+                          <Icon name={def.icon} size={13} style={{ color: def.color }} />
+                        </div>
+                        <span className="text-xs font-medium" style={{ color: "rgba(180,200,230,0.7)" }}>{def.label}</span>
+                      </div>
+                      <div className="text-2xl font-bold text-white mb-1">{def.total}</div>
+                      <div className="flex gap-2 text-[10px]">
+                        {activeCount > 0 && <span style={{ color: "#22c55e" }}>{activeCount} актив.</span>}
+                        {devCount > 0 && <span style={{ color: "#f59e0b" }}>{devCount} в разр.</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Results ─────────────────────────────────────────────────── */}
+            <div className="flex gap-5">
+              <div className="flex-1 min-w-0 space-y-2">
+                {tIsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "rgba(0,102,255,0.3)", borderTopColor: "#0066ff" }} />
+                  </div>
+                ) : tAllResults.length === 0 ? (
+                  <div className="py-16 text-center" style={{ color: "rgba(180,200,230,0.35)" }}>
+                    <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Ничего не найдено</p>
+                    {tq && <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.2)" }}>Попробуйте изменить запрос или сбросить фильтры</p>}
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                      Найдено: {tAllResults.length} объект{tAllResults.length === 1 ? "" : tAllResults.length < 5 ? "а" : "ов"}
+                      {tq && <span> по запросу «{testQuery}»</span>}
+                    </div>
+                    {tAllResults.map((item) => {
+                      const isSelected = testSelected?.id === item.data.id && testSelected?.kind === item.kind;
+                      const toggle = () => setTestSelected(isSelected ? null : { kind: item.kind, id: item.data.id });
+
+                      if (item.kind === "req") {
+                        const r = item.data;
+                        const sm = REQ_STATUS_META[r.status];
+                        const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                        return (
+                          <div key={r.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(0,102,255,0.4)" : undefined, background: isSelected ? "rgba(0,102,255,0.06)" : undefined }}>
+                            <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(0,102,255,0.12)", border: "1px solid rgba(0,102,255,0.2)" }}>
+                              <Icon name="ShieldCheck" size={13} style={{ color: "#63b0ff" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff" }}>Требование</span>
+                                {r.req_type && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>{r.req_type}</span>}
+                                {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColor[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                              </div>
+                              <p className="text-sm font-medium text-white truncate">{r.name}</p>
+                            </div>
+                            <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                          </div>
+                        );
+                      }
+                      if (item.kind === "tech") {
+                        const t = item.data;
+                        const sm = TECH_STATUS_META[t.status];
+                        return (
+                          <div key={t.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(6,182,212,0.4)" : undefined, background: isSelected ? "rgba(6,182,212,0.06)" : undefined }}>
+                            <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                              <Icon name="Cpu" size={13} style={{ color: "#22d3ee" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>Технология</span>
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
+                              </div>
+                              <p className="text-sm font-medium text-white truncate">{t.name}</p>
+                            </div>
+                            <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                          </div>
+                        );
+                      }
+                      if (item.kind === "tsol") {
+                        const ts = item.data;
+                        const sm = TECH_SOLUTION_STATUS_META[ts.status];
+                        return (
+                          <div key={ts.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(139,92,246,0.4)" : undefined, background: isSelected ? "rgba(139,92,246,0.06)" : undefined }}>
+                            <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.2)" }}>
+                              <Icon name="Layers" size={13} style={{ color: "#a78bfa" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.1)", color: "#a78bfa" }}>Техрешение</span>
+                                {ts.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{ts.version}</span>}
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
+                              </div>
+                              <p className="text-sm font-medium text-white truncate">{ts.name}</p>
+                            </div>
+                            <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                          </div>
+                        );
+                      }
+                      const a = item.data as ArchTemplate;
+                      const sm = ARCH_TEMPLATE_STATUS_META[a.status];
+                      return (
+                        <div key={a.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(16,185,129,0.4)" : undefined, background: isSelected ? "rgba(16,185,129,0.06)" : undefined }}>
+                          <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                            <Icon name="LayoutTemplate" size={13} style={{ color: "#34d399" }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>Архитектура</span>
+                              {a.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{a.version}</span>}
+                              {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
+                            </div>
+                            <p className="text-sm font-medium text-white truncate">{a.name}</p>
+                          </div>
+                          <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* Detail panel */}
+              {testSelected && (() => {
+                const selItem = tAllResults.find((i) => i.kind === testSelected.kind && i.data.id === testSelected.id);
+                if (!selItem) return null;
+
+                const accentMap: Record<string, { color: string; bg: string; border: string; icon: string; label: string }> = {
+                  req:  { color: "#63b0ff", bg: "rgba(0,102,255,0.06)",   border: "rgba(0,102,255,0.2)",   icon: "ShieldCheck",   label: "Требование" },
+                  tech: { color: "#22d3ee", bg: "rgba(6,182,212,0.06)",   border: "rgba(6,182,212,0.2)",   icon: "Cpu",           label: "Технология" },
+                  tsol: { color: "#a78bfa", bg: "rgba(139,92,246,0.06)",  border: "rgba(139,92,246,0.2)",  icon: "Layers",        label: "Техрешение" },
+                  arch: { color: "#34d399", bg: "rgba(16,185,129,0.06)",  border: "rgba(16,185,129,0.2)",  icon: "LayoutTemplate",label: "Архитектура" },
+                };
+                const ac = accentMap[selItem.kind];
+
+                return (
+                  <div className="w-72 shrink-0 rounded-xl p-4 space-y-3 overflow-y-auto" style={{ background: ac.bg, border: `1px solid ${ac.border}`, maxHeight: "70vh" }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${ac.color}15`, color: ac.color }}>{ac.label}</span>
+                      <button onClick={() => setTestSelected(null)} className="opacity-40 hover:opacity-100 transition-opacity"><Icon name="X" size={14} style={{ color: "rgba(180,200,230,0.7)" }} /></button>
+                    </div>
+
+                    {selItem.kind === "req" && (() => {
+                      const r = selItem.data as Req;
+                      const sm = REQ_STATUS_META[r.status];
+                      const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                      return (
+                        <>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                            <p className="text-sm font-semibold text-white leading-snug">{r.name}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {r.req_type && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff" }}>{r.req_type}</span>}
+                            {r.criticality && <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ color: critColor[r.criticality] || "#fbbf24", background: `${critColor[r.criticality] || "#fbbf24"}15` }}>{r.criticality}</span>}
+                            {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                          </div>
+                          {r.description && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                              <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{r.description}</p>
+                            </div>
+                          )}
+                          {r.control_metric && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Метрика контроля</p>
+                              <p className="text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>{r.control_metric}</p>
+                            </div>
+                          )}
+                          {r.control_description && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Контрольная мера</p>
+                              <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.55)" }}>{r.control_description}</p>
+                            </div>
+                          )}
+                          {r.norm_doc_link && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Нормативный документ</p>
+                              <p className="text-xs font-mono break-all" style={{ color: "#63b0ff" }}>{r.norm_doc_link}</p>
+                            </div>
+                          )}
+                          {r.version && (
+                            <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                              <span>Версия</span><span className="font-mono">{r.version}</span>
+                            </div>
+                          )}
+                          {r.tags.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                              <div className="flex flex-wrap gap-1">{r.tags.map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.65)" }}>#{t}</span>)}</div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {selItem.kind === "tech" && (() => {
+                      const t = selItem.data as Technology;
+                      const sm = TECH_STATUS_META[t.status];
+                      return (
+                        <>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                            <p className="text-sm font-semibold text-white leading-snug">{t.name}</p>
+                          </div>
+                          {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
+                          {t.description && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                              <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{t.description}</p>
+                            </div>
+                          )}
+                          {t.versions.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Версии</p>
+                              <div className="flex flex-wrap gap-1">{t.versions.map((v) => <span key={v} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.08)", color: "#22d3ee" }}>{v}</span>)}</div>
+                            </div>
+                          )}
+                          {t.tags.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                              <div className="flex flex-wrap gap-1">{t.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>#{tg}</span>)}</div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {selItem.kind === "tsol" && (() => {
+                      const ts = selItem.data as TechSolution;
+                      const sm = TECH_SOLUTION_STATUS_META[ts.status];
+                      return (
+                        <>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                            <p className="text-sm font-semibold text-white leading-snug">{ts.name}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ts.version && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.5)" }}>v{ts.version}</span>}
+                            {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
+                            {ts.approved_ib && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                            {ts.approved_it && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                          </div>
+                          {ts.description && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                              <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{ts.description}</p>
+                            </div>
+                          )}
+                          {ts.author && (
+                            <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                              <span>Автор</span><span style={{ color: "rgba(180,200,230,0.6)" }}>{ts.author}</span>
+                            </div>
+                          )}
+                          {ts.tags.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                              <div className="flex flex-wrap gap-1">{ts.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>#{tg}</span>)}</div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {selItem.kind === "arch" && (() => {
+                      const a = selItem.data as ArchTemplate;
+                      const sm = ARCH_TEMPLATE_STATUS_META[a.status];
+                      return (
+                        <>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                            <p className="text-sm font-semibold text-white leading-snug">{a.name}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {a.version && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.5)" }}>v{a.version}</span>}
+                            {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
+                            {a.approved_ib && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                            {a.approved_it && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                          </div>
+                          {a.description && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                              <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{a.description}</p>
+                            </div>
+                          )}
+                          {a.author && (
+                            <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                              <span>Автор</span><span style={{ color: "rgba(180,200,230,0.6)" }}>{a.author}</span>
+                            </div>
+                          )}
+                          {a.tags.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                              <div className="flex flex-wrap gap-1">{a.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.07)", color: "rgba(16,185,129,0.6)" }}>#{tg}</span>)}</div>
+                            </div>
+                          )}
+                          {a.image_url && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Превью</p>
+                              <img src={a.image_url} alt={a.name} className="w-full rounded-lg object-cover" style={{ maxHeight: "120px" }} />
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    <button
+                      onClick={() => { setTestSelected(null); setTestExpanded({ kind: selItem.kind, id: selItem.data.id }); }}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: `${ac.color}12`, border: `1px solid ${ac.color}25`, color: ac.color }}
+                    >
+                      <Icon name="Maximize2" size={12} />
+                      Открыть детали
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ── Expanded dialog ─────────────────────────────────────────── */}
+            {testExpanded && (() => {
+              const expItem = [...reqs.map((r) => ({ kind: "req" as const, data: r })), ...technologies.map((t) => ({ kind: "tech" as const, data: t })), ...techSolutions.map((ts) => ({ kind: "tsol" as const, data: ts })), ...archTemplates.map((a) => ({ kind: "arch" as const, data: a }))].find((i) => i.kind === testExpanded.kind && i.data.id === testExpanded.id);
+              if (!expItem) return null;
+
+              const accentMap: Record<string, { color: string; bg: string; border: string; icon: string; label: string }> = {
+                req:  { color: "#63b0ff", bg: "rgba(0,102,255,0.04)",  border: "rgba(0,102,255,0.25)",  icon: "ShieldCheck",   label: "Требование" },
+                tech: { color: "#22d3ee", bg: "rgba(6,182,212,0.04)",  border: "rgba(6,182,212,0.25)",  icon: "Cpu",           label: "Технология" },
+                tsol: { color: "#a78bfa", bg: "rgba(139,92,246,0.04)", border: "rgba(139,92,246,0.25)", icon: "Layers",        label: "Техрешение" },
+                arch: { color: "#34d399", bg: "rgba(16,185,129,0.04)", border: "rgba(16,185,129,0.25)", icon: "LayoutTemplate",label: "Архитектура" },
+              };
+              const ac = accentMap[expItem.kind];
+
+              const linkedReqs: Req[] = expItem.kind === "req" ? [] : expItem.kind === "tech"
+                ? reqs.filter((r) => r.technology_id === expItem.data.id)
+                : expItem.kind === "tsol"
+                  ? reqs.filter((r) => (expItem.data as TechSolution).technology_ids?.includes(r.technology_id))
+                  : reqs.filter((r) => {
+                      const tsolIds = archTemplates.find((a) => a.id === expItem.data.id) ? (expItem.data as ArchTemplate).tech_solution_ids || [] : [];
+                      return techSolutions.filter((ts) => tsolIds.includes(ts.id)).some((ts) => ts.technology_ids?.includes(r.technology_id));
+                    });
+
+              const reqTechDomainRefs = techDomains;
+              const reqTechRefs = technologies;
+
+              const filteredLinkedReqs = linkedReqs.filter((r) => {
+                const sq = testReqSearch.toLowerCase();
+                const matchSearch = !sq || r.name.toLowerCase().includes(sq) || r.id.toLowerCase().includes(sq) || (r.req_type||"").toLowerCase().includes(sq) || (r.description||"").toLowerCase().includes(sq) || r.tags.some((t) => t.toLowerCase().includes(sq));
+                const matchStatus = testReqFilterStatus === "Все" || r.status === testReqFilterStatus;
+                const matchCrit = testReqFilterCriticality === "Все" || r.criticality === testReqFilterCriticality;
+                const matchType = testReqFilterType === "Все" || r.req_type === testReqFilterType;
+                const matchEnv = testReqFilterEnv === "Все" || (r.environments || []).includes(testReqFilterEnv as ReqEnv);
+                const matchStage = testReqFilterStage === "Все" || (r.stages || []).includes(testReqFilterStage as ReqStage);
+                return matchSearch && matchStatus && matchCrit && matchType && matchEnv && matchStage;
+              });
+
+              const fStatuses = [...new Set(linkedReqs.map((r) => r.status).filter(Boolean))];
+              const fCrits = [...new Set(linkedReqs.map((r) => r.criticality).filter(Boolean))];
+              const fTypes = [...new Set(linkedReqs.map((r) => r.req_type).filter(Boolean))];
+              const fEnvs = [...new Set(linkedReqs.flatMap((r) => r.environments || []).filter(Boolean))];
+              const fStages = [...new Set(linkedReqs.flatMap((r) => r.stages || []).filter(Boolean))];
+              const activeFilters = [testReqSearch, testReqFilterStatus !== "Все", testReqFilterCriticality !== "Все", testReqFilterType !== "Все", testReqFilterEnv !== "Все", testReqFilterStage !== "Все"].filter(Boolean).length;
+
+              const exportCSV = () => {
+                const headers = ["№","ID","Название","Тип","Критичность","Статус","Версия","Тех.домен","Технология","Описание","Контроль.Метрика","Контроль.Способ","Норм.документ","Среды","Стадии","Закупки","Внешнее с ИОД","Внешнее без ИОД","Внутреннее с ИОД","Внутреннее без ИОД","Скор.Балл","Скор.Вес","Теги"];
+                const rows = filteredLinkedReqs.map((r, idx) => {
+                  const dom  = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
+                  const tech = reqTechRefs.find((t) => t.id === r.technology_id);
+                  const esc  = (v: string | number | undefined | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+                  return [
+                    idx + 1, esc(r.id), esc(r.name), esc(r.req_type), esc(r.criticality), esc(r.status), esc(r.version),
+                    esc(dom?.name), esc(tech?.name), esc(r.description), esc(r.control_metric), esc(r.control_description),
+                    esc(r.norm_doc_link), esc((r.environments || []).join("; ")), esc((r.stages || []).join("; ")), esc(r.procurement),
+                    esc(r.ext_with_iod), esc(r.ext_without_iod), esc(r.int_with_iod), esc(r.int_without_iod),
+                    r.score_value ?? "", r.score_weight ?? "", esc((r.tags || []).join("; ")),
+                  ].join(",");
+                });
+                const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement("a");
+                a.href = url; a.download = `requirements_${expItem.data.id}_${new Date().toISOString().slice(0,10)}.csv`;
+                a.click(); URL.revokeObjectURL(url);
+              };
+
+              return (
+                <Dialog open onOpenChange={(o) => { if (!o) setTestExpanded(null); }}>
+                  <DialogContent className="p-0 overflow-hidden flex flex-col" style={{ background: "#080f1e", border: `1px solid ${ac.border}`, width: "min(900px, 96vw)", maxWidth: "none", maxHeight: "90vh" }}>
+                    <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0" style={{ background: ac.bg, borderColor: ac.border }}>
+                      <DialogTitle className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${ac.color}18`, border: `1px solid ${ac.color}30` }}>
+                          <Icon name={ac.icon} size={16} style={{ color: ac.color }} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${ac.color}15`, color: ac.color }}>{ac.label}</span>
+                          </div>
+                          <span className="text-white text-base font-semibold leading-snug">{expItem.data.name}</span>
+                        </div>
+                      </DialogTitle>
+                    </DialogHeader>
+
+                    {expItem.kind !== "req" && linkedReqs.length > 0 && (
+                      <div className="px-5 py-3 border-b shrink-0 space-y-2" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="relative flex-1 min-w-48">
+                            <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                            <input
+                              type="text"
+                              placeholder="Поиск по требованиям..."
+                              value={testReqSearch}
+                              onChange={(e) => setTestReqSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none"
+                              style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                            />
+                            {testReqSearch && <button onClick={() => setTestReqSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"><Icon name="X" size={11} style={{ color: "rgba(180,200,230,0.6)" }} /></button>}
+                          </div>
+                          {fStatuses.length > 0 && (
+                            <select value={testReqFilterStatus} onChange={(e) => setTestReqFilterStatus(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: testReqFilterStatus === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все статусы</option>
+                              {fStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {fCrits.length > 0 && (
+                            <select value={testReqFilterCriticality} onChange={(e) => setTestReqFilterCriticality(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: testReqFilterCriticality === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все уровни</option>
+                              {fCrits.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          )}
+                          {fTypes.length > 0 && (
+                            <select value={testReqFilterType} onChange={(e) => setTestReqFilterType(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: testReqFilterType === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все типы</option>
+                              {fTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          )}
+                          {fEnvs.length > 0 && (
+                            <select value={testReqFilterEnv} onChange={(e) => setTestReqFilterEnv(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: testReqFilterEnv === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все среды</option>
+                              {fEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                          )}
+                          {fStages.length > 0 && (
+                            <select value={testReqFilterStage} onChange={(e) => setTestReqFilterStage(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: testReqFilterStage === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все стадии</option>
+                              {fStages.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {activeFilters > 0 && (
+                            <button onClick={() => { setTestReqSearch(""); setTestReqFilterStatus("Все"); setTestReqFilterCriticality("Все"); setTestReqFilterType("Все"); setTestReqFilterEnv("Все"); setTestReqFilterStage("Все"); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                              <Icon name="X" size={11} />Сбросить ({activeFilters})
+                            </button>
+                          )}
+                          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ml-auto shrink-0" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#22c55e" }}>
+                            <Icon name="Download" size={13} />
+                            CSV ({filteredLinkedReqs.length})
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                      {expItem.kind === "req" && (() => {
+                        const r = expItem.data as Req;
+                        const sm = REQ_STATUS_META[r.status];
+                        const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-4">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Идентификатор</p>
+                                <p className="text-xs font-mono" style={{ color: "#63b0ff" }}>{r.id}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                                <p className="text-sm font-semibold text-white">{r.name}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {r.req_type && <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff" }}>{r.req_type}</span>}
+                                {r.criticality && <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ color: critColor[r.criticality] || "#fbbf24", background: `${critColor[r.criticality] || "#fbbf24"}15` }}>{r.criticality}</span>}
+                                {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                              </div>
+                              {r.description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.7)" }}>{r.description}</p>
+                                </div>
+                              )}
+                            </div>
+                            <div className="space-y-4">
+                              {r.control_metric && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Метрика контроля</p>
+                                  <p className="text-xs" style={{ color: "rgba(180,200,230,0.65)" }}>{r.control_metric}</p>
+                                </div>
+                              )}
+                              {r.control_description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Контрольная мера</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{r.control_description}</p>
+                                </div>
+                              )}
+                              {r.norm_doc_link && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Нормативный документ</p>
+                                  <p className="text-xs font-mono break-all" style={{ color: "#63b0ff" }}>{r.norm_doc_link}</p>
+                                </div>
+                              )}
+                              {r.environments && r.environments.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Окружения</p>
+                                  <div className="flex flex-wrap gap-1">{r.environments.map((e) => <span key={e} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.65)" }}>{e}</span>)}</div>
+                                </div>
+                              )}
+                              {r.stages && r.stages.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Стадии</p>
+                                  <div className="flex flex-wrap gap-1">{r.stages.map((s) => <span key={s} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "rgba(167,139,250,0.65)" }}>{s}</span>)}</div>
+                                </div>
+                              )}
+                              {r.tags && r.tags.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                                  <div className="flex flex-wrap gap-1">{r.tags.map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.65)" }}>#{t}</span>)}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {expItem.kind !== "req" && (
+                        <div>
+                          {expItem.kind === "tech" && (() => {
+                            const t = expItem.data as Technology;
+                            const sm = TECH_STATUS_META[t.status];
+                            return (
+                              <div className="space-y-4 mb-6">
+                                <div className="flex flex-wrap gap-2">
+                                  {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
+                                  {(t.versions || []).map((v) => <span key={v} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.08)", color: "#22d3ee" }}>{v}</span>)}
+                                </div>
+                                {t.description && <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.7)" }}>{t.description}</p>}
+                                {t.tags.length > 0 && <div className="flex flex-wrap gap-1">{t.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>#{tg}</span>)}</div>}
+                              </div>
+                            );
+                          })()}
+                          {expItem.kind === "tsol" && (() => {
+                            const ts = expItem.data as TechSolution;
+                            const sm = TECH_SOLUTION_STATUS_META[ts.status];
+                            return (
+                              <div className="space-y-4 mb-6">
+                                <div className="flex flex-wrap gap-2">
+                                  {ts.version && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.5)" }}>v{ts.version}</span>}
+                                  {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
+                                  {ts.approved_ib && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                                  {ts.approved_it && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                                </div>
+                                {ts.description && <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.7)" }}>{ts.description}</p>}
+                                {ts.author && <p className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>Автор: {ts.author}</p>}
+                                {ts.tags.length > 0 && <div className="flex flex-wrap gap-1">{ts.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>#{tg}</span>)}</div>}
+                              </div>
+                            );
+                          })()}
+                          {expItem.kind === "arch" && (() => {
+                            const a = expItem.data as ArchTemplate;
+                            const sm = ARCH_TEMPLATE_STATUS_META[a.status];
+                            return (
+                              <div className="space-y-4 mb-6">
+                                <div className="flex flex-wrap gap-2">
+                                  {a.version && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.5)" }}>v{a.version}</span>}
+                                  {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
+                                  {a.approved_ib && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                                  {a.approved_it && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                                </div>
+                                {a.image_url && <img src={a.image_url} alt={a.name} className="w-full rounded-xl object-cover" style={{ maxHeight: "200px" }} />}
+                                {a.description && <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.7)" }}>{a.description}</p>}
+                                {a.author && <p className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>Автор: {a.author}</p>}
+                                {a.tags.length > 0 && <div className="flex flex-wrap gap-1">{a.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.07)", color: "rgba(16,185,129,0.6)" }}>#{tg}</span>)}</div>}
+                                {(a.diagrams || []).length > 0 && (
+                                  <div>
+                                    <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Диаграммы</p>
+                                    <div className="flex gap-1 mb-3 flex-wrap">
+                                      {(a.diagrams || []).map((d, i) => (
+                                        <button key={d.id} onClick={() => setTestExpandedDiagramTab(i)} className="text-[10px] px-2 py-1 rounded" style={{ background: testExpandedDiagramTab === i ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${testExpandedDiagramTab === i ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.07)"}`, color: testExpandedDiagramTab === i ? "#34d399" : "rgba(180,200,230,0.5)" }}>
+                                          {d.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    {(a.diagrams || [])[testExpandedDiagramTab] && (
+                                      <pre className="text-[10px] p-3 rounded-lg overflow-x-auto font-mono leading-relaxed" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.65)" }}>
+                                        {(a.diagrams || [])[testExpandedDiagramTab].content}
+                                      </pre>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {linkedReqs.length > 0 && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                Требования безопасности ({filteredLinkedReqs.length}{filteredLinkedReqs.length !== linkedReqs.length ? ` из ${linkedReqs.length}` : ""})
+                              </p>
+                              <div className="space-y-2">
+                                {filteredLinkedReqs.map((r) => {
+                                  const sm = REQ_STATUS_META[r.status];
+                                  const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                                  return (
+                                    <div key={r.id} className="rounded-lg px-3 py-2.5 space-y-1" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-[10px] font-mono" style={{ color: "#63b0ff" }}>{r.id}</span>
+                                        {r.req_type && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>{r.req_type}</span>}
+                                        {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColor[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                        {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}10`, color: sm.color }}><Icon name={sm.icon} size={8} />{r.status}</span>}
+                                      </div>
+                                      <p className="text-xs font-medium text-white">{r.name}</p>
+                                      {r.description && <p className="text-[11px] leading-relaxed" style={{ color: "rgba(180,200,230,0.5)" }}>{r.description}</p>}
+                                    </div>
+                                  );
+                                })}
+                                {filteredLinkedReqs.length === 0 && (
+                                  <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований по выбранным фильтрам</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
