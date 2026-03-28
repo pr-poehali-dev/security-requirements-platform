@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -151,6 +151,57 @@ interface OrgDomain {
   updated_at?: string;
   created_at?: string;
 }
+
+type SolStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface SolAttachment {
+  id: string;
+  type: "mermaid" | "link" | "file";
+  name: string;
+  content: string;
+}
+
+interface TechSolution {
+  id: string;
+  name: string;
+  version: string;
+  owner: string;
+  status: SolStatus;
+  description: string;
+  tags: string[];
+  technology_ids: string[];
+  tech_domain_ids: string[];
+  attachments: SolAttachment[];
+  approved_ib: boolean;
+  approved_it: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface SolTechRef {
+  id: string;
+  name: string;
+  status: string;
+  versions: string[];
+  tags: string[];
+  tech_domain_ids: string[];
+}
+
+interface SolFullData {
+  solution: TechSolution;
+  technologies: SolTechRef[];
+  requirements: Req[];
+  sol_domains: { id: string; name: string }[];
+}
+
+const SOL_STATUS_META: Record<SolStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
+const SOL_STATUSES: SolStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
 const DOMAIN_STATUS_META: Record<DomainStatus, { color: string; bg: string; icon: string }> = {
   "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
@@ -996,6 +1047,138 @@ export default function Index() {
     }
   };
 
+  // ── Tech Solutions state ────────────────────────────────────────
+  const TECH_SOLUTIONS_API = "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2";
+  const [solutions, setSolutions] = useState<TechSolution[]>([]);
+  const [solTechRefs, setSolTechRefs] = useState<SolTechRef[]>([]);
+  const [solDomainRefs, setSolDomainRefs] = useState<{ id: string; name: string }[]>([]);
+  const [solsLoading, setSolsLoading] = useState(false);
+  const [solDialogOpen, setSolDialogOpen] = useState(false);
+  const [solSaving, setSolSaving] = useState(false);
+  const [solSaveError, setSolSaveError] = useState("");
+  const [deleteSolId, setDeleteSolId] = useState<string | null>(null);
+  const [editingSol, setEditingSol] = useState<TechSolution | null>(null);
+  const [viewSolFull, setViewSolFull] = useState<SolFullData | null>(null);
+  const [viewSolFullLoading, setViewSolFullLoading] = useState(false);
+  const [solSearch, setSolSearch] = useState("");
+  const [solTagInput, setSolTagInput] = useState("");
+  const [solAttachTab, setSolAttachTab] = useState<"mermaid" | "link">("mermaid");
+  const [solAttachDraft, setSolAttachDraft] = useState<Omit<SolAttachment, "id">>({ type: "mermaid", name: "", content: "" });
+  const [viewSolMermaid, setViewSolMermaid] = useState<SolAttachment | null>(null);
+
+  const makeEmptySolForm = (count: number): TechSolution => ({
+    id: `tech.prod.${String(count + 1).padStart(3, "0")}`,
+    name: "", version: "1.0.0", owner: "",
+    status: "В разработке", description: "", tags: [],
+    technology_ids: [], tech_domain_ids: [], attachments: [],
+    approved_ib: false, approved_it: false,
+  });
+  const [solForm, setSolForm] = useState<TechSolution>(makeEmptySolForm(0));
+
+  const loadSolutions = async () => {
+    setSolsLoading(true);
+    try {
+      const res = await fetch(TECH_SOLUTIONS_API);
+      const data = await res.json();
+      setSolutions(data.items || []);
+      setSolTechRefs(data.technologies || []);
+      setSolDomainRefs(data.tech_domains || []);
+    } finally {
+      setSolsLoading(false);
+    }
+  };
+
+  const openCreateSol = () => {
+    setEditingSol(null);
+    setSolForm(makeEmptySolForm(solutions.length));
+    setSolTagInput(""); setSolSaveError("");
+    setSolAttachDraft({ type: "mermaid", name: "", content: "" });
+    setSolAttachTab("mermaid");
+    setSolDialogOpen(true);
+  };
+
+  const openEditSol = (s: TechSolution) => {
+    setEditingSol(s);
+    setSolForm({ ...s, tags: s.tags || [], technology_ids: s.technology_ids || [], tech_domain_ids: s.tech_domain_ids || [], attachments: s.attachments || [] });
+    setSolTagInput(""); setSolSaveError("");
+    setSolAttachDraft({ type: "mermaid", name: "", content: "" });
+    setSolAttachTab("mermaid");
+    setSolDialogOpen(true);
+  };
+
+  const addSolTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || solForm.tags.includes(tag) || solForm.tags.length >= 10) return;
+    setSolForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setSolTagInput("");
+  };
+
+  const toggleSolTech = (id: string) => {
+    setSolForm((f) => ({
+      ...f,
+      technology_ids: f.technology_ids.includes(id)
+        ? f.technology_ids.filter((x) => x !== id)
+        : [...f.technology_ids, id],
+    }));
+  };
+
+  const addSolAttachment = () => {
+    if (!solAttachDraft.name.trim() || !solAttachDraft.content.trim()) return;
+    const att: SolAttachment = { id: Date.now().toString(), ...solAttachDraft };
+    setSolForm((f) => ({ ...f, attachments: [...(f.attachments || []), att] }));
+    setSolAttachDraft({ type: solAttachTab, name: "", content: "" });
+  };
+
+  const handleSaveSol = async () => {
+    if (!solForm.name.trim() || !solForm.id.trim()) { setSolSaveError("Название и ID обязательны"); return; }
+    setSolSaving(true); setSolSaveError("");
+    try {
+      const method = editingSol ? "PUT" : "POST";
+      const res = await fetch(TECH_SOLUTIONS_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(solForm),
+      });
+      const data = await res.json();
+      if (data.error) { setSolSaveError(data.error); return; }
+      if (editingSol) {
+        setSolutions((prev) => prev.map((s) => (s.id === editingSol.id ? data : s)));
+      } else {
+        setSolutions((prev) => [...prev, data]);
+      }
+      setSolDialogOpen(false);
+    } finally {
+      setSolSaving(false);
+    }
+  };
+
+  const handleDeleteSol = async (id: string) => {
+    await fetch(TECH_SOLUTIONS_API, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setSolutions((prev) => prev.filter((s) => s.id !== id));
+    setDeleteSolId(null);
+    if (viewSolFull?.solution.id === id) setViewSolFull(null);
+  };
+
+  const openSolFull = async (sol: TechSolution) => {
+    setViewSolFull({ solution: sol, technologies: [], requirements: [], sol_domains: [] });
+    setViewSolFullLoading(true);
+    try {
+      const res = await fetch(`${TECH_SOLUTIONS_API}/full/${sol.id}`);
+      const data = await res.json();
+      setViewSolFull(data);
+    } finally {
+      setViewSolFullLoading(false);
+    }
+  };
+
+  const filteredSolutions = solutions.filter((s) =>
+    s.name.toLowerCase().includes(solSearch.toLowerCase()) ||
+    s.id.toLowerCase().includes(solSearch.toLowerCase()) ||
+    s.owner.toLowerCase().includes(solSearch.toLowerCase()) ||
+    (s.tags || []).some((t) => t.toLowerCase().includes(solSearch.toLowerCase()))
+  );
+  // ─────────────────────────────────────────────────────────────────
+
   const handleDbSave = () => {
     if (pendingMode === "local" && !skipCheck && checkState !== "ok") return;
     setDbMode(pendingMode);
@@ -1094,6 +1277,12 @@ export default function Index() {
               onClick={() => { setActiveSection("requirements"); loadReqs(); }}
             >
               Требования
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-solutions" ? "active" : ""}`}
+              onClick={() => { setActiveSection("tech-solutions"); loadSolutions(); }}
+            >
+              Тех. решения
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -2338,7 +2527,558 @@ export default function Index() {
           </div>
         )}
 
+        {/* ══════════════════ TECH SOLUTIONS SECTION ══════════════════ */}
+        {activeSection === "tech-solutions" && (() => {
+          return (
+            <div className="max-w-7xl mx-auto px-8 py-8 section-enter">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.25)" }}>
+                      <Icon name="Layers" size={20} style={{ color: "#63b0ff" }} />
+                    </div>
+                    <h1 className="text-2xl font-bold text-white">Технические решения</h1>
+                  </div>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>
+                    Архитектурные паттерны и конфигурации на базе технологий ИБ
+                  </p>
+                </div>
+                <button
+                  onClick={openCreateSol}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white"
+                  style={{ background: "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)", border: "1px solid rgba(0,102,255,0.4)" }}
+                >
+                  <Icon name="Plus" size={16} /> Добавить решение
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative mb-6">
+                <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <input value={solSearch} onChange={(e) => setSolSearch(e.target.value)}
+                  placeholder="Поиск по названию, ID, владельцу, тегам..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                />
+              </div>
+
+              {solsLoading && (
+                <div className="flex justify-center py-20">
+                  <Icon name="Loader2" size={32} className="animate-spin" style={{ color: "#63b0ff" }} />
+                </div>
+              )}
+
+              {!solsLoading && filteredSolutions.length === 0 && (
+                <div className="text-center py-20" style={{ color: "rgba(180,200,230,0.3)" }}>
+                  <Icon name="Layers" size={48} className="mx-auto mb-3 opacity-20" />
+                  <p className="text-base">Технических решений пока нет</p>
+                  <p className="text-sm mt-1">Нажмите «Добавить решение» чтобы создать первое</p>
+                </div>
+              )}
+
+              {!solsLoading && filteredSolutions.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {filteredSolutions.map((sol) => {
+                    const sm = SOL_STATUS_META[sol.status] || SOL_STATUS_META["В разработке"];
+                    const linkedTechs = (sol.technology_ids || [])
+                      .map((tid) => solTechRefs.find((t) => t.id === tid))
+                      .filter(Boolean) as SolTechRef[];
+                    return (
+                      <div
+                        key={sol.id}
+                        className="glass-card rounded-2xl p-5 flex flex-col gap-3 cursor-pointer hover:border-blue-500/30 transition-all"
+                        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                        onClick={() => openSolFull(sol)}
+                        onMouseEnter={(e) => { const b = e.currentTarget.querySelector("[data-sol-actions]") as HTMLElement; if (b) b.style.opacity = "1"; }}
+                        onMouseLeave={(e) => { const b = e.currentTarget.querySelector("[data-sol-actions]") as HTMLElement; if (b) b.style.opacity = "0"; }}
+                      >
+                        {/* ID + статус */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{sol.id}</span>
+                              {sol.version && <span className="text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>v{sol.version}</span>}
+                            </div>
+                            <h3 className="text-white font-semibold text-sm">{sol.name}</h3>
+                          </div>
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg shrink-0" style={{ background: sm.bg, border: `1px solid ${sm.color}30` }}>
+                            <Icon name={sm.icon as "CheckCircle2"} size={11} style={{ color: sm.color }} />
+                            <span className="text-xs font-medium" style={{ color: sm.color }}>{sol.status}</span>
+                          </div>
+                        </div>
+
+                        {sol.owner && (
+                          <div className="flex items-center gap-1.5">
+                            <Icon name="User" size={12} style={{ color: "rgba(180,200,230,0.4)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>{sol.owner}</span>
+                          </div>
+                        )}
+
+                        {sol.description && (
+                          <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{sol.description}</p>
+                        )}
+
+                        {linkedTechs.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {linkedTechs.slice(0, 3).map((t) => (
+                              <span key={t.id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>{t.name}</span>
+                            ))}
+                            {linkedTechs.length > 3 && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.4)" }}>+{linkedTechs.length - 3}</span>}
+                          </div>
+                        )}
+
+                        {(sol.tags || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {(sol.tags || []).map((tag) => (
+                              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>#{tag}</span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center gap-3 text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
+                            <span className="flex items-center gap-1">
+                              <Icon name="Link2" size={11} />{(sol.technology_ids || []).length} техн.
+                            </span>
+                            {sol.approved_ib && <span className="flex items-center gap-1 text-green-400"><Icon name="ShieldCheck" size={11} />ИБ</span>}
+                            {sol.approved_it && <span className="flex items-center gap-1 text-blue-400"><Icon name="BadgeCheck" size={11} />ИТ</span>}
+                            {(sol.attachments || []).length > 0 && <span className="flex items-center gap-1"><Icon name="GitBranch" size={11} />{sol.attachments.length}</span>}
+                          </div>
+                          <div data-sol-actions className="flex items-center gap-1 transition-opacity duration-150" style={{ opacity: 0 }}>
+                            <button onClick={(e) => { e.stopPropagation(); openEditSol(sol); }} className="p-1.5 rounded-lg hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }} title="Редактировать"><Icon name="Pencil" size={13} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteSolId(sol.id); }} className="p-1.5 rounded-lg hover:bg-red-500/10 transition-all" style={{ color: "rgba(239,68,68,0.6)" }} title="Удалить"><Icon name="Trash2" size={13} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!solsLoading && solutions.length > 0 && (
+                <div className="mt-5 text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>
+                  Всего: <strong className="text-white/40">{solutions.length}</strong> &nbsp;·&nbsp; Найдено: <strong className="text-white/40">{filteredSolutions.length}</strong>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       </main>
+
+      {/* ══════════ TECH SOLUTION CREATE/EDIT DIALOG ══════════ */}
+      <Dialog open={solDialogOpen} onOpenChange={(o) => { if (!o) setSolDialogOpen(false); }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.3)" }}>
+                <Icon name="Layers" size={15} style={{ color: "#63b0ff" }} />
+              </div>
+              {editingSol ? "Редактировать решение" : "Новое техническое решение"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="p-6 space-y-5">
+            {/* ID */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>ID решения</Label>
+              <Input value={solForm.id} onChange={(e) => setSolForm((f) => ({ ...f, id: e.target.value }))} disabled={!!editingSol} placeholder="tech.prod.001" className="font-mono text-sm bg-white/5 border-white/10 text-white" />
+            </div>
+
+            {/* Название */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Название <span className="text-red-400">*</span></Label>
+              <Input value={solForm.name} onChange={(e) => setSolForm((f) => ({ ...f, name: e.target.value }))} placeholder="Аутентификация микросервисов через JWT" className="bg-white/5 border-white/10 text-white" />
+            </div>
+
+            {/* Описание */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea value={solForm.description} onChange={(e) => setSolForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Описание технического решения..."
+                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+              />
+            </div>
+
+            {/* Статус */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+              <div className="flex flex-wrap gap-2">
+                {SOL_STATUSES.map((s) => {
+                  const sm = SOL_STATUS_META[s];
+                  const active = solForm.status === s;
+                  return (
+                    <button key={s} onClick={() => setSolForm((f) => ({ ...f, status: s }))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                      style={{ background: active ? sm.bg : "rgba(255,255,255,0.04)", border: `1px solid ${active ? sm.color + "60" : "rgba(255,255,255,0.08)"}`, color: active ? sm.color : "rgba(180,200,230,0.5)" }}
+                    >
+                      <Icon name={sm.icon as "CheckCircle2"} size={11} />{s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Автор + Версия */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Автор / Владелец</Label>
+                <Input value={solForm.owner} onChange={(e) => setSolForm((f) => ({ ...f, owner: e.target.value }))} placeholder="Отдел ИБ" className="bg-white/5 border-white/10 text-white" />
+              </div>
+              <div>
+                <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={solForm.version} onChange={(e) => setSolForm((f) => ({ ...f, version: e.target.value }))} placeholder="1.0.0" className="bg-white/5 border-white/10 text-white" />
+              </div>
+            </div>
+
+            {/* Согласования */}
+            <div className="flex gap-3">
+              {([["approved_ib", "Согласован с ИБ", "#22c55e", "ShieldCheck"], ["approved_it", "Согласован с ИТ", "#63b0ff", "BadgeCheck"]] as const).map(([field, label, color, icon]) => {
+                const active = solForm[field as "approved_ib" | "approved_it"];
+                return (
+                  <button key={field} onClick={() => setSolForm((f) => ({ ...f, [field]: !f[field as "approved_ib"] }))}
+                    className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all"
+                    style={{ background: active ? `${color}18` : "rgba(255,255,255,0.04)", border: `1px solid ${active ? color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? color : "rgba(180,200,230,0.45)" }}
+                  >
+                    <Icon name={icon} size={15} />{label}
+                    <div className="ml-auto w-4 h-4 rounded flex items-center justify-center" style={{ background: active ? `${color}30` : "rgba(255,255,255,0.05)", border: `1px solid ${active ? color + "60" : "rgba(255,255,255,0.1)"}` }}>
+                      {active && <Icon name="Check" size={10} style={{ color }} />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Теги */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex gap-2 mb-2">
+                <input value={solTagInput} onChange={(e) => setSolTagInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSolTag(solTagInput); } }}
+                  placeholder="Введите тег и нажмите Enter"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+                />
+                <button onClick={() => addSolTag(solTagInput)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(0,102,255,0.2)", border: "1px solid rgba(0,102,255,0.3)", color: "#63b0ff" }}>+</button>
+              </div>
+              {(solForm.tags || []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(solForm.tags || []).map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                      #{tag}<button onClick={() => setSolForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="ml-0.5 hover:text-red-400">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Технологии */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Технологии ({(solForm.technology_ids || []).length} выбрано)</Label>
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", maxHeight: 200, overflowY: "auto" }}>
+                {solTechRefs.length === 0 ? (
+                  <div className="p-4 text-sm text-center" style={{ color: "rgba(180,200,230,0.35)" }}>Список технологий пуст</div>
+                ) : solTechRefs.map((t) => {
+                  const sel = (solForm.technology_ids || []).includes(t.id);
+                  return (
+                    <button key={t.id} onClick={() => toggleSolTech(t.id)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    >
+                      <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                        style={{ background: sel ? "rgba(0,102,255,0.3)" : "rgba(255,255,255,0.05)", border: `1px solid ${sel ? "rgba(0,102,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                        {sel && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-white">{t.name}</span>
+                        <span className="text-xs ml-2 font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Схемы Mermaid / ссылки */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Приложенные схемы</Label>
+              <div className="flex gap-2 mb-3">
+                {(["mermaid", "link"] as const).map((t) => (
+                  <button key={t} onClick={() => { setSolAttachTab(t); setSolAttachDraft({ type: t, name: "", content: "" }); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{ background: solAttachTab === t ? "rgba(0,102,255,0.2)" : "rgba(255,255,255,0.04)", border: `1px solid ${solAttachTab === t ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: solAttachTab === t ? "#63b0ff" : "rgba(180,200,230,0.5)" }}
+                  >
+                    <Icon name={t === "mermaid" ? "GitBranch" : "Link"} size={11} className="inline mr-1" />
+                    {t === "mermaid" ? "Mermaid-схема" : "Ссылка"}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <input value={solAttachDraft.name} onChange={(e) => setSolAttachDraft((d) => ({ ...d, name: e.target.value }))}
+                  placeholder="Название схемы / ссылки"
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+                />
+                <textarea value={solAttachDraft.content} onChange={(e) => setSolAttachDraft((d) => ({ ...d, content: e.target.value }))}
+                  rows={solAttachTab === "mermaid" ? 4 : 1}
+                  placeholder={solAttachTab === "mermaid" ? "graph TD\n  A --> B" : "https://..."}
+                  className="w-full px-3 py-2 rounded-lg text-sm font-mono outline-none resize-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+                />
+                <button onClick={addSolAttachment}
+                  className="w-full py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.25)", color: "#63b0ff" }}
+                >
+                  + Добавить
+                </button>
+              </div>
+              {(solForm.attachments || []).length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {(solForm.attachments || []).map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <Icon name={a.type === "mermaid" ? "GitBranch" : "Link"} size={12} style={{ color: a.type === "mermaid" ? "#34d399" : "#a78bfa" }} />
+                      <span className="text-xs text-white flex-1 truncate">{a.name}</span>
+                      <button onClick={() => setSolForm((f) => ({ ...f, attachments: f.attachments.filter((x) => x.id !== a.id) }))} className="text-xs hover:text-red-400" style={{ color: "rgba(180,200,230,0.4)" }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {solSaveError && <p className="text-sm text-red-400">{solSaveError}</p>}
+          </div>
+
+          <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <button onClick={() => setSolDialogOpen(false)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>Отмена</button>
+            <button onClick={handleSaveSol} disabled={solSaving}
+              className="px-5 py-2 rounded-lg text-sm font-medium text-white"
+              style={{ background: "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)", border: "1px solid rgba(0,102,255,0.4)", opacity: solSaving ? 0.7 : 1 }}
+            >{solSaving ? "Сохранение..." : editingSol ? "Сохранить" : "Создать"}</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════ TECH SOLUTION FULL VIEW ══════════ */}
+      {viewSolFull && (
+        <Dialog open onOpenChange={(o) => { if (!o) setViewSolFull(null); }}>
+          <DialogContent className="border overflow-hidden flex flex-col"
+            style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxWidth: "76rem", width: "96vw", maxHeight: "92vh", overflowY: "auto" }}>
+            <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0 sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.07)" }}>
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.25)" }}>
+                  <Icon name="Layers" size={22} style={{ color: "#63b0ff" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{viewSolFull.solution.id}</span>
+                    {viewSolFull.solution.version && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewSolFull.solution.version}</span>}
+                    {(() => {
+                      const sm = SOL_STATUS_META[viewSolFull.solution.status] || SOL_STATUS_META["В разработке"];
+                      return <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}40` }}><Icon name={sm.icon as "CheckCircle2"} size={11} />{viewSolFull.solution.status}</span>;
+                    })()}
+                    {viewSolFull.solution.approved_ib && <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}><Icon name="ShieldCheck" size={11} />Согласован с ИБ</span>}
+                    {viewSolFull.solution.approved_it && <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.25)" }}><Icon name="BadgeCheck" size={11} />Согласован с ИТ</span>}
+                  </div>
+                  <DialogTitle className="text-xl font-bold text-white">{viewSolFull.solution.name}</DialogTitle>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
+              {viewSolFullLoading && (
+                <div className="flex justify-center py-10"><Icon name="Loader2" size={28} className="animate-spin" style={{ color: "#63b0ff" }} /></div>
+              )}
+
+              {!viewSolFullLoading && (
+                <>
+                  {/* Мета-инфо */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {viewSolFull.solution.owner && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Автор</div>
+                        <div className="text-sm font-medium text-white flex items-center gap-1.5"><Icon name="User" size={13} style={{ color: "#63b0ff" }} />{viewSolFull.solution.owner}</div>
+                      </div>
+                    )}
+                    {viewSolFull.sol_domains.length > 0 && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Тех. домен</div>
+                        <div className="text-sm font-medium text-white flex items-center gap-1.5"><Icon name="Grid3x3" size={13} style={{ color: "#a78bfa" }} />{viewSolFull.sol_domains.map((d) => d.name).join(", ")}</div>
+                      </div>
+                    )}
+                    {viewSolFull.solution.created_at && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Создано</div>
+                        <div className="text-sm font-medium text-white">{new Date(viewSolFull.solution.created_at).toLocaleDateString("ru-RU")}</div>
+                      </div>
+                    )}
+                    {viewSolFull.solution.updated_at && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Обновлено</div>
+                        <div className="text-sm font-medium text-white">{new Date(viewSolFull.solution.updated_at).toLocaleDateString("ru-RU")}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Описание */}
+                  {viewSolFull.solution.description && (
+                    <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <div className="text-xs mb-2 font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Описание</div>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(180,200,230,0.75)" }}>{viewSolFull.solution.description}</p>
+                    </div>
+                  )}
+
+                  {/* Теги */}
+                  {(viewSolFull.solution.tags || []).length > 0 && (
+                    <div>
+                      <div className="text-xs mb-2 font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Теги</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(viewSolFull.solution.tags || []).map((tag) => (
+                          <span key={tag} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Схемы Mermaid */}
+                  {(viewSolFull.solution.attachments || []).length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Icon name="GitBranch" size={15} style={{ color: "#34d399" }} />
+                        <span className="text-sm font-semibold text-white">Схемы и ссылки</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{viewSolFull.solution.attachments.length}</span>
+                      </div>
+                      <div className="space-y-3">
+                        {(viewSolFull.solution.attachments || []).map((a) => (
+                          <div key={a.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                              <Icon name={a.type === "mermaid" ? "GitBranch" : "Link"} size={13} style={{ color: a.type === "mermaid" ? "#34d399" : "#a78bfa" }} />
+                              <span className="text-sm font-medium text-white flex-1">{a.name}</span>
+                              {a.type === "mermaid" && (
+                                <button onClick={() => setViewSolMermaid(viewSolMermaid?.id === a.id ? null : a)}
+                                  className="text-xs px-2 py-1 rounded-lg transition-all"
+                                  style={{ background: viewSolMermaid?.id === a.id ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.05)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}
+                                >{viewSolMermaid?.id === a.id ? "Скрыть" : "Показать схему"}</button>
+                              )}
+                              {a.type === "link" && (
+                                <a href={a.content} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>Открыть</a>
+                              )}
+                            </div>
+                            {a.type === "mermaid" && viewSolMermaid?.id === a.id && (
+                              <div className="p-4" style={{ background: "rgba(0,0,0,0.3)" }}>
+                                <MermaidViewer chart={a.content} />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Связанные технологии */}
+                  {viewSolFull.technologies.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Icon name="Cpu" size={15} style={{ color: "#34d399" }} />
+                        <span className="text-sm font-semibold text-white">Связанные технологии</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{viewSolFull.technologies.length}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {viewSolFull.technologies.map((t) => {
+                          const TECH_SM: Record<string, { color: string; bg: string }> = {
+                            "Активен": { color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+                            "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+                            "Архив": { color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+                            "Устарел": { color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
+                            "Не активен": { color: "#6b7280", bg: "rgba(107,114,128,0.1)" },
+                          };
+                          const tsm = TECH_SM[t.status] || TECH_SM["Не активен"];
+                          return (
+                            <div key={t.id} className="rounded-xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.15)" }}>
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.1)" }}>
+                                <Icon name="Cpu" size={14} style={{ color: "#34d399" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-white truncate">{t.name}</div>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{t.id}</span>
+                                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: tsm.bg, color: tsm.color }}>{t.status}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Требования от технологий */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Icon name="FileCheck" size={15} style={{ color: "#a78bfa" }} />
+                      <span className="text-sm font-semibold text-white">Унаследованные требования</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>{viewSolFull.requirements.length}</span>
+                    </div>
+                    {viewSolFull.requirements.length === 0 && (
+                      <div className="rounded-xl p-6 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Icon name="FileCheck" size={32} className="mx-auto mb-2 opacity-20" />
+                        <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований у связанных технологий</p>
+                      </div>
+                    )}
+                    {viewSolFull.requirements.length > 0 && (
+                      <div className="space-y-2">
+                        {viewSolFull.requirements.map((r) => {
+                          const rtm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                          const rcm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                          const rsm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                          const srcTech = viewSolFull.technologies.find((t) => t.id === r.technology_id);
+                          return (
+                            <div key={r.id} className="rounded-xl p-3" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.1)" }}>
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rtm.bg, color: rtm.color }}><Icon name={rtm.icon as "Cpu"} size={10} />{r.req_type}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rcm.bg, color: rcm.color }}><Icon name={rcm.icon as "AlertOctagon"} size={10} />{r.criticality}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: rsm.bg, color: rsm.color }}>{r.status}</span>
+                              </div>
+                              <div className="text-sm font-medium text-white mb-0.5">{r.name}</div>
+                              {srcTech && <div className="text-xs" style={{ color: "rgba(52,211,153,0.6)" }}>← {srcTech.name}</div>}
+                              {r.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.description}</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              <button onClick={() => { openEditSol(viewSolFull.solution); setViewSolFull(null); }}
+                className="px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                style={{ background: "rgba(0,102,255,0.15)", color: "#63b0ff", border: "1px solid rgba(0,102,255,0.3)" }}>
+                <Icon name="Pencil" size={14} />Редактировать
+              </button>
+              <button onClick={() => setViewSolFull(null)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>Закрыть</button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ══════════ DELETE SOL CONFIRM ══════════ */}
+      {deleteSolId && (
+        <Dialog open onOpenChange={(o) => { if (!o) setDeleteSolId(null); }}>
+          <DialogContent className="max-w-sm" style={{ background: "#0b1628", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <DialogHeader><DialogTitle className="text-white">Удалить решение?</DialogTitle></DialogHeader>
+            <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>Это действие нельзя отменить.</p>
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setDeleteSolId(null)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>Отмена</button>
+              <button onClick={() => handleDeleteSol(deleteSolId)} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ background: "rgba(239,68,68,0.8)", border: "1px solid rgba(239,68,68,0.4)" }}>Удалить</button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* ── Requirement Create/Edit Dialog ── */}
       <Dialog open={reqDialogOpen} onOpenChange={(o) => { if (!o) setReqDialogOpen(false); }}>
