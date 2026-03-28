@@ -56,15 +56,14 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
 
     try:
-        # GET ?mode=names — список имён для валидации
-        qs = event.get("queryStringParameters") or {}
-        if method == "GET" and (qs.get("mode") == "names" or "names" in path):
+        # GET /names — список имён для валидации
+        if method == "GET" and ("names" in path or (event.get("queryStringParameters") or {}).get("mode") == "names"):
             cur.execute(f"SELECT id, name FROM {SCHEMA}.technologies ORDER BY name")
             rows = [{"id": r[0], "name": r[1]} for r in cur.fetchall()]
             return ok({"names": rows})
 
-        # PATCH ?mode=settings
-        if method == "PATCH" and (qs.get("mode") == "settings" or "settings" in path):
+        # PATCH /settings
+        if method == "PATCH" and "settings" in path:
             desc = body.get("section_description", "")
             cur.execute(
                 f"INSERT INTO {SCHEMA}.section_settings (key, value) VALUES ('technologies_section_description', %s) "

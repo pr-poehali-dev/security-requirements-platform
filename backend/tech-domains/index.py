@@ -91,9 +91,8 @@ def handler(event: dict, context) -> dict:
                 "section_description": section_desc,
             })
 
-        # PATCH ?mode=settings
-        qs = event.get("queryStringParameters") or {}
-        if method == "PATCH" and (qs.get("mode") == "settings" or "settings" in path):
+        # PATCH /settings
+        if method == "PATCH" and "settings" in path:
             desc = body.get("section_description", "")
             cur.execute(
                 f"INSERT INTO {SCHEMA}.section_settings (key, value) "
