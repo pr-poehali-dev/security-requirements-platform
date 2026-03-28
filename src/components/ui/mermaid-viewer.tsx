@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import mermaid from "mermaid";
 
 mermaid.initialize({
@@ -28,17 +28,16 @@ interface MermaidViewerProps {
 }
 
 export default function MermaidViewer({ content, className }: MermaidViewerProps) {
-  const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [svg, setSvg] = useState<string>("");
-  const id = useRef(`mermaid-${++idCounter}`);
 
   useEffect(() => {
     if (!content?.trim()) return;
     setError(null);
     setSvg("");
 
-    mermaid.render(id.current, content.trim()).then(({ svg }) => {
+    const renderId = `mermaid-${++idCounter}`;
+    mermaid.render(renderId, content.trim()).then(({ svg }) => {
       setSvg(svg);
     }).catch((err) => {
       setError(err?.message || "Ошибка рендеринга диаграммы");
@@ -67,7 +66,6 @@ export default function MermaidViewer({ content, className }: MermaidViewerProps
 
   return (
     <div
-      ref={ref}
       className={`mermaid-output rounded-xl overflow-auto ${className}`}
       style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", padding: "16px" }}
       dangerouslySetInnerHTML={{ __html: svg }}
