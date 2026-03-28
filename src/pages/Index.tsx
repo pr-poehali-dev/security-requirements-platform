@@ -478,6 +478,12 @@ export default function Index() {
   const [libSelected, setLibSelected] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
   const [libExpanded, setLibExpanded] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
   const [libExpandedDiagramTab, setLibExpandedDiagramTab] = useState(0);
+  const [libReqSearch, setLibReqSearch] = useState("");
+  const [libReqFilterStatus, setLibReqFilterStatus] = useState("Все");
+  const [libReqFilterCriticality, setLibReqFilterCriticality] = useState("Все");
+  const [libReqFilterType, setLibReqFilterType] = useState("Все");
+  const [libReqFilterEnv, setLibReqFilterEnv] = useState("Все");
+  const [libReqFilterStage, setLibReqFilterStage] = useState("Все");
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -2248,7 +2254,7 @@ export default function Index() {
                           <span className="text-xs font-semibold" style={{ color: ac.color }}>{ac.label}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => { setLibExpandedDiagramTab(0); setLibExpanded({ kind: selItem.kind, id: selItem.data.id }); }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:opacity-80" style={{ background: `${ac.color}18`, color: ac.color }}>
+                          <button onClick={() => { setLibExpandedDiagramTab(0); setLibReqSearch(""); setLibReqFilterStatus("Все"); setLibReqFilterCriticality("Все"); setLibReqFilterType("Все"); setLibReqFilterEnv("Все"); setLibReqFilterStage("Все"); setLibExpanded({ kind: selItem.kind, id: selItem.data.id }); }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:opacity-80" style={{ background: `${ac.color}18`, color: ac.color }}>
                             <Icon name="Maximize2" size={10} />Подробнее
                           </button>
                           <button onClick={() => setLibSelected(null)} className="ml-1 opacity-40 hover:opacity-80 transition-opacity p-1">
@@ -2478,6 +2484,50 @@ export default function Index() {
               // deduplicate
               linkedReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
 
+              // ── filter options (built from linkedReqs) ───────────────────
+              const fStatuses   = [...new Set(linkedReqs.map((r) => r.status).filter(Boolean))];
+              const fCrits      = [...new Set(linkedReqs.map((r) => r.criticality).filter(Boolean))];
+              const fTypes      = [...new Set(linkedReqs.map((r) => r.req_type).filter(Boolean))];
+              const fEnvs       = [...new Set(linkedReqs.flatMap((r) => r.environments || []).filter(Boolean))];
+              const fStages     = [...new Set(linkedReqs.flatMap((r) => r.stages || []).filter(Boolean))];
+
+              // ── apply filters ────────────────────────────────────────────
+              const filteredLinkedReqs = linkedReqs.filter((r) => {
+                const qLow = libReqSearch.toLowerCase();
+                const matchQ = !qLow || r.name.toLowerCase().includes(qLow) || (r.description || "").toLowerCase().includes(qLow) || (r.id || "").toLowerCase().includes(qLow) || (r.norm_doc_link || "").toLowerCase().includes(qLow) || r.tags.some((t) => t.toLowerCase().includes(qLow));
+                const matchStatus = libReqFilterStatus === "Все" || r.status === libReqFilterStatus;
+                const matchCrit   = libReqFilterCriticality === "Все" || r.criticality === libReqFilterCriticality;
+                const matchType   = libReqFilterType === "Все" || r.req_type === libReqFilterType;
+                const matchEnv    = libReqFilterEnv === "Все" || (r.environments || []).includes(libReqFilterEnv as ReqEnv);
+                const matchStage  = libReqFilterStage === "Все" || (r.stages || []).includes(libReqFilterStage as ReqStage);
+                return matchQ && matchStatus && matchCrit && matchType && matchEnv && matchStage;
+              });
+
+              const activeFilters = [libReqFilterStatus, libReqFilterCriticality, libReqFilterType, libReqFilterEnv, libReqFilterStage].filter((f) => f !== "Все").length + (libReqSearch ? 1 : 0);
+
+              // ── CSV export ───────────────────────────────────────────────
+              const exportCSV = () => {
+                const headers = ["№","ID","Название","Тип","Критичность","Статус","Версия","Тех.домен","Технология","Описание","Контроль.Метрика","Контроль.Способ","Норм.документ","Среды","Стадии","Закупки","Внешнее с ИОД","Внешнее без ИОД","Внутреннее с ИОД","Внутреннее без ИОД","Скор.Балл","Скор.Вес","Теги"];
+                const rows = filteredLinkedReqs.map((r, idx) => {
+                  const dom  = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
+                  const tech = reqTechRefs.find((t) => t.id === r.technology_id);
+                  const esc  = (v: string | number | undefined | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+                  return [
+                    idx + 1, esc(r.id), esc(r.name), esc(r.req_type), esc(r.criticality), esc(r.status), esc(r.version),
+                    esc(dom?.name), esc(tech?.name), esc(r.description), esc(r.control_metric), esc(r.control_description),
+                    esc(r.norm_doc_link), esc((r.environments || []).join("; ")), esc((r.stages || []).join("; ")), esc(r.procurement),
+                    esc(r.ext_with_iod), esc(r.ext_without_iod), esc(r.int_with_iod), esc(r.int_without_iod),
+                    r.score_value ?? "", r.score_weight ?? "", esc((r.tags || []).join("; ")),
+                  ].join(",");
+                });
+                const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement("a");
+                a.href = url; a.download = `requirements_${expItem.data.id}_${new Date().toISOString().slice(0,10)}.csv`;
+                a.click(); URL.revokeObjectURL(url);
+              };
+
               return (
                 <Dialog open onOpenChange={(o) => { if (!o) setLibExpanded(null); }}>
                   <DialogContent className="p-0 overflow-hidden flex flex-col" style={{ background: "#080f1e", border: `1px solid ${ac.border}`, width: "min(900px, 96vw)", maxWidth: "none", maxHeight: "90vh" }}>
@@ -2495,6 +2545,85 @@ export default function Index() {
                         </div>
                       </DialogTitle>
                     </DialogHeader>
+
+                    {/* ── Req filters bar (only for non-req kinds with linked reqs) ── */}
+                    {expItem.kind !== "req" && linkedReqs.length > 0 && (
+                      <div className="px-5 py-3 border-b shrink-0 space-y-2" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Search */}
+                          <div className="relative flex-1 min-w-48">
+                            <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                            <input
+                              type="text"
+                              placeholder="Поиск по требованиям..."
+                              value={libReqSearch}
+                              onChange={(e) => setLibReqSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none"
+                              style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                            />
+                            {libReqSearch && <button onClick={() => setLibReqSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"><Icon name="X" size={11} style={{ color: "rgba(180,200,230,0.6)" }} /></button>}
+                          </div>
+                          {/* Status */}
+                          {fStatuses.length > 0 && (
+                            <select value={libReqFilterStatus} onChange={(e) => setLibReqFilterStatus(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: libReqFilterStatus === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все статусы</option>
+                              {fStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {/* Criticality */}
+                          {fCrits.length > 0 && (
+                            <select value={libReqFilterCriticality} onChange={(e) => setLibReqFilterCriticality(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: libReqFilterCriticality === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все уровни</option>
+                              {fCrits.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          )}
+                          {/* Type */}
+                          {fTypes.length > 0 && (
+                            <select value={libReqFilterType} onChange={(e) => setLibReqFilterType(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: libReqFilterType === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все типы</option>
+                              {fTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          )}
+                          {/* Env */}
+                          {fEnvs.length > 0 && (
+                            <select value={libReqFilterEnv} onChange={(e) => setLibReqFilterEnv(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: libReqFilterEnv === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все среды</option>
+                              {fEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                          )}
+                          {/* Stage */}
+                          {fStages.length > 0 && (
+                            <select value={libReqFilterStage} onChange={(e) => setLibReqFilterStage(e.target.value)} className="text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: libReqFilterStage === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все стадии</option>
+                              {fStages.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {/* Reset */}
+                          {activeFilters > 0 && (
+                            <button onClick={() => { setLibReqSearch(""); setLibReqFilterStatus("Все"); setLibReqFilterCriticality("Все"); setLibReqFilterType("Все"); setLibReqFilterEnv("Все"); setLibReqFilterStage("Все"); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                              <Icon name="X" size={11} />Сбросить ({activeFilters})
+                            </button>
+                          )}
+                          {/* CSV export */}
+                          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ml-auto shrink-0" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#22c55e" }}>
+                            <Icon name="Download" size={13} />
+                            CSV ({filteredLinkedReqs.length})
+                          </button>
+                        </div>
+                        {/* Active filter chips */}
+                        {activeFilters > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>Показано: {filteredLinkedReqs.length} из {linkedReqs.length}</span>
+                            {libReqSearch && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>«{libReqSearch}»<button onClick={() => setLibReqSearch("")}><Icon name="X" size={9} /></button></span>}
+                            {libReqFilterStatus !== "Все" && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>{libReqFilterStatus}<button onClick={() => setLibReqFilterStatus("Все")}><Icon name="X" size={9} /></button></span>}
+                            {libReqFilterCriticality !== "Все" && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${critColors[libReqFilterCriticality] || "#fbbf24"}15`, color: critColors[libReqFilterCriticality] || "#fbbf24" }}>{libReqFilterCriticality}<button onClick={() => setLibReqFilterCriticality("Все")}><Icon name="X" size={9} /></button></span>}
+                            {libReqFilterType !== "Все" && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>{libReqFilterType}<button onClick={() => setLibReqFilterType("Все")}><Icon name="X" size={9} /></button></span>}
+                            {libReqFilterEnv !== "Все" && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff" }}>{libReqFilterEnv}<button onClick={() => setLibReqFilterEnv("Все")}><Icon name="X" size={9} /></button></span>}
+                            {libReqFilterStage !== "Все" && <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa" }}>{libReqFilterStage}<button onClick={() => setLibReqFilterStage("Все")}><Icon name="X" size={9} /></button></span>}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Body */}
                     <div className="flex-1 overflow-y-auto">
@@ -2569,11 +2698,18 @@ export default function Index() {
                                 )}
                               </div>
                             </div>
-                            {linkedReqs.length > 0 && (
+                            {linkedReqs.length > 0 && filteredLinkedReqs.length === 0 && (
+                              <div className="py-8 text-center rounded-xl" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                                <Icon name="SearchX" size={24} className="mx-auto mb-2 opacity-20" />
+                                <p className="text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ни одного требования не найдено</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "rgba(180,200,230,0.2)" }}>Измените фильтры</p>
+                              </div>
+                            )}
+                            {filteredLinkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({linkedReqs.length})</span></p>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
                                 <div className="space-y-2">
-                                  {linkedReqs.map((r, num) => {
+                                  {filteredLinkedReqs.map((r, num) => {
                                     const rsm = REQ_STATUS_META[r.status];
                                     const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
                                     const tech = reqTechRefs.find((t) => t.id === r.technology_id);
@@ -2695,11 +2831,18 @@ export default function Index() {
                                 {linkedReqs.length > 0 && <div className="flex flex-wrap gap-1">{["Критический","Высокий","Средний","Низкий"].map((c) => { const cnt = linkedReqs.filter((r) => r.criticality === c).length; return cnt > 0 ? <span key={c} className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${critColors[c]}15`, color: critColors[c] }}>{cnt} {c}</span> : null; })}</div>}
                               </div>
                             </div>
-                            {linkedReqs.length > 0 && (
+                            {linkedReqs.length > 0 && filteredLinkedReqs.length === 0 && (
+                              <div className="py-8 text-center rounded-xl" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                                <Icon name="SearchX" size={24} className="mx-auto mb-2 opacity-20" />
+                                <p className="text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ни одного требования не найдено</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "rgba(180,200,230,0.2)" }}>Измените фильтры</p>
+                              </div>
+                            )}
+                            {filteredLinkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования из связанных технологий <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({linkedReqs.length})</span></p>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования из связанных технологий <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
                                 <div className="space-y-2">
-                                  {linkedReqs.map((r, num) => {
+                                  {filteredLinkedReqs.map((r, num) => {
                                     const rsm = REQ_STATUS_META[r.status];
                                     const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
                                     const tech = reqTechRefs.find((t) => t.id === r.technology_id);
@@ -2763,11 +2906,18 @@ export default function Index() {
                                 {linkedReqs.length > 0 && <div className="flex flex-wrap gap-1">{["Критический","Высокий","Средний","Низкий"].map((c) => { const cnt = linkedReqs.filter((r) => r.criticality === c).length; return cnt > 0 ? <span key={c} className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${critColors[c]}15`, color: critColors[c] }}>{cnt} {c}</span> : null; })}</div>}
                               </div>
                             </div>
-                            {linkedReqs.length > 0 && (
+                            {linkedReqs.length > 0 && filteredLinkedReqs.length === 0 && (
+                              <div className="py-8 text-center rounded-xl" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                                <Icon name="SearchX" size={24} className="mx-auto mb-2 opacity-20" />
+                                <p className="text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ни одного требования не найдено</p>
+                                <p className="text-[10px] mt-0.5" style={{ color: "rgba(180,200,230,0.2)" }}>Измените фильтры</p>
+                              </div>
+                            )}
+                            {filteredLinkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования через цепочку архитектура → техрешения → технологии <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({linkedReqs.length})</span></p>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования через цепочку архитектура → техрешения → технологии <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
                                 <div className="space-y-2">
-                                  {linkedReqs.map((r, num) => {
+                                  {filteredLinkedReqs.map((r, num) => {
                                     const rsm = REQ_STATUS_META[r.status];
                                     const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
                                     const tech = reqTechRefs.find((t) => t.id === r.technology_id);
