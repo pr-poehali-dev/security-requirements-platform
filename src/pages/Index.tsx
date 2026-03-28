@@ -653,6 +653,8 @@ export default function Index() {
   const [techFullFilterStatus, setTechFullFilterStatus] = useState<ReqStatus[]>([]);
   const [techFullFilterEnv, setTechFullFilterEnv] = useState<ReqEnv[]>([]);
   const [techFullFilterStage, setTechFullFilterStage] = useState<ReqStage[]>([]);
+  const [techFormLinkedReqIds, setTechFormLinkedReqIds] = useState<Set<string>>(new Set());
+  const [techReqSearch, setTechReqSearch] = useState("");
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
     id: `tech-${String(count + 1).padStart(3, "0")}`,
@@ -691,6 +693,8 @@ export default function Index() {
     setTechTagInput2(""); setTechNameError2(""); setTechSaveError2("");
     setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
     setAttachmentTab("link");
+    setTechFormLinkedReqIds(new Set());
+    setTechReqSearch("");
     loadExistingTechNames();
     setTechDialogOpen2(true);
   };
@@ -701,6 +705,8 @@ export default function Index() {
     setTechTagInput2(""); setTechNameError2(""); setTechSaveError2("");
     setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
     setAttachmentTab("link");
+    setTechFormLinkedReqIds(new Set(reqs.filter((r) => r.technology_id === t.id).map((r) => r.id)));
+    setTechReqSearch("");
     loadExistingTechNames();
     setTechDialogOpen2(true);
   };
@@ -768,6 +774,34 @@ export default function Index() {
       } else {
         setTechnologies((prev) => [...prev, data]);
       }
+
+      // Sync requirement links: find added/removed compared to original
+      const techId = techForm2.id;
+      const originalIds = new Set(reqs.filter((r) => r.technology_id === (editingTech2?.id ?? techId)).map((r) => r.id));
+      const toAdd = [...techFormLinkedReqIds].filter((id) => !originalIds.has(id));
+      const toRemove = [...originalIds].filter((id) => !techFormLinkedReqIds.has(id));
+      const reqPatches = [
+        ...toAdd.map((id) => ({ id, technology_id: techId })),
+        ...toRemove.map((id) => ({ id, technology_id: "" })),
+      ];
+      if (reqPatches.length > 0) {
+        await Promise.all(
+          reqPatches.map((patch) =>
+            fetch(REQUIREMENTS_API, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...reqs.find((r) => r.id === patch.id)!, technology_id: patch.technology_id }),
+            })
+          )
+        );
+        setReqs((prev) =>
+          prev.map((r) => {
+            const patch = reqPatches.find((p) => p.id === r.id);
+            return patch ? { ...r, technology_id: patch.technology_id } : r;
+          })
+        );
+      }
+
       setTechDialogOpen2(false);
     } finally {
       setTechSaving2(false);
@@ -2944,6 +2978,75 @@ export default function Index() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Linked Requirements */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
+                  Связанные требования
+                  {techFormLinkedReqIds.size > 0 && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: "rgba(99,176,255,0.12)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                      {techFormLinkedReqIds.size}
+                    </span>
+                  )}
+                </Label>
+              </div>
+              <div className="relative">
+                <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input
+                  value={techReqSearch}
+                  onChange={(e) => setTechReqSearch(e.target.value)}
+                  placeholder="Поиск по требованиям..."
+                  className="pl-7 text-xs"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                />
+              </div>
+              <div className="rounded-lg overflow-hidden max-h-52 overflow-y-auto space-y-px" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                {reqs.filter((r) => {
+                  const q = techReqSearch.toLowerCase();
+                  return !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
+                }).length === 0 && (
+                  <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
+                    {reqs.length === 0 ? "Нет доступных требований" : "Ничего не найдено"}
+                  </div>
+                )}
+                {reqs.filter((r) => {
+                  const q = techReqSearch.toLowerCase();
+                  return !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q);
+                }).map((r) => {
+                  const linked = techFormLinkedReqIds.has(r.id);
+                  const otherTech = !linked && r.technology_id && r.technology_id !== techForm2.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => {
+                        setTechFormLinkedReqIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(r.id)) next.delete(r.id);
+                          else next.add(r.id);
+                          return next;
+                        });
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-white/5"
+                      style={{ background: linked ? "rgba(99,176,255,0.06)" : "transparent" }}
+                    >
+                      <div className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 transition-all" style={{ background: linked ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${linked ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                        {linked && <Icon name="Check" size={9} style={{ color: "#63b0ff" }} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs block truncate" style={{ color: linked ? "rgba(210,225,245,0.95)" : "rgba(210,225,245,0.7)" }}>{r.name}</span>
+                        <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{r.id}</span>
+                        {otherTech && (
+                          <span className="text-[10px] ml-1" style={{ color: "rgba(245,158,11,0.6)" }}>• другая технология</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(255,255,255,0.04)", color: "rgba(180,200,230,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}>{r.criticality}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Attachments */}
