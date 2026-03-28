@@ -475,6 +475,7 @@ export default function Index() {
   const [libSection, setLibSection] = useState<"all" | "reqs" | "technologies" | "techsolutions" | "arch">("all");
   const [libStatusFilter, setLibStatusFilter] = useState("Все");
   const [libTypeFilter, setLibTypeFilter] = useState("Все");
+  const [libSelected, setLibSelected] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -2092,116 +2093,297 @@ export default function Index() {
 
             {/* ── Results ─────────────────────────────────────────────────── */}
             {!isLoading && (
-              <div className="space-y-2">
-                {allResults.length === 0 ? (
-                  <div className="py-16 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
-                    <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">Ничего не найдено</p>
-                    {q && <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.2)" }}>Попробуйте изменить запрос или сбросить фильтры</p>}
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
-                      Найдено: {allResults.length} объект{allResults.length === 1 ? "" : allResults.length < 5 ? "а" : "ов"}
-                      {q && <span> по запросу «{libQuery}»</span>}
+              <div className="flex gap-5 items-start">
+                {/* List */}
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  {allResults.length === 0 ? (
+                    <div className="py-16 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
+                      <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">Ничего не найдено</p>
+                      {q && <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.2)" }}>Попробуйте изменить запрос или сбросить фильтры</p>}
                     </div>
-                    {allResults.map((item, idx) => {
-                      if (item.kind === "req") {
-                        const r = item.data;
-                        const sm = REQ_STATUS_META[r.status];
-                        const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                  ) : (
+                    <>
+                      <div className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                        Найдено: {allResults.length} объект{allResults.length === 1 ? "" : allResults.length < 5 ? "а" : "ов"}
+                        {q && <span> по запросу «{libQuery}»</span>}
+                      </div>
+                      {allResults.map((item) => {
+                        const isSelected = libSelected?.id === item.data.id && libSelected?.kind === item.kind;
+                        const toggle = () => setLibSelected(isSelected ? null : { kind: item.kind, id: item.data.id });
+
+                        if (item.kind === "req") {
+                          const r = item.data;
+                          const sm = REQ_STATUS_META[r.status];
+                          const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                          return (
+                            <div key={r.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(0,102,255,0.4)" : undefined, background: isSelected ? "rgba(0,102,255,0.06)" : undefined }}>
+                              <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(0,102,255,0.12)", border: "1px solid rgba(0,102,255,0.2)" }}>
+                                <Icon name="ShieldCheck" size={13} style={{ color: "#63b0ff" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff" }}>Требование</span>
+                                  {r.req_type && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>{r.req_type}</span>}
+                                  {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColor[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                  {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                                </div>
+                                <p className="text-sm font-medium text-white truncate">{r.name}</p>
+                              </div>
+                              <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                            </div>
+                          );
+                        }
+                        if (item.kind === "tech") {
+                          const t = item.data;
+                          const sm = TECH_STATUS_META[t.status];
+                          return (
+                            <div key={t.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(6,182,212,0.4)" : undefined, background: isSelected ? "rgba(6,182,212,0.06)" : undefined }}>
+                              <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                                <Icon name="Cpu" size={13} style={{ color: "#22d3ee" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>Технология</span>
+                                  {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
+                                </div>
+                                <p className="text-sm font-medium text-white truncate">{t.name}</p>
+                              </div>
+                              <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                            </div>
+                          );
+                        }
+                        if (item.kind === "tsol") {
+                          const ts = item.data;
+                          const sm = TECH_SOLUTION_STATUS_META[ts.status];
+                          return (
+                            <div key={ts.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(139,92,246,0.4)" : undefined, background: isSelected ? "rgba(139,92,246,0.06)" : undefined }}>
+                              <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.2)" }}>
+                                <Icon name="Layers" size={13} style={{ color: "#a78bfa" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.1)", color: "#a78bfa" }}>Техрешение</span>
+                                  {ts.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{ts.version}</span>}
+                                  {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
+                                </div>
+                                <p className="text-sm font-medium text-white truncate">{ts.name}</p>
+                              </div>
+                              <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
+                            </div>
+                          );
+                        }
+                        // arch
+                        const a = item.data as ArchTemplate;
+                        const sm = ARCH_TEMPLATE_STATUS_META[a.status];
                         return (
-                          <div key={r.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("requirements")}>
-                            <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(0,102,255,0.12)", border: "1px solid rgba(0,102,255,0.25)" }}>
-                              <Icon name="ShieldCheck" size={14} style={{ color: "#63b0ff" }} />
+                          <div key={a.id} onClick={toggle} className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-all" style={{ borderColor: isSelected ? "rgba(16,185,129,0.4)" : undefined, background: isSelected ? "rgba(16,185,129,0.06)" : undefined }}>
+                            <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                              <Icon name="LayoutTemplate" size={13} style={{ color: "#34d399" }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff" }}>Требование</span>
-                                {r.req_type && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.55)" }}>{r.req_type}</span>}
-                                {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColor[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
-                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>Архитектура</span>
+                                {a.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{a.version}</span>}
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
                               </div>
-                              <p className="text-sm font-medium text-white leading-snug">{r.name}</p>
-                              {r.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{r.description}</p>}
-                              {r.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{r.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>#{t}</span>)}</div>}
+                              <p className="text-sm font-medium text-white truncate">{a.name}</p>
                             </div>
-                            <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
+                            <Icon name={isSelected ? "ChevronUp" : "ChevronDown"} size={14} className="shrink-0 opacity-30" />
                           </div>
                         );
-                      }
-                      if (item.kind === "tech") {
-                        const t = item.data;
-                        const sm = TECH_STATUS_META[t.status];
-                        return (
-                          <div key={t.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("technologies")}>
-                            <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.25)" }}>
-                              <Icon name="Cpu" size={14} style={{ color: "#22d3ee" }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>Технология</span>
-                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
-                              </div>
-                              <p className="text-sm font-medium text-white leading-snug">{t.name}</p>
-                              {t.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{t.description}</p>}
-                              {t.versions.length > 0 && <p className="text-[10px] mt-1 font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>Версии: {t.versions.slice(0,4).join(", ")}</p>}
-                              {t.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{t.tags.slice(0, 4).map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>#{tg}</span>)}</div>}
-                            </div>
-                            <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
-                          </div>
-                        );
-                      }
-                      if (item.kind === "tsol") {
-                        const ts = item.data;
-                        const sm = TECH_SOLUTION_STATUS_META[ts.status];
-                        return (
-                          <div key={ts.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("tech-solutions")}>
-                            <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)" }}>
-                              <Icon name="Layers" size={14} style={{ color: "#a78bfa" }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.1)", color: "#a78bfa" }}>Техрешение</span>
-                                {ts.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{ts.version}</span>}
-                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
-                                {ts.approved_ib && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
-                                {ts.approved_it && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
-                              </div>
-                              <p className="text-sm font-medium text-white leading-snug">{ts.name}</p>
-                              {ts.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{ts.description}</p>}
-                              {ts.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{ts.tags.slice(0, 4).map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>#{tg}</span>)}</div>}
-                            </div>
-                            <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
-                          </div>
-                        );
-                      }
-                      // arch
-                      const a = item.data as ArchTemplate;
-                      const sm = ARCH_TEMPLATE_STATUS_META[a.status];
-                      return (
-                        <div key={a.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("arch-templates")}>
-                          <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)" }}>
-                            <Icon name="LayoutTemplate" size={14} style={{ color: "#34d399" }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>Архитектура</span>
-                              {a.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{a.version}</span>}
-                              {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
-                              {a.approved_ib && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
-                              {a.approved_it && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
-                            </div>
-                            <p className="text-sm font-medium text-white leading-snug">{a.name}</p>
-                            {a.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{a.description}</p>}
-                            {a.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{a.tags.slice(0, 4).map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.07)", color: "rgba(16,185,129,0.6)" }}>#{tg}</span>)}</div>}
-                          </div>
-                          <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
+                      })}
+                    </>
+                  )}
+                </div>
+
+                {/* Detail panel */}
+                {libSelected && (() => {
+                  const selItem = allResults.find((i) => i.kind === libSelected.kind && i.data.id === libSelected.id);
+                  if (!selItem) return null;
+
+                  const accentMap: Record<string, { color: string; bg: string; border: string; icon: string; label: string }> = {
+                    req:  { color: "#63b0ff",  bg: "rgba(0,102,255,0.08)",   border: "rgba(0,102,255,0.2)",   icon: "ShieldCheck",    label: "Требование" },
+                    tech: { color: "#22d3ee",  bg: "rgba(6,182,212,0.08)",   border: "rgba(6,182,212,0.2)",   icon: "Cpu",            label: "Технология" },
+                    tsol: { color: "#a78bfa",  bg: "rgba(139,92,246,0.08)",  border: "rgba(139,92,246,0.2)",  icon: "Layers",         label: "Техрешение" },
+                    arch: { color: "#34d399",  bg: "rgba(16,185,129,0.08)",  border: "rgba(16,185,129,0.2)",  icon: "LayoutTemplate", label: "Архитектура" },
+                  };
+                  const ac = accentMap[selItem.kind];
+
+                  return (
+                    <div className="w-80 shrink-0 rounded-2xl overflow-hidden sticky top-6" style={{ background: "rgba(8,13,28,0.95)", border: `1px solid ${ac.border}` }}>
+                      {/* Panel header */}
+                      <div className="px-4 py-3 flex items-center justify-between border-b" style={{ background: ac.bg, borderColor: ac.border }}>
+                        <div className="flex items-center gap-2">
+                          <Icon name={ac.icon} size={14} style={{ color: ac.color }} />
+                          <span className="text-xs font-semibold" style={{ color: ac.color }}>{ac.label}</span>
                         </div>
-                      );
-                    })}
-                  </>
-                )}
+                        <button onClick={() => setLibSelected(null)} className="opacity-40 hover:opacity-80 transition-opacity">
+                          <Icon name="X" size={14} style={{ color: "rgba(180,200,230,0.8)" }} />
+                        </button>
+                      </div>
+
+                      <div className="px-4 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                        {selItem.kind === "req" && (() => {
+                          const r = selItem.data as Req;
+                          const sm = REQ_STATUS_META[r.status];
+                          const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                          return (
+                            <>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                                <p className="text-sm font-semibold text-white leading-snug">{r.name}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {r.req_type && <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)" }}>{r.req_type}</span>}
+                                {r.criticality && <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: `${critColor[r.criticality] || "#fbbf24"}18`, color: critColor[r.criticality] || "#fbbf24" }}>{r.criticality}</span>}
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                              </div>
+                              {r.description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{r.description}</p>
+                                </div>
+                              )}
+                              {r.control_description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Контрольная мера</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.55)" }}>{r.control_description}</p>
+                                </div>
+                              )}
+                              {r.norm_doc_link && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Нормативный документ</p>
+                                  <p className="text-xs font-mono" style={{ color: "#63b0ff" }}>{r.norm_doc_link}</p>
+                                </div>
+                              )}
+                              {r.version && (
+                                <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                  <span>Версия</span><span className="font-mono">{r.version}</span>
+                                </div>
+                              )}
+                              {r.tags.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                                  <div className="flex flex-wrap gap-1">{r.tags.map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.65)" }}>#{t}</span>)}</div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        {selItem.kind === "tech" && (() => {
+                          const t = selItem.data as Technology;
+                          const sm = TECH_STATUS_META[t.status];
+                          return (
+                            <>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                                <p className="text-sm font-semibold text-white leading-snug">{t.name}</p>
+                              </div>
+                              {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
+                              {t.description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{t.description}</p>
+                                </div>
+                              )}
+                              {t.versions.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Версии</p>
+                                  <div className="flex flex-wrap gap-1">{t.versions.map((v) => <span key={v} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.08)", color: "#22d3ee" }}>{v}</span>)}</div>
+                                </div>
+                              )}
+                              {t.tags.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                                  <div className="flex flex-wrap gap-1">{t.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>#{tg}</span>)}</div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        {selItem.kind === "tsol" && (() => {
+                          const ts = selItem.data as TechSolution;
+                          const sm = TECH_SOLUTION_STATUS_META[ts.status];
+                          return (
+                            <>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                                <p className="text-sm font-semibold text-white leading-snug">{ts.name}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {ts.version && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.5)" }}>v{ts.version}</span>}
+                                {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
+                                {ts.approved_ib && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                                {ts.approved_it && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                              </div>
+                              {ts.description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{ts.description}</p>
+                                </div>
+                              )}
+                              {ts.author && (
+                                <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                  <span>Автор</span><span style={{ color: "rgba(180,200,230,0.6)" }}>{ts.author}</span>
+                                </div>
+                              )}
+                              {ts.tags.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                                  <div className="flex flex-wrap gap-1">{ts.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>#{tg}</span>)}</div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        {selItem.kind === "arch" && (() => {
+                          const a = selItem.data as ArchTemplate;
+                          const sm = ARCH_TEMPLATE_STATUS_META[a.status];
+                          return (
+                            <>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Название</p>
+                                <p className="text-sm font-semibold text-white leading-snug">{a.name}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {a.version && <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.5)" }}>v{a.version}</span>}
+                                {sm && <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
+                                {a.approved_ib && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                                {a.approved_it && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                              </div>
+                              {a.description && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p>
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.65)" }}>{a.description}</p>
+                                </div>
+                              )}
+                              {a.author && (
+                                <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                  <span>Автор</span><span style={{ color: "rgba(180,200,230,0.6)" }}>{a.author}</span>
+                                </div>
+                              )}
+                              {a.diagrams && a.diagrams.length > 0 && (
+                                <div className="flex items-center justify-between text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                  <span>Диаграммы</span><span style={{ color: "rgba(180,200,230,0.6)" }}>{a.diagrams.length} шт.</span>
+                                </div>
+                              )}
+                              {a.tags.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p>
+                                  <div className="flex flex-wrap gap-1">{a.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.07)", color: "rgba(16,185,129,0.6)" }}>#{tg}</span>)}</div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
