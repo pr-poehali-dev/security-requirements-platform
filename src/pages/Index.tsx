@@ -1349,7 +1349,12 @@ export default function Index() {
                   Библиотека потребителя
                 </h1>
               </div>
-              <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
+              <p
+                className="text-sm ml-4 outline-none cursor-text rounded px-1 -mx-1 transition-colors hover:bg-white/5 focus:bg-white/5"
+                style={{ color: "rgba(180,200,230,0.6)" }}
+                contentEditable
+                suppressContentEditableWarning
+              >
                 Реестр требований информационной безопасности и нормативных документов
               </p>
             </div>
