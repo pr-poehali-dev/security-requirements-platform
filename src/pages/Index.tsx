@@ -1585,7 +1585,8 @@ export default function Index() {
         className="sticky top-0 z-50 glass-card border-b"
         style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        {/* Top row: logo + db control */}
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center"
@@ -1605,63 +1606,6 @@ export default function Index() {
               </Badge>
             </div>
           </div>
-
-          <nav className="flex items-center gap-8">
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "library" ? "active" : ""}`}
-              onClick={() => setActiveSection("library")}
-            >
-              Библиотека потребителя
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "domains" ? "active" : ""}`}
-              onClick={() => setActiveSection("domains")}
-            >
-              Орг. домены
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-domains" ? "active" : ""}`}
-              onClick={() => setActiveSection("tech-domains")}
-            >
-              Тех. домены
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "technologies" ? "active" : ""}`}
-              onClick={() => setActiveSection("technologies")}
-            >
-              Технологии
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "requirements" ? "active" : ""}`}
-              onClick={() => { setActiveSection("requirements"); loadReqs(); }}
-            >
-              Требования
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-solutions" ? "active" : ""}`}
-              onClick={() => { setActiveSection("tech-solutions"); loadTechSolutions(); }}
-            >
-              Тех. решения
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "hardening" ? "active" : ""}`}
-              onClick={() => { setActiveSection("hardening"); loadHardenings(); }}
-            >
-              Харденинг
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "arch-templates" ? "active" : ""}`}
-              onClick={() => { setActiveSection("arch-templates"); loadArchTemplates(); }}
-            >
-              Типовые архитектуры
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
-              onClick={() => setActiveSection("analytics")}
-            >
-              Аналитика
-            </button>
-          </nav>
 
           <div className="flex items-center gap-3">
             <button
@@ -1700,6 +1644,37 @@ export default function Index() {
               </span>
               <Icon name="Settings2" size={14} className="text-slate-400" />
             </button>
+          </div>
+        </div>
+
+        {/* Bottom row: navigation */}
+        <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+          <div className="max-w-7xl mx-auto px-6">
+            <nav className="flex items-center gap-1 overflow-x-auto">
+              {[
+                { key: "library",        label: "Библиотека потребителя", onClick: () => setActiveSection("library") },
+                { key: "domains",        label: "Орг. домены",            onClick: () => setActiveSection("domains") },
+                { key: "tech-domains",   label: "Тех. домены",            onClick: () => setActiveSection("tech-domains") },
+                { key: "technologies",   label: "Технологии",             onClick: () => setActiveSection("technologies") },
+                { key: "requirements",   label: "Требования",             onClick: () => { setActiveSection("requirements"); loadReqs(); } },
+                { key: "tech-solutions", label: "Тех. решения",           onClick: () => { setActiveSection("tech-solutions"); loadTechSolutions(); } },
+                { key: "hardening",      label: "Харденинг",              onClick: () => { setActiveSection("hardening"); loadHardenings(); } },
+                { key: "arch-templates", label: "Типовые архитектуры",    onClick: () => { setActiveSection("arch-templates"); loadArchTemplates(); } },
+                { key: "analytics",      label: "Аналитика",              onClick: () => setActiveSection("analytics") },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  onClick={item.onClick}
+                  className="relative px-3 py-3 text-xs font-medium whitespace-nowrap transition-all shrink-0"
+                  style={{
+                    color: activeSection === item.key ? "white" : "rgba(180,200,230,0.5)",
+                    borderBottom: activeSection === item.key ? "2px solid #3b82f6" : "2px solid transparent",
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
       </header>
