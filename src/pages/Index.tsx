@@ -1924,9 +1924,9 @@ export default function Index() {
                 style={{ color: isConnected ? "#22c55e" : "#ef4444" }}
               >
                 {dbMode === "cloud"
-                  ? "Сервисная БД"
+                  ? "Облако"
                   : dbExternalConnected
-                  ? `Внешняя: ${dbConfig.host}`
+                  ? `localhost:${dbConfig.port}`
                   : "Нет подключения"}
               </span>
               <span
@@ -1936,7 +1936,7 @@ export default function Index() {
                   color: dbMode === "cloud" ? "#00d4ff" : "#a78bfa",
                 }}
               >
-                {dbMode === "cloud" ? "Локальная" : "Внешняя"}
+                {dbMode === "cloud" ? "cloud" : "local"}
               </span>
               <Icon name="Settings2" size={14} className="text-slate-400" />
             </button>
