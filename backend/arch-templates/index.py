@@ -4,8 +4,6 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-SCHEMA = os.environ.get("DB_SCHEMA", "t_p90536134_security_requirement")
-
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
@@ -34,7 +32,6 @@ def handler(event: dict, context) -> dict:
 
     conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(f"SET search_path TO {SCHEMA}")
 
     # ── Settings mode ────────────────────────────────────────────────────
     if mode == "settings":
