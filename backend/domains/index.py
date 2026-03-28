@@ -9,7 +9,6 @@ PATCH /settings — обновить настройки раздела (section_
 import json
 import os
 import psycopg2
-from psycopg2.extras import register_default_jsonb
 
 SCHEMA = "t_p90536134_security_requirement"
 CORS = {
@@ -17,7 +16,6 @@ CORS = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
 }
-COLS = ["id", "name", "version", "owner", "status", "description", "tags", "created_at", "updated_at"]
 
 
 def get_conn():
@@ -30,13 +28,6 @@ def ok(data):
 
 def err(msg, code=400):
     return {"statusCode": code, "headers": {**CORS, "Content-Type": "application/json"}, "body": json.dumps({"error": msg})}
-
-
-def row_to_dict(row):
-    d = dict(zip(COLS, row))
-    if d.get("tags") is None:
-        d["tags"] = []
-    return d
 
 
 def handler(event: dict, context) -> dict:
@@ -59,10 +50,12 @@ def handler(event: dict, context) -> dict:
         # GET — список доменов + описание раздела
         if method == "GET":
             cur.execute(
-                f"SELECT id, name, version, owner, status, description, tags, created_at, updated_at "
+                f"SELECT id, name, version, owner, status, description, created_at, updated_at "
                 f"FROM {SCHEMA}.org_domains ORDER BY created_at"
             )
-            domains = [row_to_dict(r) for r in cur.fetchall()]
+            rows = cur.fetchall()
+            cols = ["id", "name", "version", "owner", "status", "description", "created_at", "updated_at"]
+            domains = [dict(zip(cols, r)) for r in rows]
 
             cur.execute(
                 f"SELECT value FROM {SCHEMA}.section_settings WHERE key = 'domains_section_description'"
@@ -87,36 +80,32 @@ def handler(event: dict, context) -> dict:
             d = body
             if not d.get("id") or not d.get("name"):
                 return err("Поля id и name обязательны")
-            tags = d.get("tags", [])
             cur.execute(
-                f"INSERT INTO {SCHEMA}.org_domains (id, name, version, owner, status, description, tags) "
-                f"VALUES (%s, %s, %s, %s, %s, %s, %s) "
-                f"RETURNING id, name, version, owner, status, description, tags, created_at, updated_at",
-                (d["id"], d["name"], d.get("version", "1.0.0"), d.get("owner", ""),
-                 d.get("status", "В разработке"), d.get("description", ""), tags)
+                f"INSERT INTO {SCHEMA}.org_domains (id, name, version, owner, status, description) "
+                f"VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, name, version, owner, status, description, created_at, updated_at",
+                (d["id"], d["name"], d.get("version", "1.0.0"), d.get("owner", ""), d.get("status", "В разработке"), d.get("description", ""))
             )
+            row = cur.fetchone()
             conn.commit()
-            return ok(row_to_dict(cur.fetchone()))
+            cols = ["id", "name", "version", "owner", "status", "description", "created_at", "updated_at"]
+            return ok(dict(zip(cols, row)))
 
         # PUT — обновить домен
         if method == "PUT":
             d = body
             if not d.get("id"):
                 return err("Поле id обязательно")
-            tags = d.get("tags", [])
             cur.execute(
-                f"UPDATE {SCHEMA}.org_domains "
-                f"SET name=%s, version=%s, owner=%s, status=%s, description=%s, tags=%s, updated_at=NOW() "
-                f"WHERE id=%s "
-                f"RETURNING id, name, version, owner, status, description, tags, created_at, updated_at",
-                (d["name"], d.get("version", "1.0.0"), d.get("owner", ""),
-                 d.get("status", "В разработке"), d.get("description", ""), tags, d["id"])
+                f"UPDATE {SCHEMA}.org_domains SET name=%s, version=%s, owner=%s, status=%s, description=%s, updated_at=NOW() "
+                f"WHERE id=%s RETURNING id, name, version, owner, status, description, created_at, updated_at",
+                (d["name"], d.get("version", "1.0.0"), d.get("owner", ""), d.get("status", "В разработке"), d.get("description", ""), d["id"])
             )
             row = cur.fetchone()
             if not row:
                 return err("Домен не найден", 404)
             conn.commit()
-            return ok(row_to_dict(row))
+            cols = ["id", "name", "version", "owner", "status", "description", "created_at", "updated_at"]
+            return ok(dict(zip(cols, row)))
 
         # DELETE — удалить домен
         if method == "DELETE":
