@@ -1784,9 +1784,11 @@ export default function Index() {
                   return (
                     <div
                       key={tech.id}
-                      className="group glass-card rounded-2xl p-5 flex flex-col gap-3 cursor-pointer hover:border-emerald-500/30 transition-all"
+                      className="glass-card rounded-2xl p-5 flex flex-col gap-3 cursor-pointer hover:border-emerald-500/30 transition-all"
                       style={{ borderColor: "rgba(255,255,255,0.06)" }}
                       onClick={() => setViewTech2(tech)}
+                      onMouseEnter={(e) => { const btns = e.currentTarget.querySelector("[data-actions]") as HTMLElement; if (btns) btns.style.opacity = "1"; }}
+                      onMouseLeave={(e) => { const btns = e.currentTarget.querySelector("[data-actions]") as HTMLElement; if (btns) btns.style.opacity = "0"; }}
                     >
                       {/* Card top */}
                       <div className="flex items-start justify-between gap-2">
@@ -1858,7 +1860,7 @@ export default function Index() {
                             ) : null;
                           })()}
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div data-actions className="flex items-center gap-1 transition-opacity duration-150" style={{ opacity: 0 }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); openEditTech2(tech); }}
                             className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
