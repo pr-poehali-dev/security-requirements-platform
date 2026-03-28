@@ -1926,6 +1926,19 @@ export default function Index() {
                 (r.description || "").toLowerCase().includes(q) ||
                 (r.req_type || "").toLowerCase().includes(q) ||
                 (r.criticality || "").toLowerCase().includes(q) ||
+                (r.status || "").toLowerCase().includes(q) ||
+                (r.control_metric || "").toLowerCase().includes(q) ||
+                (r.control_description || "").toLowerCase().includes(q) ||
+                (r.norm_doc_link || "").toLowerCase().includes(q) ||
+                (r.procurement || "").toLowerCase().includes(q) ||
+                (r.version || "").toLowerCase().includes(q) ||
+                (r.id || "").toLowerCase().includes(q) ||
+                (r.ext_with_iod || "").toLowerCase().includes(q) ||
+                (r.ext_without_iod || "").toLowerCase().includes(q) ||
+                (r.int_with_iod || "").toLowerCase().includes(q) ||
+                (r.int_without_iod || "").toLowerCase().includes(q) ||
+                (r.environments || []).some((e) => e.toLowerCase().includes(q)) ||
+                (r.stages || []).some((s) => s.toLowerCase().includes(q)) ||
                 r.tags.some((t) => t.toLowerCase().includes(q))
               );
             })
