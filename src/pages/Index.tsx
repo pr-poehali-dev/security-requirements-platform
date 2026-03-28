@@ -477,6 +477,7 @@ export default function Index() {
   const [libTypeFilter, setLibTypeFilter] = useState("Все");
   const [libSelected, setLibSelected] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
   const [libExpanded, setLibExpanded] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
+  const [libExpandedDiagramTab, setLibExpandedDiagramTab] = useState(0);
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -2247,7 +2248,7 @@ export default function Index() {
                           <span className="text-xs font-semibold" style={{ color: ac.color }}>{ac.label}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setLibExpanded({ kind: selItem.kind, id: selItem.data.id })} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:opacity-80" style={{ background: `${ac.color}18`, color: ac.color }}>
+                          <button onClick={() => { setLibExpandedDiagramTab(0); setLibExpanded({ kind: selItem.kind, id: selItem.data.id }); }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:opacity-80" style={{ background: `${ac.color}18`, color: ac.color }}>
                             <Icon name="Maximize2" size={10} />Подробнее
                           </button>
                           <button onClick={() => setLibSelected(null)} className="ml-1 opacity-40 hover:opacity-80 transition-opacity p-1">
@@ -2640,7 +2641,6 @@ export default function Index() {
                                 {a.description && <div><p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</p><p className="text-sm leading-relaxed" style={{ color: "rgba(180,200,230,0.7)" }}>{a.description}</p></div>}
                                 {a.author && <div className="flex items-center justify-between text-xs" style={{ color: "rgba(180,200,230,0.4)" }}><span>Автор</span><span style={{ color: "rgba(180,200,230,0.7)" }}>{a.author}</span></div>}
                                 {linkedTsols.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Техрешения ({linkedTsols.length})</p><div className="flex flex-wrap gap-1">{linkedTsols.map((ts) => <span key={ts.id} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.08)", color: "#a78bfa" }}>{ts.name}</span>)}</div></div>}
-                                {a.diagrams && a.diagrams.length > 0 && <div className="flex items-center justify-between text-xs" style={{ color: "rgba(180,200,230,0.4)" }}><span>Диаграммы</span><span style={{ color: "rgba(180,200,230,0.6)" }}>{a.diagrams.length} шт.</span></div>}
                                 {a.tags.length > 0 && <div><p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</p><div className="flex flex-wrap gap-1">{a.tags.map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.07)", color: "rgba(16,185,129,0.6)" }}>#{tg}</span>)}</div></div>}
                               </div>
                               <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -2657,6 +2657,48 @@ export default function Index() {
                                 <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
                                   <table className="w-full text-xs"><thead><tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th><th className="px-3 py-2 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th></tr></thead>
                                   <tbody>{linkedReqs.map((r, idx) => <tr key={r.id} style={{ borderBottom: idx < linkedReqs.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}><td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.5)" }}>{r.req_type||"—"}</td><td className="px-3 py-2"><span className="text-[10px] font-medium" style={{ color: critColors[r.criticality]||"#fbbf24" }}>{r.criticality||"—"}</span></td><td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.status||"—"}</td></tr>)}</tbody></table>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ── Diagrams ── */}
+                            {a.diagrams && a.diagrams.length > 0 && (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                                  Диаграммы архитектуры
+                                  <span className="ml-2 normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({a.diagrams.length} шт.)</span>
+                                </p>
+                                {/* Tabs */}
+                                <div className="flex gap-1.5 flex-wrap mb-3">
+                                  {a.diagrams.map((diag, idx) => (
+                                    <button
+                                      key={diag.id}
+                                      onClick={() => setLibExpandedDiagramTab(idx)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all"
+                                      style={{
+                                        background: libExpandedDiagramTab === idx ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
+                                        border: `1px solid ${libExpandedDiagramTab === idx ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.07)"}`,
+                                        color: libExpandedDiagramTab === idx ? "#34d399" : "rgba(180,200,230,0.5)",
+                                      }}
+                                    >
+                                      <Icon name="GitBranch" size={11} />
+                                      {diag.name}
+                                    </button>
+                                  ))}
+                                </div>
+                                {/* Active diagram */}
+                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  <div className="px-4 py-2.5 flex items-center justify-between border-b" style={{ background: "rgba(16,185,129,0.05)", borderColor: "rgba(255,255,255,0.06)" }}>
+                                    <span className="text-xs font-medium text-white">
+                                      {a.diagrams[libExpandedDiagramTab]?.name}
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>
+                                      mermaid
+                                    </span>
+                                  </div>
+                                  <div className="p-4" style={{ background: "rgba(5,10,20,0.6)" }}>
+                                    <MermaidViewer content={a.diagrams[libExpandedDiagramTab]?.content || ""} />
+                                  </div>
                                 </div>
                               </div>
                             )}
