@@ -8684,12 +8684,12 @@ export default function Index() {
             const uniqueReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
             const filteredViewReqs = uniqueReqs.filter((r) => {
               const q = viewArchReqSearch.toLowerCase();
-              const matchQ = !q || (r.title||"").toLowerCase().includes(q) || (r.code||"").toLowerCase().includes(q) || (r.category||"").toLowerCase().includes(q) || (r.description||"").toLowerCase().includes(q);
-              const matchLevel = viewArchReqFilterLevel === "Все" || r.level === viewArchReqFilterLevel;
-              const matchCat = viewArchReqFilterCat === "Все" || r.category === viewArchReqFilterCat;
+              const matchQ = !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q) || (r.req_type||"").toLowerCase().includes(q) || (r.description||"").toLowerCase().includes(q) || r.tags.some((t) => t.toLowerCase().includes(q));
+              const matchLevel = viewArchReqFilterLevel === "Все" || r.criticality === viewArchReqFilterLevel;
+              const matchCat = viewArchReqFilterCat === "Все" || r.req_type === viewArchReqFilterCat;
               return matchQ && matchLevel && matchCat;
             });
-            const reqCategories = [...new Set(uniqueReqs.map((r) => r.category).filter(Boolean))];
+            const reqCategories = [...new Set(uniqueReqs.map((r) => r.req_type).filter(Boolean))];
             return (
               <>
                 {/* Header */}
@@ -8840,12 +8840,12 @@ export default function Index() {
                             <Input value={viewArchReqSearch} onChange={(e) => setViewArchReqSearch(e.target.value)} placeholder="Поиск по требованиям..." className="pl-8 text-xs h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
                           </div>
                           <select value={viewArchReqFilterLevel} onChange={(e) => setViewArchReqFilterLevel(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterLevel === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                            <option value="Все">Все уровни</option>
+                            <option value="Все">Все критичности</option>
                             {["Критический","Высокий","Средний","Низкий"].map((l) => <option key={l} value={l}>{l}</option>)}
                           </select>
                           {reqCategories.length > 0 && (
                             <select value={viewArchReqFilterCat} onChange={(e) => setViewArchReqFilterCat(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterCat === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                              <option value="Все">Все категории</option>
+                              <option value="Все">Все типы</option>
                               {reqCategories.map((c) => <option key={c} value={c}>{c}</option>)}
                             </select>
                           )}
@@ -8855,31 +8855,32 @@ export default function Index() {
                           <table className="w-full text-xs">
                             <thead>
                               <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Код</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>ID</th>
                                 <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Категория</th>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Уровень</th>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Стандарт</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th>
                               </tr>
                             </thead>
                             <tbody>
                               {filteredViewReqs.map((r, idx) => {
-                                const levelMeta: Record<string, { color: string; bg: string }> = {
+                                const critMeta: Record<string, { color: string; bg: string }> = {
                                   "Критический": { color: "#f87171", bg: "rgba(239,68,68,0.1)" },
                                   "Высокий": { color: "#fb923c", bg: "rgba(249,115,22,0.1)" },
                                   "Средний": { color: "#fbbf24", bg: "rgba(245,158,11,0.1)" },
                                   "Низкий": { color: "#34d399", bg: "rgba(52,211,153,0.1)" },
                                 };
-                                const lm = levelMeta[r.level] || { color: "#6b7280", bg: "rgba(107,114,128,0.1)" };
+                                const cm = critMeta[r.criticality] || { color: "#6b7280", bg: "rgba(107,114,128,0.1)" };
+                                const rsm = REQ_STATUS_META[r.status];
                                 return (
                                   <tr key={r.id} style={{ borderBottom: idx < filteredViewReqs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
-                                    <td className="px-3 py-2 font-mono" style={{ color: "#63b0ff" }}>{r.code}</td>
-                                    <td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.title}</td>
-                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.category}</td>
+                                    <td className="px-3 py-2 font-mono" style={{ color: "#63b0ff" }}>{r.id}</td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.req_type || "—"}</td>
                                     <td className="px-3 py-2">
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: lm.bg, color: lm.color }}>{r.level}</span>
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: cm.bg, color: cm.color }}>{r.criticality}</span>
                                     </td>
-                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.standard || "—"}</td>
+                                    <td className="px-3 py-2">{rsm ? <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded w-fit" style={{ background: `${rsm.color}12`, color: rsm.color }}><Icon name={rsm.icon} size={9} />{r.status}</span> : <span style={{ color: "rgba(180,200,230,0.4)" }}>—</span>}</td>
                                   </tr>
                                 );
                               })}
