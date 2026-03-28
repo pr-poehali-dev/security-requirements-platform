@@ -331,62 +331,7 @@ interface AnalyticItem {
   icon: string;
 }
 
-const requirements: Requirement[] = [
-  {
-    id: "1",
-    code: "ИБ-001",
-    title: "Управление доступом и идентификация",
-    category: "Аутентификация",
-    level: "Критический",
-    standard: "ГОСТ Р 57580",
-    description: "Требования к многофакторной аутентификации для привилегированных пользователей и критических систем.",
-  },
-  {
-    id: "2",
-    code: "ИБ-002",
-    title: "Шифрование данных при хранении",
-    category: "Криптография",
-    level: "Высокий",
-    standard: "ГОСТ Р 34.12",
-    description: "Применение алгоритмов шифрования ГОСТ при хранении персональных данных и конфиденциальной информации.",
-  },
-  {
-    id: "3",
-    code: "ИБ-003",
-    title: "Мониторинг и журналирование событий",
-    category: "Мониторинг",
-    level: "Высокий",
-    standard: "PCI DSS 4.0",
-    description: "Ведение журналов аудита всех событий безопасности с централизованным хранением не менее 12 месяцев.",
-  },
-  {
-    id: "4",
-    code: "ИБ-004",
-    title: "Сегментация сети",
-    category: "Сетевая безопасность",
-    level: "Высокий",
-    standard: "ISO 27001",
-    description: "Разделение информационных систем на сетевые сегменты с контролем межсегментного трафика.",
-  },
-  {
-    id: "5",
-    code: "ИБ-005",
-    title: "Управление уязвимостями",
-    category: "Патч-менеджмент",
-    level: "Средний",
-    standard: "NIST CSF",
-    description: "Регулярное сканирование на уязвимости и устранение критических уязвимостей в течение 30 дней.",
-  },
-  {
-    id: "6",
-    code: "ИБ-006",
-    title: "Резервное копирование данных",
-    category: "Непрерывность",
-    level: "Средний",
-    standard: "ГОСТ Р 57580",
-    description: "Создание резервных копий критически важных данных с проверкой возможности восстановления.",
-  },
-];
+
 
 const analytics: AnalyticItem[] = [
   { label: "Всего требований", value: "247", delta: "+12 за месяц", positive: true, icon: "FileCheck" },
@@ -394,15 +339,6 @@ const analytics: AnalyticItem[] = [
   { label: "В работе", value: "41", delta: "-3 за неделю", positive: true, icon: "Clock" },
   { label: "Критических нарушений", value: "8", delta: "+2 за неделю", positive: false, icon: "AlertTriangle" },
 ];
-
-const categoryColors: Record<string, string> = {
-  "Аутентификация": "rgba(0, 102, 255, 0.15)",
-  "Криптография": "rgba(0, 212, 255, 0.12)",
-  "Мониторинг": "rgba(124, 58, 237, 0.15)",
-  "Сетевая безопасность": "rgba(16, 185, 129, 0.12)",
-  "Патч-менеджмент": "rgba(245, 158, 11, 0.12)",
-  "Непрерывность": "rgba(239, 68, 68, 0.12)",
-};
 
 const levelColors: Record<string, string> = {
   "Критический": "#ef4444",
@@ -439,6 +375,9 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
+  const [libSectionDesc, setLibSectionDesc] = useState("Реестр требований информационной безопасности и нормативных документов");
+  const [libSectionDescEditing, setLibSectionDescEditing] = useState(false);
+  const [libSectionDescDraft, setLibSectionDescDraft] = useState("");
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -1525,7 +1464,7 @@ export default function Index() {
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
 
-  const filteredRequirements = requirements.filter((r) => {
+  const filteredRequirements = reqs.filter((r) => {
     const matchSearch =
       r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1722,21 +1661,35 @@ export default function Index() {
       <main className="max-w-7xl mx-auto px-6 py-8 relative z-10">
 
         {/* === LIBRARY SECTION === */}
-        {activeSection === "library" && (
+        {activeSection === "library" && (() => {
+          if (reqs.length === 0) loadReqs();
+          return (
           <div className="section-enter">
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="w-1 h-8 rounded-full"
-                  style={{ background: "linear-gradient(180deg, #0066ff, #00d4ff)" }}
-                />
-                <h1 className="text-2xl font-semibold text-white">
-                  Библиотека потребителя
-                </h1>
+            {/* Header */}
+            <div className="flex items-start justify-between mb-8">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #0066ff, #00d4ff)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Библиотека потребителя</h1>
+                </div>
+                {libSectionDescEditing ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <Input value={libSectionDescDraft} onChange={(e) => setLibSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                    <button onClick={() => { setLibSectionDesc(libSectionDescDraft); setLibSectionDescEditing(false); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                    <button onClick={() => setLibSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setLibSectionDescDraft(libSectionDesc); setLibSectionDescEditing(true); }}>
+                    <span className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>{libSectionDesc}</span>
+                    <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.5)" }} />
+                  </button>
+                )}
               </div>
-              <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
-                Реестр требований информационной безопасности и нормативных документов
-              </p>
+              {reqs.length === 0 && (
+                <button onClick={() => loadReqs()} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: "rgba(0,102,255,0.1)", border: "1px solid rgba(0,102,255,0.2)", color: "#63b0ff" }}>
+                  <Icon name="RefreshCw" size={12} /> Загрузить
+                </button>
+              )}
             </div>
 
             {/* Filters */}
@@ -1788,10 +1741,10 @@ export default function Index() {
             {/* Stats */}
             <div className="grid grid-cols-4 gap-4 mb-6">
               {[
-                { label: "Всего требований", value: requirements.length, icon: "BookOpen", color: "#0066ff" },
-                { label: "Критических", value: requirements.filter((r) => r.level === "Критический").length, icon: "AlertOctagon", color: "#ef4444" },
-                { label: "Высокий приоритет", value: requirements.filter((r) => r.level === "Высокий").length, icon: "AlertTriangle", color: "#f97316" },
-                { label: "Стандартов", value: new Set(requirements.map((r) => r.standard)).size, icon: "Award", color: "#00d4ff" },
+                { label: "Всего требований", value: reqs.length, icon: "BookOpen", color: "#0066ff" },
+                { label: "Критических", value: reqs.filter((r) => r.level === "Критический").length, icon: "AlertOctagon", color: "#ef4444" },
+                { label: "Высокий приоритет", value: reqs.filter((r) => r.level === "Высокий").length, icon: "AlertTriangle", color: "#f97316" },
+                { label: "Стандартов", value: new Set(reqs.map((r) => r.standard)).size, icon: "Award", color: "#00d4ff" },
               ].map((stat) => (
                 <div key={stat.label} className="glass-card rounded-xl px-5 py-4 flex items-center gap-4">
                   <div
@@ -1878,9 +1831,9 @@ export default function Index() {
                       <span
                         className="text-xs px-2.5 py-1 rounded-full font-medium"
                         style={{
-                          background:
-                            categoryColors[req.category] || "rgba(255,255,255,0.08)",
-                          color: "rgba(210,225,245,0.85)",
+                          background: "rgba(99,176,255,0.08)",
+                          color: "rgba(180,200,230,0.85)",
+                          border: "1px solid rgba(99,176,255,0.15)",
                         }}
                       >
                         {req.category}
@@ -1919,7 +1872,8 @@ export default function Index() {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* === DOMAINS SECTION === */}
         {activeSection === "domains" && (() => {
