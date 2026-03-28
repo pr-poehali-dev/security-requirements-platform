@@ -2639,7 +2639,7 @@ export default function Index() {
             {!tsolLoading && filteredTsols.length > 0 && (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredTsols.map((s) => {
-                  const sm = TECH_SOLUTION_STATUS_META[s.status];
+                  const sm = TECH_SOLUTION_STATUS_META[s.status] ?? TECH_SOLUTION_STATUS_META["В разработке"];
                   return (
                     <div
                       key={s.id}
@@ -2826,7 +2826,7 @@ export default function Index() {
               <div className="rounded-lg overflow-hidden max-h-40 overflow-y-auto space-y-px" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
                 {techSolutions.filter((s) => s.id !== tsolForm.id && (!tsolRelSearch || s.name.toLowerCase().includes(tsolRelSearch.toLowerCase()) || s.id.toLowerCase().includes(tsolRelSearch.toLowerCase()))).map((s) => {
                   const linked = tsolForm.related_solution_ids.includes(s.id);
-                  const sm = TECH_SOLUTION_STATUS_META[s.status];
+                  const sm = TECH_SOLUTION_STATUS_META[s.status] ?? TECH_SOLUTION_STATUS_META["В разработке"];
                   return (
                     <button key={s.id} type="button" onClick={() => setTsolForm((f) => ({ ...f, related_solution_ids: linked ? f.related_solution_ids.filter((x) => x !== s.id) : [...f.related_solution_ids, s.id] }))} className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-white/5" style={{ background: linked ? "rgba(167,139,250,0.06)" : "transparent" }}>
                       <div className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0" style={{ background: linked ? "rgba(167,139,250,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${linked ? "rgba(167,139,250,0.5)" : "rgba(255,255,255,0.1)"}` }}>
@@ -3022,7 +3022,7 @@ export default function Index() {
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
                         {linkedTechs.map((t) => {
-                          const tsm = TECH_SOLUTION_STATUS_META[t.status as TechSolutionStatus] || TECH_SOLUTION_STATUS_META["В разработке"];
+                          const tsm = TECH_SOLUTION_STATUS_META[t.status as TechSolutionStatus] ?? TECH_SOLUTION_STATUS_META["В разработке"];
                           return (
                             <div key={t.id} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                               <Icon name="Cpu" size={12} style={{ color: "#63b0ff" }} />
@@ -3043,7 +3043,7 @@ export default function Index() {
                       <div className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Связанные решения ({relatedSolutions.length})</div>
                       <div className="space-y-2">
                         {relatedSolutions.map((rs) => {
-                          const rsm = TECH_SOLUTION_STATUS_META[rs.status];
+                          const rsm = TECH_SOLUTION_STATUS_META[rs.status] ?? TECH_SOLUTION_STATUS_META["В разработке"];
                           return (
                             <button key={rs.id} type="button" onClick={() => setViewTsol(rs)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-white/5" style={{ background: "rgba(167,139,250,0.03)", border: "1px solid rgba(167,139,250,0.12)" }}>
                               <Icon name="Lightbulb" size={13} style={{ color: "#a78bfa" }} />
