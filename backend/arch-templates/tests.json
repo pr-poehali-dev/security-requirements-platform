@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "GET arch templates list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"items": []},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "PATCH section_description",
+      "method": "PATCH",
+      "path": "/?mode=settings",
+      "body": {"section_description": "Тест описания раздела"},
+      "expectedStatus": 200,
+      "expectedBody": {"section_description": "Тест описания раздела"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

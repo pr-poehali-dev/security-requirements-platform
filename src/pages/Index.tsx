@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions" | "hardening" | "arch-templates";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -198,6 +198,40 @@ interface OrgDomain {
   updated_at?: string;
   created_at?: string;
 }
+
+type ArchTemplateStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface MermaidDiagram {
+  id: string;
+  name: string;
+  content: string;
+}
+
+interface ArchTemplate {
+  id: string;
+  name: string;
+  description: string;
+  status: ArchTemplateStatus;
+  author: string;
+  version: string;
+  tags: string[];
+  tech_solution_ids: string[];
+  approved_ib: boolean;
+  approved_it: boolean;
+  diagrams: MermaidDiagram[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+const ARCH_TEMPLATE_STATUSES: ArchTemplateStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+
+const ARCH_TEMPLATE_STATUS_META: Record<ArchTemplateStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
 
 const HARDENING_STATUS_META: Record<HardeningStatus, { color: string; bg: string; icon: string }> = {
   "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
@@ -1327,6 +1361,139 @@ export default function Index() {
     const matchTsol = !hardFilterTsol || (h.tech_solution_id||"") === hardFilterTsol;
     return matchQ && matchStatus && matchTag && matchTsol;
   });
+  // ── ArchTemplates state ───────────────────────────────────────────
+  const ARCH_TEMPLATES_API = "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa";
+  const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
+  const [archLoading, setArchLoading] = useState(false);
+  const [archSectionDesc, setArchSectionDesc] = useState("Реестр типовых архитектур безопасности — шаблоны для проектирования защищённых систем");
+  const [archSectionDescEditing, setArchSectionDescEditing] = useState(false);
+  const [archSectionDescDraft, setArchSectionDescDraft] = useState(archSectionDesc);
+  const [archDialogOpen, setArchDialogOpen] = useState(false);
+  const [archSaving, setArchSaving] = useState(false);
+  const [archSaveError, setArchSaveError] = useState("");
+  const [deleteArchId, setDeleteArchId] = useState<string | null>(null);
+  const [editingArch, setEditingArch] = useState<ArchTemplate | null>(null);
+  const [viewArch, setViewArch] = useState<ArchTemplate | null>(null);
+  const [archSearch, setArchSearch] = useState("");
+  const [archFilterStatus, setArchFilterStatus] = useState<string>("Все");
+  const [archFilterTag, setArchFilterTag] = useState<string>("");
+  const [archFilterTsol, setArchFilterTsol] = useState<string>("");
+  const [archFilterIb, setArchFilterIb] = useState<string>("Все");
+  const [archFilterIt, setArchFilterIt] = useState<string>("Все");
+  const [archTagInput, setArchTagInput] = useState("");
+  const [archTsolSearch, setArchTsolSearch] = useState("");
+  const [archActiveDiagramTab, setArchActiveDiagramTab] = useState(0);
+  const [viewArchReqSearch, setViewArchReqSearch] = useState("");
+  const [viewArchReqFilterLevel, setViewArchReqFilterLevel] = useState("Все");
+  const [viewArchReqFilterCat, setViewArchReqFilterCat] = useState("Все");
+
+  const makeEmptyArchForm = (count: number): ArchTemplate => ({
+    id: `ArchSec-${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    description: "",
+    status: "В разработке",
+    author: "",
+    version: "1.0.0",
+    tags: [],
+    tech_solution_ids: [],
+    approved_ib: false,
+    approved_it: false,
+    diagrams: [],
+  });
+
+  const [archForm, setArchForm] = useState<ArchTemplate>(makeEmptyArchForm(0));
+
+  const loadArchTemplates = async () => {
+    setArchLoading(true);
+    try {
+      const [res, tsolRes] = await Promise.all([
+        fetch(ARCH_TEMPLATES_API),
+        techSolutions.length === 0 ? fetch(TECH_SOLUTIONS_API) : Promise.resolve(null),
+      ]);
+      const data = await res.json();
+      setArchTemplates(data.items || []);
+      if (data.section_description) setArchSectionDesc(data.section_description);
+      if (tsolRes) {
+        const td = await tsolRes.json();
+        setTechSolutions(td.items || []);
+      }
+    } finally {
+      setArchLoading(false);
+    }
+  };
+
+  const handleSaveArchSectionDesc = async () => {
+    setArchSectionDesc(archSectionDescDraft);
+    setArchSectionDescEditing(false);
+    await fetch(`${ARCH_TEMPLATES_API}?mode=settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: archSectionDescDraft }),
+    });
+  };
+
+  const openNewArch = () => {
+    setEditingArch(null);
+    setArchForm(makeEmptyArchForm(archTemplates.length));
+    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch("");
+    if (techSolutions.length === 0) loadTechSolutions();
+    setArchDialogOpen(true);
+  };
+
+  const openEditArch = (a: ArchTemplate) => {
+    setEditingArch(a);
+    setArchForm({ ...a, tags: a.tags || [], tech_solution_ids: a.tech_solution_ids || [], diagrams: a.diagrams || [] });
+    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch("");
+    if (techSolutions.length === 0) loadTechSolutions();
+    setArchDialogOpen(true);
+  };
+
+  const handleSaveArch = async () => {
+    if (!archForm.name.trim() || !archForm.id.trim()) { setArchSaveError("Название и ID обязательны"); return; }
+    setArchSaving(true); setArchSaveError("");
+    try {
+      const method = editingArch ? "PUT" : "POST";
+      const res = await fetch(ARCH_TEMPLATES_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(archForm),
+      });
+      const data = await res.json();
+      if (data.error) { setArchSaveError(data.error); return; }
+      if (editingArch) {
+        setArchTemplates((prev) => prev.map((a) => a.id === editingArch.id ? data : a));
+        if (viewArch?.id === editingArch.id) setViewArch(data);
+      } else {
+        setArchTemplates((prev) => [...prev, data]);
+      }
+      setArchDialogOpen(false);
+    } finally {
+      setArchSaving(false);
+    }
+  };
+
+  const handleDeleteArch = async (id: string) => {
+    await fetch(`${ARCH_TEMPLATES_API}?id=${id}`, { method: "DELETE" });
+    setArchTemplates((prev) => prev.filter((a) => a.id !== id));
+    setDeleteArchId(null);
+  };
+
+  const filteredArchTemplates = archTemplates.filter((a) => {
+    const q = archSearch.toLowerCase();
+    const matchQ = !q ||
+      (a.id||"").toLowerCase().includes(q) ||
+      (a.name||"").toLowerCase().includes(q) ||
+      (a.description||"").toLowerCase().includes(q) ||
+      (a.author||"").toLowerCase().includes(q) ||
+      (a.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
+      (a.tech_solution_ids||[]).some((id) => id.toLowerCase().includes(q));
+    const matchStatus = archFilterStatus === "Все" || a.status === archFilterStatus;
+    const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
+    const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
+    const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
+    const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
+    return matchQ && matchStatus && matchTag && matchTsol && matchIb && matchIt;
+  });
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -1481,6 +1648,12 @@ export default function Index() {
               onClick={() => { setActiveSection("hardening"); loadHardenings(); }}
             >
               Харденинг
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "arch-templates" ? "active" : ""}`}
+              onClick={() => { setActiveSection("arch-templates"); loadArchTemplates(); }}
+            >
+              Типовые архитектуры
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -2873,11 +3046,18 @@ export default function Index() {
                         <span className="text-xs truncate" style={{ color: "rgba(180,200,230,0.45)" }}>{s.author || "—"}</span>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => { setActiveSection("hardening"); setHardFilterTsol(s.id); }}
+                            onClick={() => { setActiveSection("hardening"); setHardFilterTsol(s.id); loadHardenings(); }}
                             className="p-1.5 rounded-lg transition-all hover:bg-purple-500/10"
                             title="Харденинг этого решения"
                           >
                             <Icon name="ShieldHalf" size={13} style={{ color: "rgba(167,139,250,0.6)" }} />
+                          </button>
+                          <button
+                            onClick={() => { setActiveSection("arch-templates"); setArchFilterTsol(s.id); loadArchTemplates(); }}
+                            className="p-1.5 rounded-lg transition-all hover:bg-cyan-500/10"
+                            title="Типовые архитектуры этого решения"
+                          >
+                            <Icon name="LayoutTemplate" size={13} style={{ color: "rgba(6,182,212,0.6)" }} />
                           </button>
                           <button onClick={() => setViewTsol(s)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Просмотр">
                             <Icon name="Eye" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
@@ -3067,6 +3247,196 @@ export default function Index() {
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); setDeleteHardId(h.id); }} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить">
                             <Icon name="Trash2" size={13} style={{ color: "#f87171" }} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === ARCH TEMPLATES SECTION === */}
+        {activeSection === "arch-templates" && (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #06b6d4, #3b82f6)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Типовые архитектуры безопасности</h1>
+                </div>
+                {archSectionDescEditing ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <Input value={archSectionDescDraft} onChange={(e) => setArchSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                    <button onClick={handleSaveArchSectionDesc} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                    <button onClick={() => setArchSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setArchSectionDescDraft(archSectionDesc); setArchSectionDescEditing(true); }}>
+                    <span className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>{archSectionDesc}</span>
+                    <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.5)" }} />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={openNewArch}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.3)", color: "#22d3ee" }}
+              >
+                <Icon name="Plus" size={15} />
+                Добавить шаблон
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="glass-card rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-56">
+                <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={archSearch} onChange={(e) => setArchSearch(e.target.value)} placeholder="Поиск по ID, названию, автору, тегам, описанию..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              </div>
+              <select value={archFilterStatus} onChange={(e) => setArchFilterStatus(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: archFilterStatus === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">Все статусы</option>
+                {ARCH_TEMPLATE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Input value={archFilterTag} onChange={(e) => setArchFilterTag(e.target.value)} placeholder="Фильтр по тегу..." className="text-xs w-36 h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              <select value={archFilterIb} onChange={(e) => setArchFilterIb(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: archFilterIb === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">ИБ: все</option>
+                <option value="Да">ИБ: согласован</option>
+                <option value="Нет">ИБ: не согласован</option>
+              </select>
+              <select value={archFilterIt} onChange={(e) => setArchFilterIt(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: archFilterIt === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">ИТ: все</option>
+                <option value="Да">ИТ: согласован</option>
+                <option value="Нет">ИТ: не согласован</option>
+              </select>
+              {archFilterTsol && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
+                  <Icon name="Link2" size={11} />
+                  {archFilterTsol}
+                  <button onClick={() => setArchFilterTsol("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
+                </span>
+              )}
+              {(archSearch || archFilterStatus !== "Все" || archFilterTag || archFilterTsol || archFilterIb !== "Все" || archFilterIt !== "Все") && (
+                <button onClick={() => { setArchSearch(""); setArchFilterStatus("Все"); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                  Сбросить
+                </button>
+              )}
+              <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredArchTemplates.length} / {archTemplates.length}</span>
+            </div>
+
+            {/* Loading */}
+            {archLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#06b6d4" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!archLoading && filteredArchTemplates.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                  <Icon name="LayoutTemplate" size={28} style={{ color: "rgba(6,182,212,0.4)" }} />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium" style={{ color: "rgba(180,200,230,0.6)" }}>Шаблонов не найдено</p>
+                  <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.3)" }}>Создайте первый шаблон типовой архитектуры безопасности</p>
+                </div>
+                <button onClick={openNewArch} className="text-xs px-4 py-2 rounded-lg" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
+                  + Добавить шаблон
+                </button>
+              </div>
+            )}
+
+            {/* Cards grid */}
+            {!archLoading && filteredArchTemplates.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredArchTemplates.map((a) => {
+                  const sm = ARCH_TEMPLATE_STATUS_META[a.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
+                  const linkedTsols = techSolutions.filter((ts) => (a.tech_solution_ids||[]).includes(ts.id));
+                  return (
+                    <div
+                      key={a.id}
+                      className="glass-card rounded-xl p-5 flex flex-col gap-3 cursor-pointer transition-all"
+                      onClick={() => { setViewArch(a); setArchActiveDiagramTab(0); setViewArchReqSearch(""); setViewArchReqFilterLevel("Все"); setViewArchReqFilterCat("Все"); }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(15,22,41,0.85)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(6,182,212,0.25)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; (e.currentTarget as HTMLElement).style.borderColor = ""; (e.currentTarget as HTMLElement).style.transform = ""; }}
+                    >
+                      {/* Top row: ID + status */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>{a.id}</span>
+                            <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>v{a.version}</span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-white leading-snug">{a.name}</h3>
+                        </div>
+                        <span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full shrink-0" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                          <Icon name={sm.icon} size={10} />
+                          {a.status}
+                        </span>
+                      </div>
+
+                      {/* Description */}
+                      {a.description && (
+                        <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.6)" }}>{a.description}</p>
+                      )}
+
+                      {/* Linked tech solutions */}
+                      {linkedTsols.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {linkedTsols.slice(0, 3).map((ts) => (
+                            <span key={ts.id} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "rgba(167,139,250,0.7)", border: "1px solid rgba(167,139,250,0.15)" }}>
+                              <Icon name="Link2" size={8} className="inline mr-1" />{ts.id}
+                            </span>
+                          ))}
+                          {linkedTsols.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{linkedTsols.length - 3}</span>}
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      {a.tags && a.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {a.tags.slice(0, 4).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)", border: "1px solid rgba(99,176,255,0.15)" }}>#{tag}</span>
+                          ))}
+                          {a.tags.length > 4 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{a.tags.length - 4}</span>}
+                        </div>
+                      )}
+
+                      {/* Meta row */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {a.approved_ib && (
+                          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}>
+                            <Icon name="ShieldCheck" size={9} /> ИБ
+                          </span>
+                        )}
+                        {a.approved_it && (
+                          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                            <Icon name="Server" size={9} /> ИТ
+                          </span>
+                        )}
+                        {a.diagrams && a.diagrams.length > 0 && (
+                          <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                            <Icon name="GitBranch" size={9} /> {a.diagrams.length} диагр.
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                        <span className="text-xs truncate" style={{ color: "rgba(180,200,230,0.45)" }}>{a.author || "—"}</span>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { setViewArch(a); setArchActiveDiagramTab(0); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Просмотр">
+                            <Icon name="Eye" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
+                          </button>
+                          <button onClick={() => openEditArch(a)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Редактировать">
+                            <Icon name="Pencil" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
+                          </button>
+                          <button onClick={() => setDeleteArchId(a.id)} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить">
+                            <Icon name="Trash2" size={13} style={{ color: "rgba(248,113,113,0.5)" }} />
                           </button>
                         </div>
                       </div>
@@ -6564,6 +6934,433 @@ export default function Index() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* ── Arch Template Create/Edit Dialog ── */}
+      <Dialog open={archDialogOpen} onOpenChange={(o) => { if (!o) setArchDialogOpen(false); }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.3)" }}>
+                <Icon name="LayoutTemplate" size={15} style={{ color: "#22d3ee" }} />
+              </div>
+              {editingArch ? "Редактировать шаблон архитектуры" : "Новый шаблон типовой архитектуры"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 py-5 space-y-5">
+            {/* ID + Version */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID шаблона *</Label>
+                <Input value={archForm.id} onChange={(e) => setArchForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" placeholder="ArchSec-001" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={archForm.version} onChange={(e) => setArchForm((f) => ({ ...f, version: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название шаблона *</Label>
+              <Input
+                value={archForm.name}
+                onChange={(e) => setArchForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Название типовой архитектуры безопасности"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+              />
+              {archTemplates.filter((a) => a.name === archForm.name && (!editingArch || a.id !== editingArch.id)).length > 0 && (
+                <p className="text-xs" style={{ color: "#f87171" }}>Шаблон с таким названием уже существует</p>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Краткое описание</Label>
+              <textarea value={archForm.description} onChange={(e) => setArchForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} placeholder="Описание типовой архитектуры..." />
+            </div>
+
+            {/* Status + Author */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <select value={archForm.status} onChange={(e) => setArchForm((f) => ({ ...f, status: e.target.value as ArchTemplateStatus }))} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}>
+                  {ARCH_TEMPLATE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Автор</Label>
+                <Input value={archForm.author} onChange={(e) => setArchForm((f) => ({ ...f, author: e.target.value }))} style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {archForm.tags.map((tag) => (
+                  <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                    #{tag}
+                    <button onClick={() => setArchForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input value={archTagInput} onChange={(e) => setArchTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && archTagInput.trim()) { setArchForm((f) => ({ ...f, tags: [...f.tags, archTagInput.trim()] })); setArchTagInput(""); e.preventDefault(); } }} placeholder="Введите тег и нажмите Enter" className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <button onClick={() => { if (archTagInput.trim()) { setArchForm((f) => ({ ...f, tags: [...f.tags, archTagInput.trim()] })); setArchTagInput(""); } }} className="px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>+ Добавить</button>
+              </div>
+            </div>
+
+            {/* Tech solutions link */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Связанные технические решения</Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {archForm.tech_solution_ids.map((tsId) => {
+                  const ts = techSolutions.find((s) => s.id === tsId);
+                  return (
+                    <span key={tsId} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                      {ts ? ts.name : tsId}
+                      <button onClick={() => setArchForm((f) => ({ ...f, tech_solution_ids: f.tech_solution_ids.filter((id) => id !== tsId) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="relative">
+                <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={archTsolSearch} onChange={(e) => setArchTsolSearch(e.target.value)} placeholder="Поиск техрешения для привязки..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              {archTsolSearch && (
+                <div className="rounded-lg overflow-hidden border max-h-40 overflow-y-auto" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                  {techSolutions.filter((s) => !archForm.tech_solution_ids.includes(s.id) && ((s.name||"").toLowerCase().includes(archTsolSearch.toLowerCase()) || (s.id||"").toLowerCase().includes(archTsolSearch.toLowerCase()))).slice(0, 8).map((s) => (
+                    <button key={s.id} onClick={() => { setArchForm((f) => ({ ...f, tech_solution_ids: [...f.tech_solution_ids, s.id] })); setArchTsolSearch(""); }} className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-white/5 transition-all" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <span style={{ color: "rgba(210,225,245,0.8)" }}>{s.name}</span>
+                      <span className="font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{s.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Mermaid diagrams */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Диаграммы Mermaid</Label>
+                <button
+                  onClick={() => setArchForm((f) => ({ ...f, diagrams: [...f.diagrams, { id: `diag-${Date.now()}`, name: `Диаграмма ${f.diagrams.length + 1}`, content: "graph TD\n    A[Начало] --> B[Конец]" }] }))}
+                  className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
+                  style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.2)", color: "#22d3ee" }}
+                >
+                  <Icon name="Plus" size={11} /> Добавить диаграмму
+                </button>
+              </div>
+              {archForm.diagrams.map((diag, idx) => (
+                <div key={diag.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="px-3 py-2 flex items-center gap-2" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <Input
+                      value={diag.name}
+                      onChange={(e) => setArchForm((f) => ({ ...f, diagrams: f.diagrams.map((d, i) => i === idx ? { ...d, name: e.target.value } : d) }))}
+                      className="text-xs h-7 flex-1"
+                      style={{ background: "transparent", border: "none", color: "white" }}
+                    />
+                    <button onClick={() => setArchForm((f) => ({ ...f, diagrams: f.diagrams.filter((_, i) => i !== idx) }))} className="p-1 rounded hover:bg-red-500/10">
+                      <Icon name="Trash2" size={12} style={{ color: "#f87171" }} />
+                    </button>
+                  </div>
+                  <textarea
+                    value={diag.content}
+                    onChange={(e) => setArchForm((f) => ({ ...f, diagrams: f.diagrams.map((d, i) => i === idx ? { ...d, content: e.target.value } : d) }))}
+                    rows={6}
+                    className="w-full px-3 py-2 text-xs font-mono outline-none resize-y"
+                    style={{ background: "rgba(5,10,20,0.9)", color: "#22d3ee" }}
+                    placeholder="graph TD&#10;    A[Начало] --> B[Конец]"
+                  />
+                  <div className="px-3 py-2" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p className="text-[10px] mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Предпросмотр:</p>
+                    <MermaidViewer chart={diag.content} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Approvals */}
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" checked={archForm.approved_ib} onChange={(e) => setArchForm((f) => ({ ...f, approved_ib: e.target.checked }))} className="sr-only" />
+                  <div className="w-10 h-5 rounded-full transition-all" style={{ background: archForm.approved_ib ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.08)", border: `1px solid ${archForm.approved_ib ? "rgba(34,197,94,0.5)" : "rgba(255,255,255,0.12)"}` }}>
+                    <div className="w-3.5 h-3.5 rounded-full absolute top-0.5 transition-all" style={{ background: archForm.approved_ib ? "#22c55e" : "rgba(180,200,230,0.4)", left: archForm.approved_ib ? "calc(100% - 18px)" : "2px" }} />
+                  </div>
+                </div>
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.7)" }}>Согласован с ИБ</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" checked={archForm.approved_it} onChange={(e) => setArchForm((f) => ({ ...f, approved_it: e.target.checked }))} className="sr-only" />
+                  <div className="w-10 h-5 rounded-full transition-all" style={{ background: archForm.approved_it ? "rgba(99,176,255,0.3)" : "rgba(255,255,255,0.08)", border: `1px solid ${archForm.approved_it ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.12)"}` }}>
+                    <div className="w-3.5 h-3.5 rounded-full absolute top-0.5 transition-all" style={{ background: archForm.approved_it ? "#63b0ff" : "rgba(180,200,230,0.4)", left: archForm.approved_it ? "calc(100% - 18px)" : "2px" }} />
+                  </div>
+                </div>
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.7)" }}>Согласован с ИТ</span>
+              </label>
+            </div>
+
+            {archSaveError && <p className="text-xs" style={{ color: "#f87171" }}>{archSaveError}</p>}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t flex items-center justify-end gap-3" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <button onClick={() => setArchDialogOpen(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>Отмена</button>
+            <button
+              onClick={handleSaveArch}
+              disabled={archSaving}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{ background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.3)", color: "#22d3ee" }}
+            >
+              {archSaving ? <Icon name="Loader" size={14} className="animate-spin" /> : <Icon name="Save" size={14} />}
+              {editingArch ? "Сохранить изменения" : "Создать шаблон"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Arch Template Delete Confirm ── */}
+      <Dialog open={!!deleteArchId} onOpenChange={(o) => { if (!o) setDeleteArchId(null); }}>
+        <DialogContent className="max-w-sm border" style={{ background: "#0b1628", borderColor: "rgba(239,68,68,0.25)" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white">Удалить шаблон?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm mt-2" style={{ color: "rgba(180,200,230,0.6)" }}>Это действие необратимо. Шаблон <span className="font-mono text-white">{deleteArchId}</span> будет удалён.</p>
+          <div className="flex gap-3 mt-4">
+            <button onClick={() => setDeleteArchId(null)} className="flex-1 py-2 rounded-lg text-sm" style={{ border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.6)" }}>Отмена</button>
+            <button onClick={() => deleteArchId && handleDeleteArch(deleteArchId)} className="flex-1 py-2 rounded-lg text-sm font-medium" style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}>Удалить</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Arch Template View Dialog ── */}
+      <Dialog open={!!viewArch} onOpenChange={(o) => { if (!o) setViewArch(null); }}>
+        <DialogContent className="p-0 overflow-hidden border flex flex-col" style={{ background: "#080f1e", borderColor: "rgba(255,255,255,0.08)", width: "min(1000px, 96vw)", maxWidth: "none", maxHeight: "93vh" }}>
+          {viewArch && (() => {
+            const sm = ARCH_TEMPLATE_STATUS_META[viewArch.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
+            const linkedTsols = techSolutions.filter((ts) => (viewArch.tech_solution_ids||[]).includes(ts.id));
+            const linkedReqs = linkedTsols.flatMap((ts) => reqs.filter((r) => ts.technology_ids?.includes(r.technology_id)));
+            const uniqueReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
+            const filteredViewReqs = uniqueReqs.filter((r) => {
+              const q = viewArchReqSearch.toLowerCase();
+              const matchQ = !q || (r.title||"").toLowerCase().includes(q) || (r.code||"").toLowerCase().includes(q) || (r.category||"").toLowerCase().includes(q) || (r.description||"").toLowerCase().includes(q);
+              const matchLevel = viewArchReqFilterLevel === "Все" || r.level === viewArchReqFilterLevel;
+              const matchCat = viewArchReqFilterCat === "Все" || r.category === viewArchReqFilterCat;
+              return matchQ && matchLevel && matchCat;
+            });
+            const reqCategories = [...new Set(uniqueReqs.map((r) => r.category).filter(Boolean))];
+            return (
+              <>
+                {/* Header */}
+                <div className="px-6 pt-6 pb-5 border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>{viewArch.id}</span>
+                        <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewArch.version}</span>
+                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                          <Icon name={sm.icon} size={11} />{viewArch.status}
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { setViewArch(null); openEditArch(viewArch); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
+                        <Icon name="Pencil" size={12} /> Редактировать
+                      </button>
+                      <button onClick={() => { setViewArch(null); setDeleteArchId(viewArch.id); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                        <Icon name="Trash2" size={12} /> Удалить
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                  {/* Meta grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-4">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Автор</div>
+                      <div className="text-sm" style={{ color: "rgba(210,225,245,0.85)" }}>{viewArch.author || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Версия</div>
+                      <div className="text-sm" style={{ color: "rgba(210,225,245,0.85)" }}>{viewArch.version}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Дата создания</div>
+                      <div className="text-sm" style={{ color: "rgba(210,225,245,0.85)" }}>{viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Дата изменения</div>
+                      <div className="text-sm" style={{ color: "rgba(210,225,245,0.85)" }}>{viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Согласован с ИБ</div>
+                      <span className="flex items-center gap-1.5 text-xs w-fit px-2 py-0.5 rounded" style={{ background: viewArch.approved_ib ? "rgba(34,197,94,0.1)" : "rgba(107,114,128,0.1)", color: viewArch.approved_ib ? "#22c55e" : "#6b7280", border: `1px solid ${viewArch.approved_ib ? "rgba(34,197,94,0.25)" : "rgba(107,114,128,0.2)"}` }}>
+                        <Icon name={viewArch.approved_ib ? "ShieldCheck" : "ShieldOff"} size={11} />
+                        {viewArch.approved_ib ? "Согласован" : "Не согласован"}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Согласован с ИТ</div>
+                      <span className="flex items-center gap-1.5 text-xs w-fit px-2 py-0.5 rounded" style={{ background: viewArch.approved_it ? "rgba(99,176,255,0.1)" : "rgba(107,114,128,0.1)", color: viewArch.approved_it ? "#63b0ff" : "#6b7280", border: `1px solid ${viewArch.approved_it ? "rgba(99,176,255,0.25)" : "rgba(107,114,128,0.2)"}` }}>
+                        <Icon name={viewArch.approved_it ? "Server" : "ServerOff"} size={11} />
+                        {viewArch.approved_it ? "Согласован" : "Не согласован"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {viewArch.description && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</div>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.75)" }}>{viewArch.description}</p>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {viewArch.tags && viewArch.tags.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Теги</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {viewArch.tags.map((tag) => (
+                          <span key={tag} className="text-xs px-2.5 py-1 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)", border: "1px solid rgba(99,176,255,0.15)" }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Linked tech solutions (tech domains) */}
+                  {linkedTsols.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Связанные технические решения</div>
+                      <div className="flex flex-wrap gap-2">
+                        {linkedTsols.map((ts) => (
+                          <span key={ts.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                            <Icon name="Lightbulb" size={11} />
+                            {ts.name}
+                            <span className="font-mono text-[10px]" style={{ color: "rgba(167,139,250,0.5)" }}>{ts.id}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mermaid diagrams tabs */}
+                  {viewArch.diagrams && viewArch.diagrams.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Диаграммы архитектуры</div>
+                      {/* Tabs */}
+                      <div className="flex gap-1 mb-3 overflow-x-auto pb-1">
+                        {viewArch.diagrams.map((diag, idx) => (
+                          <button
+                            key={diag.id}
+                            onClick={() => setArchActiveDiagramTab(idx)}
+                            className="px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all"
+                            style={{
+                              background: archActiveDiagramTab === idx ? "rgba(6,182,212,0.15)" : "rgba(255,255,255,0.04)",
+                              border: `1px solid ${archActiveDiagramTab === idx ? "rgba(6,182,212,0.4)" : "rgba(255,255,255,0.08)"}`,
+                              color: archActiveDiagramTab === idx ? "#22d3ee" : "rgba(180,200,230,0.5)",
+                            }}
+                          >
+                            <Icon name="GitBranch" size={11} className="inline mr-1" />
+                            {diag.name}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Active diagram */}
+                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                          <span className="text-xs font-medium text-white">{viewArch.diagrams[archActiveDiagramTab]?.name}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>mermaid</span>
+                        </div>
+                        <div className="p-4">
+                          <MermaidViewer chart={viewArch.diagrams[archActiveDiagramTab]?.content || ""} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Requirements table from linked tech solutions */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                      Требования из связанных технических решений
+                      {uniqueReqs.length > 0 && <span className="ml-2 normal-case text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>({uniqueReqs.length} всего)</span>}
+                    </div>
+                    {uniqueReqs.length === 0 ? (
+                      <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Требования появятся после привязки технических решений с заполненными технологиями</p>
+                    ) : (
+                      <>
+                        {/* Req filters */}
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <div className="relative flex-1 min-w-40">
+                            <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                            <Input value={viewArchReqSearch} onChange={(e) => setViewArchReqSearch(e.target.value)} placeholder="Поиск по требованиям..." className="pl-8 text-xs h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+                          </div>
+                          <select value={viewArchReqFilterLevel} onChange={(e) => setViewArchReqFilterLevel(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterLevel === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                            <option value="Все">Все уровни</option>
+                            {["Критический","Высокий","Средний","Низкий"].map((l) => <option key={l} value={l}>{l}</option>)}
+                          </select>
+                          {reqCategories.length > 0 && (
+                            <select value={viewArchReqFilterCat} onChange={(e) => setViewArchReqFilterCat(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterCat === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                              <option value="Все">Все категории</option>
+                              {reqCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          )}
+                        </div>
+                        {/* Table */}
+                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Код</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Категория</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Уровень</th>
+                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Стандарт</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredViewReqs.map((r, idx) => {
+                                const levelMeta: Record<string, { color: string; bg: string }> = {
+                                  "Критический": { color: "#f87171", bg: "rgba(239,68,68,0.1)" },
+                                  "Высокий": { color: "#fb923c", bg: "rgba(249,115,22,0.1)" },
+                                  "Средний": { color: "#fbbf24", bg: "rgba(245,158,11,0.1)" },
+                                  "Низкий": { color: "#34d399", bg: "rgba(52,211,153,0.1)" },
+                                };
+                                const lm = levelMeta[r.level] || { color: "#6b7280", bg: "rgba(107,114,128,0.1)" };
+                                return (
+                                  <tr key={r.id} style={{ borderBottom: idx < filteredViewReqs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                                    <td className="px-3 py-2 font-mono" style={{ color: "#63b0ff" }}>{r.code}</td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.title}</td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.category}</td>
+                                    <td className="px-3 py-2">
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: lm.bg, color: lm.color }}>{r.level}</span>
+                                    </td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.standard || "—"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {filteredViewReqs.length === 0 && (
+                            <div className="py-8 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Требований не найдено</div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
