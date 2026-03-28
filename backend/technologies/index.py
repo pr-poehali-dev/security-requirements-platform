@@ -57,7 +57,7 @@ def handler(event: dict, context) -> dict:
 
     try:
         # GET /names — список имён для валидации
-        if method == "GET" and ("names" in path or (event.get("queryStringParameters") or {}).get("mode") == "names"):
+        if method == "GET" and path.endswith("/names"):
             cur.execute(f"SELECT id, name FROM {SCHEMA}.technologies ORDER BY name")
             rows = [{"id": r[0], "name": r[1]} for r in cur.fetchall()]
             return ok({"names": rows})
