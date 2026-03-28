@@ -1213,6 +1213,7 @@ export default function Index() {
   const [hardSearch, setHardSearch] = useState("");
   const [hardFilterStatus, setHardFilterStatus] = useState<string>("Все");
   const [hardFilterTag, setHardFilterTag] = useState<string>("");
+  const [hardFilterTsol, setHardFilterTsol] = useState<string>("");
   const [hardTagInput, setHardTagInput] = useState("");
   const [hardTsolSearch, setHardTsolSearch] = useState("");
 
@@ -1323,7 +1324,8 @@ export default function Index() {
     const matchQ = !q || (h.id||"").toLowerCase().includes(q) || (h.name||"").toLowerCase().includes(q) || (h.author||"").toLowerCase().includes(q) || (h.tech_solution_id||"").toLowerCase().includes(q) || (h.deploy_hardening||"").toLowerCase().includes(q) || (h.functional_hardening||"").toLowerCase().includes(q) || (h.tags||[]).some((t) => t.toLowerCase().includes(q));
     const matchStatus = hardFilterStatus === "Все" || h.status === hardFilterStatus;
     const matchTag = !hardFilterTag || (h.tags||[]).some((t) => t.toLowerCase().includes(hardFilterTag.toLowerCase()));
-    return matchQ && matchStatus && matchTag;
+    const matchTsol = !hardFilterTsol || (h.tech_solution_id||"") === hardFilterTsol;
+    return matchQ && matchStatus && matchTag && matchTsol;
   });
   // ─────────────────────────────────────────────────────────────────
 
@@ -2870,6 +2872,13 @@ export default function Index() {
                       <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                         <span className="text-xs truncate" style={{ color: "rgba(180,200,230,0.45)" }}>{s.author || "—"}</span>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => { setActiveSection("hardening"); setHardFilterTsol(s.id); }}
+                            className="p-1.5 rounded-lg transition-all hover:bg-purple-500/10"
+                            title="Харденинг этого решения"
+                          >
+                            <Icon name="ShieldHalf" size={13} style={{ color: "rgba(167,139,250,0.6)" }} />
+                          </button>
                           <button onClick={() => setViewTsol(s)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Просмотр">
                             <Icon name="Eye" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
                           </button>
@@ -2948,8 +2957,17 @@ export default function Index() {
                 {HARDENING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <Input value={hardFilterTag} onChange={(e) => setHardFilterTag(e.target.value)} placeholder="Фильтр по тегу..." className="text-xs w-40 h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
-              {(hardSearch || hardFilterStatus !== "Все" || hardFilterTag) && (
-                <button onClick={() => { setHardSearch(""); setHardFilterStatus("Все"); setHardFilterTag(""); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+              {hardFilterTsol && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", color: "#a78bfa" }}>
+                  <Icon name="ShieldHalf" size={11} />
+                  {hardFilterTsol}
+                  <button onClick={() => setHardFilterTsol("")} className="ml-1 hover:opacity-70">
+                    <Icon name="X" size={10} />
+                  </button>
+                </span>
+              )}
+              {(hardSearch || hardFilterStatus !== "Все" || hardFilterTag || hardFilterTsol) && (
+                <button onClick={() => { setHardSearch(""); setHardFilterStatus("Все"); setHardFilterTag(""); setHardFilterTsol(""); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
                   Сбросить
                 </button>
               )}
