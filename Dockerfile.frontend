@@ -1,34 +1,19 @@
-# ── Stage 1: build ───────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
+# Устанавливаем bun для быстрой установки зависимостей
 RUN npm install -g bun
 
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile || bun install
+# Копируем файлы зависимостей
+COPY package.json bun.lock* package-lock.json* ./
 
+# Устанавливаем зависимости
+RUN bun install || npm install
+
+# Копируем исходники
 COPY . .
 
-# VITE_API_BASE встраивается в бандл на этапе сборки
-ARG VITE_API_BASE=http://localhost:8000
-ENV VITE_API_BASE=$VITE_API_BASE
+EXPOSE 5173
 
-RUN bun run build
-
-# ── Stage 2: serve ────────────────────────────────────────────
-FROM nginx:alpine
-
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# SPA-роутинг: все пути отдаём index.html
-RUN printf 'server {\n\
-    listen 80;\n\
-    root /usr/share/nginx/html;\n\
-    index index.html;\n\
-    location / {\n\
-        try_files $uri $uri/ /index.html;\n\
-    }\n\
-}\n' > /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "5173"]
