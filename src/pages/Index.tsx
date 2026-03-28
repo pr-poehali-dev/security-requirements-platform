@@ -485,8 +485,16 @@ export default function Index() {
   const [libReqFilterEnv, setLibReqFilterEnv] = useState("Все");
   const [libReqFilterStage, setLibReqFilterStage] = useState("Все");
 
+  // ── API routing: production (poehali.dev) or local Docker backend ──
+  const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+  const apiUrl = (prodUrl: string, localPath: string) =>
+    API_BASE ? `${API_BASE}${localPath}` : prodUrl;
+
   // Domains state
-  const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
+  const DOMAINS_API = apiUrl(
+    "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177",
+    "/api/domains",
+  );
   const [domains, setDomains] = useState<OrgDomain[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [sectionDesc, setSectionDesc] = useState("Реестр организационных доменов безопасности — создание, редактирование и управление статусами");
@@ -612,7 +620,10 @@ export default function Index() {
   );
 
   // ── Tech Domains state ──────────────────────────────────────────
-  const TECH_DOMAINS_API = "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246";
+  const TECH_DOMAINS_API = apiUrl(
+    "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246",
+    "/api/tech-domains",
+  );
   const [techDomains, setTechDomains] = useState<TechDomain[]>([]);
   const [techOrgRefs, setTechOrgRefs] = useState<OrgDomainRef[]>([]);
   const [techLoading, setTechLoading] = useState(false);
@@ -761,7 +772,10 @@ export default function Index() {
   };
   const TECH_STATUSES: TechStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
-  const TECHNOLOGIES_API = "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8";
+  const TECHNOLOGIES_API = apiUrl(
+    "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8",
+    "/api/technologies",
+  );
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [techDomainRefs, setTechDomainRefs] = useState<TechDomainRef[]>([]);
   const [techSectionDesc2, setTechSectionDesc2] = useState("Реестр технологий ИБ — JWT, OAuth 2.0, шифрование, контейнеризация и другие технические решения");
@@ -978,7 +992,10 @@ export default function Index() {
   );
 
   // ── Requirements state ──────────────────────────────────────────
-  const REQUIREMENTS_API = "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177";
+  const REQUIREMENTS_API = apiUrl(
+    "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177",
+    "/api/requirements",
+  );
   const [reqs, setReqs] = useState<Req[]>([]);
   const [reqTechRefs, setReqTechRefs] = useState<{ id: string; name: string }[]>([]);
   const [reqTechDomainRefs, setReqTechDomainRefs] = useState<{ id: string; name: string }[]>([]);
@@ -1135,7 +1152,10 @@ export default function Index() {
   });
 
   // ── Tech Solutions state ─────────────────────────────────────────
-  const TECH_SOLUTIONS_API = "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2";
+  const TECH_SOLUTIONS_API = apiUrl(
+    "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2",
+    "/api/tech-solutions",
+  );
   const [techSolutions, setTechSolutions] = useState<TechSolution[]>([]);
   const [tsolLoading, setTsolLoading] = useState(false);
   const [tsolSectionDesc, setTsolSectionDesc] = useState("Реестр технических решений — архитектурные и проектные решения, согласованные с ИБ и ИТ");
@@ -1282,7 +1302,10 @@ export default function Index() {
   // ─────────────────────────────────────────────────────────────────
 
   // ── Hardening state ──────────────────────────────────────────────
-  const HARDENING_API = "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf";
+  const HARDENING_API = apiUrl(
+    "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf",
+    "/api/hardening",
+  );
   const [hardenings, setHardenings] = useState<Hardening[]>([]);
   const [hardLoading, setHardLoading] = useState(false);
   const [hardSectionDesc, setHardSectionDesc] = useState("Реестр харденингов технических решений — настройки безопасности развёртывания и функционала");
@@ -1412,7 +1435,10 @@ export default function Index() {
     return matchQ && matchStatus && matchTag && matchTsol;
   });
   // ── ArchTemplates state ───────────────────────────────────────────
-  const ARCH_TEMPLATES_API = "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa";
+  const ARCH_TEMPLATES_API = apiUrl(
+    "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa",
+    "/api/arch-templates",
+  );
   const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
   const [archLoading, setArchLoading] = useState(false);
   const [archSectionDesc, setArchSectionDesc] = useState("Реестр типовых архитектур безопасности — шаблоны для проектирования защищённых систем");
@@ -1569,7 +1595,10 @@ export default function Index() {
   // ─────────────────────────────────────────────────────────────────
 
   // ── Products state ────────────────────────────────────────────────
-  const PRODUCTS_API = "https://functions.poehali.dev/83496f55-f31c-499a-8d22-618295a6da0f";
+  const PRODUCTS_API = apiUrl(
+    "https://functions.poehali.dev/83496f55-f31c-499a-8d22-618295a6da0f",
+    "/api/products",
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [prodLoading, setProdLoading] = useState(false);
   const [prodSectionDesc, setProdSectionDesc] = useState("Реестр бизнес-продуктов — привязка к типовым архитектурам безопасности и требованиям");
@@ -1713,7 +1742,7 @@ export default function Index() {
     setCheckState("checking");
     setCheckError("");
     try {
-      const res = await fetch("https://functions.poehali.dev/5622928b-26f7-4ee8-b41f-03e43463dcc9", {
+      const res = await fetch(apiUrl("https://functions.poehali.dev/5622928b-26f7-4ee8-b41f-03e43463dcc9", "/api/db-check"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dbConfig),
