@@ -1065,10 +1065,17 @@ export default function Index() {
   const loadTechSolutions = async () => {
     setTsolLoading(true);
     try {
-      const res = await fetch(TECH_SOLUTIONS_API);
+      const [res, techRes] = await Promise.all([
+        fetch(TECH_SOLUTIONS_API),
+        technologies.length === 0 ? fetch(TECHNOLOGIES_API) : Promise.resolve(null),
+      ]);
       const data = await res.json();
       setTechSolutions(data.items || []);
       if (data.section_description) setTsolSectionDesc(data.section_description);
+      if (techRes) {
+        const techData = await techRes.json();
+        setTechnologies(techData.items || []);
+      }
     } finally {
       setTsolLoading(false);
     }
@@ -1080,6 +1087,7 @@ export default function Index() {
     setTsolTagInput(""); setTsolSaveError("");
     setTsolAttachTab("link"); setTsolAttachDraft({ type:"link", name:"", content:"" });
     setTsolRelSearch(""); setTsolTechSearch("");
+    if (technologies.length === 0) loadTechnologies();
     setTsolDialogOpen(true);
   };
 
@@ -1089,6 +1097,7 @@ export default function Index() {
     setTsolTagInput(""); setTsolSaveError("");
     setTsolAttachTab("link"); setTsolAttachDraft({ type:"link", name:"", content:"" });
     setTsolRelSearch(""); setTsolTechSearch("");
+    if (technologies.length === 0) loadTechnologies();
     setTsolDialogOpen(true);
   };
 
