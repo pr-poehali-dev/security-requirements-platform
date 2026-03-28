@@ -16,10 +16,128 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import MermaidViewer from "@/components/ui/mermaid-viewer";
 
-type Section = "library" | "analytics" | "domains";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
+
+interface TechDomain {
+  id: string;
+  name: string;
+  version: string;
+  owner: string;
+  status: DomainStatus;
+  tags: string[];
+  description: string;
+  org_domain_ids: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface OrgDomainRef {
+  id: string;
+  name: string;
+  status: DomainStatus;
+}
+
+type TechStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface TechDomainRef {
+  id: string;
+  name: string;
+}
+
+type AttachmentType = "file" | "mermaid" | "link";
+
+interface Attachment {
+  id: string;
+  type: AttachmentType;
+  name: string;
+  content: string;
+}
+
+interface Technology {
+  id: string;
+  name: string;
+  status: TechStatus;
+  description: string;
+  versions: string[];
+  tech_domain_ids: string[];
+  tags: string[];
+  attachments: Attachment[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+type ReqType = "Организационное" | "Функциональное" | "Безопасность" | "Техническое";
+type ReqCriticality = "Критический" | "Высокий" | "Средний" | "Низкий";
+type ReqStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+type ReqEnv = "Prod" | "ProdLike" | "Stage" | "Test" | "Dev";
+type ReqStage = "Стадия дизайн" | "Стадия деплоя" | "Стадия рантайм";
+type ReqInteraction = "Обязательный" | "Рекомендуемый" | "Не требуется" | "Запрещено";
+
+interface Req {
+  id: string;
+  name: string;
+  technology_id: string;
+  tech_domain_id: string;
+  description: string;
+  req_type: ReqType;
+  criticality: ReqCriticality;
+  control_metric: string;
+  control_description: string;
+  tags: string[];
+  version: string;
+  status: ReqStatus;
+  norm_doc_link: string;
+  environments: ReqEnv[];
+  stages: ReqStage[];
+  procurement: string;
+  ext_with_iod: ReqInteraction;
+  ext_without_iod: ReqInteraction;
+  int_with_iod: ReqInteraction;
+  int_without_iod: ReqInteraction;
+  score_value: number;
+  score_weight: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const REQ_TYPES: ReqType[] = ["Организационное", "Функциональное", "Безопасность", "Техническое"];
+const REQ_TYPE_META: Record<ReqType, { color: string; bg: string; icon: string }> = {
+  "Организационное": { color: "#a78bfa", bg: "rgba(167,139,250,0.12)", icon: "Building2" },
+  "Функциональное":  { color: "#63b0ff", bg: "rgba(99,176,255,0.12)",  icon: "Cpu" },
+  "Безопасность":    { color: "#f87171", bg: "rgba(248,113,113,0.12)", icon: "ShieldCheck" },
+  "Техническое":     { color: "#34d399", bg: "rgba(52,211,153,0.12)",  icon: "Wrench" },
+};
+
+const REQ_CRITICALITY_META: Record<ReqCriticality, { color: string; bg: string; icon: string }> = {
+  "Критический": { color: "#ef4444", bg: "rgba(239,68,68,0.12)",   icon: "AlertOctagon" },
+  "Высокий":     { color: "#f97316", bg: "rgba(249,115,22,0.12)",  icon: "AlertTriangle" },
+  "Средний":     { color: "#eab308", bg: "rgba(234,179,8,0.12)",   icon: "Minus" },
+  "Низкий":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",   icon: "ChevronDown" },
+};
+
+const REQ_STATUS_META: Record<ReqStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
+
+const REQ_ENVS: ReqEnv[] = ["Prod", "ProdLike", "Stage", "Test", "Dev"];
+const REQ_STAGES: ReqStage[] = ["Стадия дизайн", "Стадия деплоя", "Стадия рантайм"];
+const REQ_INTERACTIONS: ReqInteraction[] = ["Обязательный", "Рекомендуемый", "Не требуется", "Запрещено"];
+const REQ_INTERACTION_META: Record<ReqInteraction, { color: string }> = {
+  "Обязательный":  { color: "#ef4444" },
+  "Рекомендуемый": { color: "#f59e0b" },
+  "Не требуется":  { color: "#6b7280" },
+  "Запрещено":     { color: "#a78bfa" },
+};
+const REQ_CRITICALITIES: ReqCriticality[] = ["Критический", "Высокий", "Средний", "Низкий"];
+const REQ_STATUSES: ReqStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
 interface OrgDomain {
   id: string;
@@ -28,10 +146,62 @@ interface OrgDomain {
   owner: string;
   status: DomainStatus;
   description: string;
+  tags: string[];
   createdAt: string;
   updated_at?: string;
   created_at?: string;
 }
+
+type SolStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+
+interface SolAttachment {
+  id: string;
+  type: "mermaid" | "link" | "file";
+  name: string;
+  content: string;
+}
+
+interface TechSolution {
+  id: string;
+  name: string;
+  version: string;
+  owner: string;
+  status: SolStatus;
+  description: string;
+  tags: string[];
+  technology_ids: string[];
+  tech_domain_ids: string[];
+  attachments: SolAttachment[];
+  approved_ib: boolean;
+  approved_it: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface SolTechRef {
+  id: string;
+  name: string;
+  status: string;
+  versions: string[];
+  tags: string[];
+  tech_domain_ids: string[];
+}
+
+interface SolFullData {
+  solution: TechSolution;
+  technologies: SolTechRef[];
+  requirements: Req[];
+  sol_domains: { id: string; name: string }[];
+}
+
+const SOL_STATUS_META: Record<SolStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
+const SOL_STATUSES: SolStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
 const DOMAIN_STATUS_META: Record<DomainStatus, { color: string; bg: string; icon: string }> = {
   "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
@@ -246,9 +416,30 @@ export default function Index() {
     owner: "",
     status: "В разработке",
     description: "",
+    tags: [],
     createdAt: new Date().toISOString().split("T")[0],
   });
   const [domainForm, setDomainForm] = useState<OrgDomain>(makeEmptyForm(0));
+  const [tagInput, setTagInput] = useState("");
+  const [nameError, setNameError] = useState("");
+
+  const validateName = (val: string) => {
+    if (!val.trim()) return "Название обязательно";
+    if (val.trim().length < 3) return "Минимум 3 символа";
+    if (val.trim().length > 100) return "Максимум 100 символов";
+    return "";
+  };
+
+  const addTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || domainForm.tags.includes(tag) || domainForm.tags.length >= 10) return;
+    setDomainForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) => {
+    setDomainForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }));
+  };
 
   const loadDomains = async () => {
     setDomainsLoading(true);
@@ -269,12 +460,16 @@ export default function Index() {
   const openCreateDomain = () => {
     setEditingDomain(null);
     setDomainForm(makeEmptyForm(domains.length));
+    setTagInput("");
+    setNameError("");
     setDomainDialogOpen(true);
   };
 
   const openEditDomain = (d: OrgDomain) => {
     setEditingDomain(d);
-    setDomainForm({ ...d });
+    setDomainForm({ ...d, tags: d.tags || [] });
+    setTagInput("");
+    setNameError("");
     setDomainDialogOpen(true);
   };
 
@@ -326,6 +521,490 @@ export default function Index() {
     d.owner.toLowerCase().includes(domainSearch.toLowerCase())
   );
 
+  // ── Tech Domains state ──────────────────────────────────────────
+  const TECH_DOMAINS_API = "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246";
+  const [techDomains, setTechDomains] = useState<TechDomain[]>([]);
+  const [techOrgRefs, setTechOrgRefs] = useState<OrgDomainRef[]>([]);
+  const [techLoading, setTechLoading] = useState(false);
+  const [techSectionDesc, setTechSectionDesc] = useState("Реестр технических доменов безопасности — создание, редактирование и управление архитектурными компонентами");
+  const [techSectionDescEditing, setTechSectionDescEditing] = useState(false);
+  const [techSectionDescDraft, setTechSectionDescDraft] = useState(techSectionDesc);
+  const [techDialogOpen, setTechDialogOpen] = useState(false);
+  const [techSaving, setTechSaving] = useState(false);
+  const [techSaveError, setTechSaveError] = useState("");
+  const [deleteTechId, setDeleteTechId] = useState<string | null>(null);
+  const [editingTech, setEditingTech] = useState<TechDomain | null>(null);
+  const [viewTech, setViewTech] = useState<TechDomain | null>(null);
+  const [techSearch, setTechSearch] = useState("");
+  const [techTagInput, setTechTagInput] = useState("");
+  const [techNameError, setTechNameError] = useState("");
+
+  const makeEmptyTechForm = (count: number): TechDomain => ({
+    id: `tech.dom.${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    version: "1.0.0",
+    owner: "",
+    status: "В разработке",
+    tags: [],
+    description: "",
+    org_domain_ids: [],
+  });
+  const [techForm, setTechForm] = useState<TechDomain>(makeEmptyTechForm(0));
+
+  const loadTechDomains = async () => {
+    setTechLoading(true);
+    try {
+      const res = await fetch(TECH_DOMAINS_API);
+      const data = await res.json();
+      setTechDomains(data.tech_domains || []);
+      setTechOrgRefs(data.org_domains || []);
+      if (data.section_description) setTechSectionDesc(data.section_description);
+    } finally {
+      setTechLoading(false);
+    }
+  };
+
+  const openCreateTech = () => {
+    setEditingTech(null);
+    setTechForm(makeEmptyTechForm(techDomains.length));
+    setTechTagInput("");
+    setTechNameError("");
+    setTechSaveError("");
+    setTechDialogOpen(true);
+  };
+
+  const openEditTech = (d: TechDomain) => {
+    setEditingTech(d);
+    setTechForm({ ...d, tags: d.tags || [], org_domain_ids: d.org_domain_ids || [] });
+    setTechTagInput("");
+    setTechNameError("");
+    setTechSaveError("");
+    setTechDialogOpen(true);
+  };
+
+  const validateTechName = (val: string) => {
+    if (!val.trim()) return "Название обязательно";
+    if (val.trim().length < 3) return "Минимум 3 символа";
+    if (val.trim().length > 100) return "Максимум 100 символов";
+    return "";
+  };
+
+  const addTechTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || techForm.tags.includes(tag) || techForm.tags.length >= 10) return;
+    setTechForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setTechTagInput("");
+  };
+
+  const removeTechTag = (tag: string) => {
+    setTechForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }));
+  };
+
+  const toggleOrgDomain = (id: string) => {
+    setTechForm((f) => ({
+      ...f,
+      org_domain_ids: f.org_domain_ids.includes(id)
+        ? f.org_domain_ids.filter((x) => x !== id)
+        : [...f.org_domain_ids, id],
+    }));
+  };
+
+  const handleSaveTech = async () => {
+    const nameErr = validateTechName(techForm.name);
+    if (nameErr || !techForm.id.trim()) { setTechNameError(nameErr); return; }
+    setTechSaving(true);
+    setTechSaveError("");
+    try {
+      const method = editingTech ? "PUT" : "POST";
+      const res = await fetch(TECH_DOMAINS_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(techForm),
+      });
+      const data = await res.json();
+      if (data.error) { setTechSaveError(data.error); return; }
+      if (editingTech) {
+        setTechDomains((prev) => prev.map((d) => (d.id === editingTech.id ? data : d)));
+      } else {
+        setTechDomains((prev) => [...prev, data]);
+      }
+      setTechDialogOpen(false);
+    } finally {
+      setTechSaving(false);
+    }
+  };
+
+  const handleDeleteTech = async (id: string) => {
+    await fetch(TECH_DOMAINS_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setTechDomains((prev) => prev.filter((d) => d.id !== id));
+    setDeleteTechId(null);
+    if (viewTech?.id === id) setViewTech(null);
+  };
+
+  const handleSaveTechSectionDesc = async () => {
+    setTechSectionDesc(techSectionDescDraft);
+    setTechSectionDescEditing(false);
+    await fetch(`${TECH_DOMAINS_API}/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: techSectionDescDraft }),
+    });
+  };
+
+  const filteredTechDomains = techDomains.filter((d) =>
+    d.name.toLowerCase().includes(techSearch.toLowerCase()) ||
+    d.id.toLowerCase().includes(techSearch.toLowerCase()) ||
+    d.owner.toLowerCase().includes(techSearch.toLowerCase())
+  );
+
+  // ── Technologies state ──────────────────────────────────────────
+  const TECH_STATUS_META: Record<TechStatus, { color: string; bg: string; icon: string }> = {
+    "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+    "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+    "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+    "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+    "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+  };
+  const TECH_STATUSES: TechStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+
+  const TECHNOLOGIES_API = "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8";
+  const [technologies, setTechnologies] = useState<Technology[]>([]);
+  const [techDomainRefs, setTechDomainRefs] = useState<TechDomainRef[]>([]);
+  const [techSectionDesc2, setTechSectionDesc2] = useState("Реестр технологий ИБ — JWT, OAuth 2.0, шифрование, контейнеризация и другие технические решения");
+  const [techSectionDesc2Editing, setTechSectionDesc2Editing] = useState(false);
+  const [techSectionDesc2Draft, setTechSectionDesc2Draft] = useState(techSectionDesc2);
+  const [techsLoading, setTechsLoading] = useState(false);
+  const [techDialogOpen2, setTechDialogOpen2] = useState(false);
+  const [techSaving2, setTechSaving2] = useState(false);
+  const [techSaveError2, setTechSaveError2] = useState("");
+  const [deleteTechId2, setDeleteTechId2] = useState<string | null>(null);
+  const [editingTech2, setEditingTech2] = useState<Technology | null>(null);
+  const [viewTech2, setViewTech2] = useState<Technology | null>(null);
+  const [techSearch2, setTechSearch2] = useState("");
+  const [techTagInput2, setTechTagInput2] = useState("");
+  const [techNameError2, setTechNameError2] = useState("");
+  const [techVersionInput, setTechVersionInput] = useState("");
+  const [existingTechNames, setExistingTechNames] = useState<{id:string;name:string}[]>([]);
+  const [techLibraryOpen, setTechLibraryOpen] = useState(false);
+  const [techLibrarySearch, setTechLibrarySearch] = useState("");
+  const [attachmentTab, setAttachmentTab] = useState<AttachmentType>("link");
+  const [attachDraft, setAttachDraft] = useState<Omit<Attachment,"id">>({ type:"link", name:"", content:"" });
+  const [viewAttachment, setViewAttachment] = useState<Attachment | null>(null);
+  const [techReqFilter, setTechReqFilter] = useState<string>("Все");
+  const [viewTechFull, setViewTechFull] = useState<Technology | null>(null);
+  const [techFullSearch, setTechFullSearch] = useState("");
+  const [techFullSortField, setTechFullSortField] = useState<string>("id");
+  const [techFullSortDir, setTechFullSortDir] = useState<"asc" | "desc">("asc");
+
+  const makeEmptyTechForm2 = (count: number): Technology => ({
+    id: `tech.${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    status: "В разработке",
+    description: "",
+    versions: [],
+    tech_domain_ids: [],
+    tags: [],
+    attachments: [],
+  });
+  const [techForm2, setTechForm2] = useState<Technology>(makeEmptyTechForm2(0));
+
+  const loadTechnologies = async () => {
+    setTechsLoading(true);
+    try {
+      const res = await fetch(TECHNOLOGIES_API);
+      const data = await res.json();
+      setTechnologies(data.items || []);
+      setTechDomainRefs(data.tech_domains || []);
+      if (data.section_description) setTechSectionDesc2(data.section_description);
+    } finally {
+      setTechsLoading(false);
+    }
+  };
+
+  const loadExistingTechNames = async () => {
+    const res = await fetch(`${TECHNOLOGIES_API}/names`);
+    const data = await res.json();
+    setExistingTechNames(data.names || []);
+  };
+
+  const openCreateTech2 = () => {
+    setEditingTech2(null);
+    setTechForm2(makeEmptyTechForm2(technologies.length));
+    setTechTagInput2(""); setTechNameError2(""); setTechSaveError2("");
+    setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
+    setAttachmentTab("link");
+    loadExistingTechNames();
+    setTechDialogOpen2(true);
+  };
+
+  const openEditTech2 = (t: Technology) => {
+    setEditingTech2(t);
+    setTechForm2({ ...t, tags: t.tags || [], versions: t.versions || [], tech_domain_ids: t.tech_domain_ids || [], attachments: t.attachments || [] });
+    setTechTagInput2(""); setTechNameError2(""); setTechSaveError2("");
+    setTechVersionInput(""); setAttachDraft({ type:"link", name:"", content:"" });
+    setAttachmentTab("link");
+    loadExistingTechNames();
+    setTechDialogOpen2(true);
+  };
+
+  const validateTechName2 = (val: string) => {
+    if (!val.trim()) return "Название обязательно";
+    if (val.trim().length < 2) return "Минимум 2 символа";
+    if (val.trim().length > 100) return "Максимум 100 символов";
+    const dup = existingTechNames.find(
+      (n) => n.name.toLowerCase() === val.trim().toLowerCase() && n.id !== (editingTech2?.id || "")
+    );
+    if (dup) return `Технология «${dup.name}» уже существует`;
+    return "";
+  };
+
+  const addTechTag2 = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || techForm2.tags.includes(tag) || techForm2.tags.length >= 10) return;
+    setTechForm2((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setTechTagInput2("");
+  };
+
+  const addVersion = (raw: string) => {
+    const v = raw.trim();
+    if (!v || techForm2.versions.includes(v)) return;
+    setTechForm2((f) => ({ ...f, versions: [...f.versions, v] }));
+    setTechVersionInput("");
+  };
+
+  const toggleTechDomainRef = (id: string) => {
+    setTechForm2((f) => ({
+      ...f,
+      tech_domain_ids: f.tech_domain_ids.includes(id)
+        ? f.tech_domain_ids.filter((x) => x !== id)
+        : [...f.tech_domain_ids, id],
+    }));
+  };
+
+  const addAttachment = () => {
+    if (!attachDraft.name.trim() || !attachDraft.content.trim()) return;
+    const att: Attachment = { id: Date.now().toString(), ...attachDraft };
+    setTechForm2((f) => ({ ...f, attachments: [...f.attachments, att] }));
+    setAttachDraft({ type: attachmentTab, name: "", content: "" });
+  };
+
+  const removeAttachment = (id: string) => {
+    setTechForm2((f) => ({ ...f, attachments: f.attachments.filter((a) => a.id !== id) }));
+  };
+
+  const handleSaveTech2 = async () => {
+    const nameErr = validateTechName2(techForm2.name);
+    if (nameErr || !techForm2.id.trim()) { setTechNameError2(nameErr); return; }
+    setTechSaving2(true); setTechSaveError2("");
+    try {
+      const method = editingTech2 ? "PUT" : "POST";
+      const res = await fetch(TECHNOLOGIES_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(techForm2),
+      });
+      const data = await res.json();
+      if (data.error) { setTechSaveError2(data.error); return; }
+      if (editingTech2) {
+        setTechnologies((prev) => prev.map((t) => (t.id === editingTech2.id ? data : t)));
+      } else {
+        setTechnologies((prev) => [...prev, data]);
+      }
+      setTechDialogOpen2(false);
+    } finally {
+      setTechSaving2(false);
+    }
+  };
+
+  const handleDeleteTech2 = async (id: string) => {
+    await fetch(TECHNOLOGIES_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setTechnologies((prev) => prev.filter((t) => t.id !== id));
+    setDeleteTechId2(null);
+    if (viewTech2?.id === id) setViewTech2(null);
+  };
+
+  const handleSaveTechSectionDesc2 = async () => {
+    setTechSectionDesc2(techSectionDesc2Draft);
+    setTechSectionDesc2Editing(false);
+    await fetch(`${TECHNOLOGIES_API}/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: techSectionDesc2Draft }),
+    });
+  };
+
+  const filteredTechnologies = technologies.filter((t) =>
+    t.name.toLowerCase().includes(techSearch2.toLowerCase()) ||
+    t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
+    (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
+  );
+
+  // ── Requirements state ──────────────────────────────────────────
+  const REQUIREMENTS_API = "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177";
+  const [reqs, setReqs] = useState<Req[]>([]);
+  const [reqTechRefs, setReqTechRefs] = useState<{ id: string; name: string }[]>([]);
+  const [reqTechDomainRefs, setReqTechDomainRefs] = useState<{ id: string; name: string }[]>([]);
+  const [reqsLoading, setReqsLoading] = useState(false);
+  const [reqSectionDesc, setReqSectionDesc] = useState("Реестр требований безопасности — организационные, функциональные и технические требования");
+  const [reqSectionDescEditing, setReqSectionDescEditing] = useState(false);
+  const [reqSectionDescDraft, setReqSectionDescDraft] = useState(reqSectionDesc);
+  const [reqDialogOpen, setReqDialogOpen] = useState(false);
+  const [reqSaving, setReqSaving] = useState(false);
+  const [reqSaveError, setReqSaveError] = useState("");
+  const [deleteReqId, setDeleteReqId] = useState<string | null>(null);
+  const [editingReq, setEditingReq] = useState<Req | null>(null);
+  const [viewReq, setViewReq] = useState<Req | null>(null);
+  const [reqSearch, setReqSearch] = useState("");
+  const [reqFilterType, setReqFilterType] = useState<string>("Все");
+  const [reqFilterCrit, setReqFilterCrit] = useState<string>("Все");
+  const [reqFilterStatus, setReqFilterStatus] = useState<string>("Все");
+  const [reqTagInput, setReqTagInput] = useState("");
+
+  const makeEmptyReqForm = (count: number): Req => ({
+    id: `req.${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    technology_id: "",
+    tech_domain_id: "",
+    description: "",
+    req_type: "Техническое",
+    criticality: "Средний",
+    control_metric: "",
+    control_description: "",
+    tags: [],
+    version: "1.0.0",
+    status: "В разработке",
+    norm_doc_link: "",
+    environments: [],
+    stages: [],
+    procurement: "",
+    ext_with_iod: "Не требуется",
+    ext_without_iod: "Не требуется",
+    int_with_iod: "Не требуется",
+    int_without_iod: "Не требуется",
+    score_value: 1,
+    score_weight: 1,
+  });
+  const [reqForm, setReqForm] = useState<Req>(makeEmptyReqForm(0));
+
+  const loadReqs = async () => {
+    setReqsLoading(true);
+    try {
+      const res = await fetch(REQUIREMENTS_API);
+      const data = await res.json();
+      setReqs(data.items || []);
+      setReqTechRefs(data.technologies || []);
+      setReqTechDomainRefs(data.tech_domains || []);
+      if (data.section_description) setReqSectionDesc(data.section_description);
+    } finally {
+      setReqsLoading(false);
+    }
+  };
+
+  const openCreateReq = () => {
+    setEditingReq(null);
+    setReqForm(makeEmptyReqForm(reqs.length));
+    setReqTagInput(""); setReqSaveError("");
+    setReqDialogOpen(true);
+  };
+
+  const openEditReq = (r: Req) => {
+    setEditingReq(r);
+    setReqForm({ ...r, tags: r.tags || [], environments: r.environments || [], stages: r.stages || [] });
+    setReqTagInput(""); setReqSaveError("");
+    setReqDialogOpen(true);
+  };
+
+  const addReqTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || reqForm.tags.includes(tag) || reqForm.tags.length >= 10) return;
+    setReqForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setReqTagInput("");
+  };
+
+  const toggleReqEnv = (env: ReqEnv) => {
+    setReqForm((f) => ({
+      ...f,
+      environments: f.environments.includes(env)
+        ? f.environments.filter((e) => e !== env)
+        : [...f.environments, env],
+    }));
+  };
+
+  const toggleReqStage = (s: ReqStage) => {
+    setReqForm((f) => ({
+      ...f,
+      stages: f.stages.includes(s) ? f.stages.filter((x) => x !== s) : [...f.stages, s],
+    }));
+  };
+
+  const handleSaveReq = async () => {
+    if (!reqForm.name.trim() || !reqForm.id.trim()) { setReqSaveError("Название и ID обязательны"); return; }
+    setReqSaving(true); setReqSaveError("");
+    try {
+      const method = editingReq ? "PUT" : "POST";
+      const res = await fetch(REQUIREMENTS_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reqForm),
+      });
+      const data = await res.json();
+      if (data.error) { setReqSaveError(data.error); return; }
+      if (editingReq) {
+        setReqs((prev) => prev.map((r) => (r.id === editingReq.id ? data : r)));
+      } else {
+        setReqs((prev) => [...prev, data]);
+      }
+      setReqDialogOpen(false);
+    } finally {
+      setReqSaving(false);
+    }
+  };
+
+  const handleDeleteReq = async (id: string) => {
+    await fetch(REQUIREMENTS_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setReqs((prev) => prev.filter((r) => r.id !== id));
+    setDeleteReqId(null);
+    if (viewReq?.id === id) setViewReq(null);
+  };
+
+  const handleSaveReqSectionDesc = async () => {
+    setReqSectionDesc(reqSectionDescDraft);
+    setReqSectionDescEditing(false);
+    await fetch(`${REQUIREMENTS_API}/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: reqSectionDescDraft }),
+    });
+  };
+
+  const filteredReqs = reqs.filter((r) => {
+    const q = reqSearch.toLowerCase();
+    const matchSearch = !q ||
+      r.name.toLowerCase().includes(q) ||
+      r.id.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      r.control_metric.toLowerCase().includes(q) ||
+      (r.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+      (r.norm_doc_link || "").toLowerCase().includes(q);
+    const matchType = reqFilterType === "Все" || r.req_type === reqFilterType;
+    const matchCrit = reqFilterCrit === "Все" || r.criticality === reqFilterCrit;
+    const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
+    return matchSearch && matchType && matchCrit && matchStatus;
+  });
+  // ─────────────────────────────────────────────────────────────────
+
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
 
   const filteredRequirements = requirements.filter((r) => {
@@ -367,6 +1046,138 @@ export default function Index() {
       setCheckError("Ошибка сети — функция недоступна");
     }
   };
+
+  // ── Tech Solutions state ────────────────────────────────────────
+  const TECH_SOLUTIONS_API = "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2";
+  const [solutions, setSolutions] = useState<TechSolution[]>([]);
+  const [solTechRefs, setSolTechRefs] = useState<SolTechRef[]>([]);
+  const [solDomainRefs, setSolDomainRefs] = useState<{ id: string; name: string }[]>([]);
+  const [solsLoading, setSolsLoading] = useState(false);
+  const [solDialogOpen, setSolDialogOpen] = useState(false);
+  const [solSaving, setSolSaving] = useState(false);
+  const [solSaveError, setSolSaveError] = useState("");
+  const [deleteSolId, setDeleteSolId] = useState<string | null>(null);
+  const [editingSol, setEditingSol] = useState<TechSolution | null>(null);
+  const [viewSolFull, setViewSolFull] = useState<SolFullData | null>(null);
+  const [viewSolFullLoading, setViewSolFullLoading] = useState(false);
+  const [solSearch, setSolSearch] = useState("");
+  const [solTagInput, setSolTagInput] = useState("");
+  const [solAttachTab, setSolAttachTab] = useState<"mermaid" | "link">("mermaid");
+  const [solAttachDraft, setSolAttachDraft] = useState<Omit<SolAttachment, "id">>({ type: "mermaid", name: "", content: "" });
+  const [viewSolMermaid, setViewSolMermaid] = useState<SolAttachment | null>(null);
+
+  const makeEmptySolForm = (count: number): TechSolution => ({
+    id: `tech.prod.${String(count + 1).padStart(3, "0")}`,
+    name: "", version: "1.0.0", owner: "",
+    status: "В разработке", description: "", tags: [],
+    technology_ids: [], tech_domain_ids: [], attachments: [],
+    approved_ib: false, approved_it: false,
+  });
+  const [solForm, setSolForm] = useState<TechSolution>(makeEmptySolForm(0));
+
+  const loadSolutions = async () => {
+    setSolsLoading(true);
+    try {
+      const res = await fetch(TECH_SOLUTIONS_API);
+      const data = await res.json();
+      setSolutions(data.items || []);
+      setSolTechRefs(data.technologies || []);
+      setSolDomainRefs(data.tech_domains || []);
+    } finally {
+      setSolsLoading(false);
+    }
+  };
+
+  const openCreateSol = () => {
+    setEditingSol(null);
+    setSolForm(makeEmptySolForm(solutions.length));
+    setSolTagInput(""); setSolSaveError("");
+    setSolAttachDraft({ type: "mermaid", name: "", content: "" });
+    setSolAttachTab("mermaid");
+    setSolDialogOpen(true);
+  };
+
+  const openEditSol = (s: TechSolution) => {
+    setEditingSol(s);
+    setSolForm({ ...s, tags: s.tags || [], technology_ids: s.technology_ids || [], tech_domain_ids: s.tech_domain_ids || [], attachments: s.attachments || [] });
+    setSolTagInput(""); setSolSaveError("");
+    setSolAttachDraft({ type: "mermaid", name: "", content: "" });
+    setSolAttachTab("mermaid");
+    setSolDialogOpen(true);
+  };
+
+  const addSolTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || solForm.tags.includes(tag) || solForm.tags.length >= 10) return;
+    setSolForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setSolTagInput("");
+  };
+
+  const toggleSolTech = (id: string) => {
+    setSolForm((f) => ({
+      ...f,
+      technology_ids: f.technology_ids.includes(id)
+        ? f.technology_ids.filter((x) => x !== id)
+        : [...f.technology_ids, id],
+    }));
+  };
+
+  const addSolAttachment = () => {
+    if (!solAttachDraft.name.trim() || !solAttachDraft.content.trim()) return;
+    const att: SolAttachment = { id: Date.now().toString(), ...solAttachDraft };
+    setSolForm((f) => ({ ...f, attachments: [...(f.attachments || []), att] }));
+    setSolAttachDraft({ type: solAttachTab, name: "", content: "" });
+  };
+
+  const handleSaveSol = async () => {
+    if (!solForm.name.trim() || !solForm.id.trim()) { setSolSaveError("Название и ID обязательны"); return; }
+    setSolSaving(true); setSolSaveError("");
+    try {
+      const method = editingSol ? "PUT" : "POST";
+      const res = await fetch(TECH_SOLUTIONS_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(solForm),
+      });
+      const data = await res.json();
+      if (data.error) { setSolSaveError(data.error); return; }
+      if (editingSol) {
+        setSolutions((prev) => prev.map((s) => (s.id === editingSol.id ? data : s)));
+      } else {
+        setSolutions((prev) => [...prev, data]);
+      }
+      setSolDialogOpen(false);
+    } finally {
+      setSolSaving(false);
+    }
+  };
+
+  const handleDeleteSol = async (id: string) => {
+    await fetch(TECH_SOLUTIONS_API, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setSolutions((prev) => prev.filter((s) => s.id !== id));
+    setDeleteSolId(null);
+    if (viewSolFull?.solution.id === id) setViewSolFull(null);
+  };
+
+  const openSolFull = async (sol: TechSolution) => {
+    setViewSolFull({ solution: sol, technologies: [], requirements: [], sol_domains: [] });
+    setViewSolFullLoading(true);
+    try {
+      const res = await fetch(`${TECH_SOLUTIONS_API}/full/${sol.id}`);
+      const data = await res.json();
+      setViewSolFull(data);
+    } finally {
+      setViewSolFullLoading(false);
+    }
+  };
+
+  const filteredSolutions = solutions.filter((s) =>
+    s.name.toLowerCase().includes(solSearch.toLowerCase()) ||
+    s.id.toLowerCase().includes(solSearch.toLowerCase()) ||
+    s.owner.toLowerCase().includes(solSearch.toLowerCase()) ||
+    (s.tags || []).some((t) => t.toLowerCase().includes(solSearch.toLowerCase()))
+  );
+  // ─────────────────────────────────────────────────────────────────
 
   const handleDbSave = () => {
     if (pendingMode === "local" && !skipCheck && checkState !== "ok") return;
@@ -448,6 +1259,30 @@ export default function Index() {
               onClick={() => setActiveSection("domains")}
             >
               Орг. домены
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-domains" ? "active" : ""}`}
+              onClick={() => setActiveSection("tech-domains")}
+            >
+              Тех. домены
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "technologies" ? "active" : ""}`}
+              onClick={() => setActiveSection("technologies")}
+            >
+              Технологии
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "requirements" ? "active" : ""}`}
+              onClick={() => { setActiveSection("requirements"); loadReqs(); }}
+            >
+              Требования
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-solutions" ? "active" : ""}`}
+              onClick={() => { setActiveSection("tech-solutions"); loadSolutions(); }}
+            >
+              Тех. решения
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -827,6 +1662,23 @@ export default function Index() {
                         {domain.description || "Описание не указано"}
                       </p>
 
+                      {/* Tags */}
+                      {domain.tags && domain.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {domain.tags.slice(0, 4).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-medium font-mono"
+                              style={{ background: "rgba(0,212,255,0.08)", color: "rgba(0,212,255,0.7)", border: "1px solid rgba(0,212,255,0.15)" }}>
+                              #{tag}
+                            </span>
+                          ))}
+                          {domain.tags.length > 4 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: "rgba(180,200,230,0.35)" }}>
+                              +{domain.tags.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* Footer */}
                       <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                         <div className="flex items-center gap-1.5">
@@ -855,6 +1707,367 @@ export default function Index() {
                           >
                             <Icon name="Trash2" size={13} style={{ color: "rgba(239,68,68,0.5)" }} />
                           </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* === TECH DOMAINS SECTION === */}
+        {activeSection === "tech-domains" && (() => {
+          if (techDomains.length === 0 && !techLoading) loadTechDomains();
+          return (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #8b5cf6, #0066ff)" }} />
+                <h1 className="text-2xl font-semibold text-white">Технические домены</h1>
+              </div>
+              <div className="ml-4 mt-1 group flex items-start gap-2">
+                {techSectionDescEditing ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <input autoFocus value={techSectionDescDraft}
+                      onChange={(e) => setTechSectionDescDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveTechSectionDesc(); if (e.key === "Escape") setTechSectionDescEditing(false); }}
+                      className="flex-1 text-sm px-3 py-1.5 rounded-lg outline-none font-sans"
+                      style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(139,92,246,0.4)", color: "rgba(210,225,245,0.9)" }}
+                    />
+                    <button onClick={handleSaveTechSectionDesc} className="p-1.5 rounded-lg" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}><Icon name="Check" size={14} /></button>
+                    <button onClick={() => setTechSectionDescEditing(false)} className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.4)" }}><Icon name="X" size={14} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{techSectionDesc}</p>
+                    <button onClick={() => { setTechSectionDescDraft(techSectionDesc); setTechSectionDescEditing(true); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded flex-shrink-0">
+                      <Icon name="Pencil" size={12} style={{ color: "rgba(180,200,230,0.35)" }} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="relative flex-1 max-w-md">
+                <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <input type="text" placeholder="Поиск по ID, названию, владельцу..."
+                  value={techSearch} onChange={(e) => setTechSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm outline-none transition-all font-sans"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                  onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.5)")}
+                  onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
+                />
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                {DOMAIN_STATUSES.map((s) => {
+                  const meta = DOMAIN_STATUS_META[s];
+                  const cnt = techDomains.filter((d) => d.status === s).length;
+                  return (
+                    <span key={s} className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: meta.bg, color: meta.color }}>
+                      {s}: {cnt}
+                    </span>
+                  );
+                })}
+              </div>
+              <button onClick={openCreateTech} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
+                style={{ background: "linear-gradient(135deg, #8b5cf6, #0066ff)", color: "white", border: "1px solid rgba(139,92,246,0.4)", boxShadow: "0 0 16px rgba(139,92,246,0.2)" }}>
+                <Icon name="Plus" size={15} />
+                Создать домен
+              </button>
+            </div>
+
+            {/* Cards */}
+            {techLoading ? (
+              <div className="glass-card rounded-xl py-20 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
+                <Icon name="Loader" size={28} className="mx-auto mb-3 animate-spin opacity-50" />
+                <p className="text-sm">Загрузка доменов...</p>
+              </div>
+            ) : filteredTechDomains.length === 0 ? (
+              <div className="glass-card rounded-xl py-20 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
+                <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Технические домены не найдены</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {filteredTechDomains.map((td) => {
+                  const meta = DOMAIN_STATUS_META[td.status];
+                  const linkedOrgs = techOrgRefs.filter((o) => td.org_domain_ids.includes(o.id));
+                  return (
+                    <div key={td.id}
+                      className="glass-card rounded-xl p-5 flex flex-col gap-3 cursor-pointer transition-all"
+                      style={{ borderColor: viewTech?.id === td.id ? "rgba(139,92,246,0.45)" : undefined }}
+                      onClick={() => setViewTech(td)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(15,22,41,0.85)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.25)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; (e.currentTarget as HTMLElement).style.borderColor = viewTech?.id === td.id ? "rgba(139,92,246,0.45)" : ""; (e.currentTarget as HTMLElement).style.transform = ""; }}
+                    >
+                      {/* Top */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>
+                              {td.id}
+                            </span>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{td.version}</span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-white leading-snug">{td.name}</h3>
+                        </div>
+                        <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full flex-shrink-0 font-medium" style={{ background: meta.bg, color: meta.color }}>
+                          <Icon name={meta.icon} size={11} />{td.status}
+                        </span>
+                      </div>
+
+                      {/* Description */}
+                      <p className="text-xs leading-relaxed line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>
+                        {td.description || "Описание не указано"}
+                      </p>
+
+                      {/* Org domains links */}
+                      {linkedOrgs.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {linkedOrgs.slice(0, 2).map((o) => (
+                            <span key={o.id} className="text-[10px] px-2 py-0.5 rounded font-medium"
+                              style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff", border: "1px solid rgba(0,102,255,0.15)" }}>
+                              {o.name}
+                            </span>
+                          ))}
+                          {linkedOrgs.length > 2 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded" style={{ color: "rgba(180,200,230,0.35)" }}>
+                              +{linkedOrgs.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      {td.tags && td.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {td.tags.slice(0, 3).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-mono"
+                              style={{ background: "rgba(139,92,246,0.1)", color: "rgba(167,139,250,0.8)", border: "1px solid rgba(139,92,246,0.2)" }}>
+                              #{tag}
+                            </span>
+                          ))}
+                          {td.tags.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{td.tags.length - 3}</span>}
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center gap-1.5">
+                          <Icon name="User" size={12} style={{ color: "rgba(180,200,230,0.35)" }} />
+                          <span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{td.owner || "—"}</span>
+                        </div>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => setViewTech(td)} className="p-1.5 rounded-lg transition-all hover:bg-purple-500/10" title="Подробнее">
+                            <Icon name="Expand" size={13} style={{ color: "rgba(167,139,250,0.6)" }} />
+                          </button>
+                          <button onClick={() => openEditTech(td)} className="p-1.5 rounded-lg transition-all hover:bg-blue-500/10" title="Редактировать">
+                            <Icon name="Pencil" size={13} style={{ color: "rgba(99,176,255,0.6)" }} />
+                          </button>
+                          <button onClick={() => setDeleteTechId(td.id)} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить">
+                            <Icon name="Trash2" size={13} style={{ color: "rgba(239,68,68,0.5)" }} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* === TECHNOLOGIES SECTION === */}
+        {activeSection === "technologies" && (() => {
+          if (technologies.length === 0 && !techsLoading) loadTechnologies();
+          if (reqs.length === 0 && !reqsLoading) loadReqs();
+          return (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #10b981, #00d4ff)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Технологии</h1>
+                </div>
+                <button
+                  onClick={openCreateTech2}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #10b981 0%, #0d9488 100%)", color: "white" }}
+                >
+                  <Icon name="Plus" size={16} />
+                  Добавить технологию
+                </button>
+              </div>
+              {techSectionDesc2Editing ? (
+                <div className="flex items-center gap-2 ml-4">
+                  <input
+                    value={techSectionDesc2Draft}
+                    onChange={(e) => setTechSectionDesc2Draft(e.target.value)}
+                    className="flex-1 text-sm px-3 py-1.5 rounded-lg bg-transparent border outline-none"
+                    style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(180,200,230,0.8)" }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveTechSectionDesc2(); if (e.key === "Escape") setTechSectionDesc2Editing(false); }}
+                    autoFocus
+                  />
+                  <button onClick={handleSaveTechSectionDesc2} className="p-1.5 rounded-lg hover:bg-green-500/10 text-green-400"><Icon name="Check" size={14} /></button>
+                  <button onClick={() => setTechSectionDesc2Editing(false)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400"><Icon name="X" size={14} /></button>
+                </div>
+              ) : (
+                <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setTechSectionDesc2Draft(techSectionDesc2); setTechSectionDesc2Editing(true); }}>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{techSectionDesc2}</p>
+                  <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: "rgba(180,200,230,0.6)" }} />
+                </button>
+              )}
+            </div>
+
+            {/* Search + counter */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="relative flex-1 max-w-sm">
+                <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <Input
+                  value={techSearch2}
+                  onChange={(e) => setTechSearch2(e.target.value)}
+                  placeholder="Поиск по названию, ID, тегу..."
+                  className="pl-9 text-sm"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                />
+              </div>
+              <span className="text-sm font-mono px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#34d399" }}>
+                {filteredTechnologies.length} / {technologies.length}
+              </span>
+            </div>
+
+            {/* Loading */}
+            {techsLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#10b981" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!techsLoading && technologies.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)" }}>
+                  <Icon name="Cpu" size={28} style={{ color: "#10b981" }} />
+                </div>
+                <div className="text-center">
+                  <p className="text-white font-medium mb-1">Технологии не добавлены</p>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>Нажмите «Добавить технологию» чтобы начать</p>
+                </div>
+              </div>
+            )}
+
+            {/* Cards grid */}
+            {!techsLoading && filteredTechnologies.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredTechnologies.map((tech) => {
+                  const sm = TECH_STATUS_META[tech.status] || TECH_STATUS_META["В разработке"];
+                  return (
+                    <div
+                      key={tech.id}
+                      className="glass-card rounded-2xl p-5 flex flex-col gap-3 cursor-pointer hover:border-emerald-500/30 transition-all"
+                      style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                      onClick={() => setViewTech2(tech)}
+                      onMouseEnter={(e) => { const btns = e.currentTarget.querySelector("[data-actions]") as HTMLElement; if (btns) btns.style.opacity = "1"; }}
+                      onMouseLeave={(e) => { const btns = e.currentTarget.querySelector("[data-actions]") as HTMLElement; if (btns) btns.style.opacity = "0"; }}
+                    >
+                      {/* Card top */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                              {tech.id}
+                            </span>
+                          </div>
+                          <h3 className="text-white font-semibold text-sm truncate">{tech.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium" style={{ background: sm.bg, color: sm.color }}>
+                            <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={11} />
+                            {tech.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {tech.description && (
+                        <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.6)" }}>{tech.description}</p>
+                      )}
+
+                      {/* Versions */}
+                      {tech.versions && tech.versions.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tech.versions.slice(0,3).map((v) => (
+                            <span key={v} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>v{v}</span>
+                          ))}
+                          {tech.versions.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>+{tech.versions.length - 3}</span>}
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      {tech.tags && tech.tags.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tech.tags.slice(0,4).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>
+                              {tag}
+                            </span>
+                          ))}
+                          {tech.tags.length > 4 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>+{tech.tags.length - 4}</span>}
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center gap-2">
+                          {tech.tech_domain_ids && tech.tech_domain_ids.length > 0 && (
+                            <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                              <Icon name="Link2" size={10} />
+                              {tech.tech_domain_ids.length} домен{tech.tech_domain_ids.length === 1 ? "" : tech.tech_domain_ids.length < 5 ? "а" : "ов"}
+                            </span>
+                          )}
+                          {tech.attachments && tech.attachments.length > 0 && (
+                            <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                              <Icon name="Paperclip" size={10} />
+                              {tech.attachments.length}
+                            </span>
+                          )}
+                          {(() => {
+                            const cnt = reqs.filter((r) => r.technology_id === tech.id).length;
+                            return cnt > 0 ? (
+                              <span className="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                <Icon name="FileCheck" size={10} />
+                                {cnt} треб.
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
+                        <div data-actions className="flex items-center gap-1 transition-opacity duration-150" style={{ opacity: 0 }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditTech2(tech); }}
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
+                            style={{ color: "rgba(180,200,230,0.5)" }}
+                            title="Редактировать"
+                          ><Icon name="Pencil" size={13} /></button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteTechId2(tech.id); }}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 transition-all"
+                            style={{ color: "rgba(239,68,68,0.6)" }}
+                            title="Удалить"
+                          ><Icon name="Trash2" size={13} /></button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewTechFull(tech); setTechFullSearch(""); setTechFullSortField("id"); setTechFullSortDir("asc"); }}
+                            className="p-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
+                            style={{ color: "#34d399" }}
+                            title="Полный просмотр"
+                          ><Icon name="Maximize2" size={13} /></button>
                         </div>
                       </div>
                     </div>
@@ -1108,7 +2321,2138 @@ export default function Index() {
             </div>
           </div>
         )}
+
+        {/* === REQUIREMENTS SECTION === */}
+        {activeSection === "requirements" && (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #f59e0b, #ef4444)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Требования безопасности</h1>
+                </div>
+                {reqSectionDescEditing ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <Input value={reqSectionDescDraft} onChange={(e) => setReqSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                    <button onClick={handleSaveReqSectionDesc} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                    <button onClick={() => setReqSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setReqSectionDescDraft(reqSectionDesc); setReqSectionDescEditing(true); }}>
+                    <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{reqSectionDesc}</p>
+                    <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.6)" }} />
+                  </button>
+                )}
+              </div>
+              <button onClick={openCreateReq} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90" style={{ background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: "white" }}>
+                <Icon name="Plus" size={15} />
+                Добавить требование
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {[
+                { label: "Всего требований", value: reqs.length, icon: "FileCheck", color: "#f59e0b" },
+                { label: "Критических", value: reqs.filter((r) => r.criticality === "Критический").length, icon: "AlertOctagon", color: "#ef4444" },
+                { label: "Активных", value: reqs.filter((r) => r.status === "Активен").length, icon: "CheckCircle2", color: "#22c55e" },
+                { label: "В разработке", value: reqs.filter((r) => r.status === "В разработке").length, icon: "Wrench", color: "#a78bfa" },
+              ].map((stat) => (
+                <div key={stat.label} className="glass-card rounded-xl px-5 py-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${stat.color}20`, border: `1px solid ${stat.color}30` }}>
+                    <Icon name={stat.icon} size={18} style={{ color: stat.color }} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white">{stat.value}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "rgba(180,200,230,0.5)" }}>{stat.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <div className="relative flex-1 min-w-60 max-w-sm">
+                <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <input type="text" placeholder="Поиск по ID, названию, тегам..." value={reqSearch} onChange={(e) => setReqSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }} />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Тип:</span>
+                {["Все", ...REQ_TYPES].map((t) => (
+                  <button key={t} onClick={() => setReqFilterType(t)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                    style={{ background: reqFilterType === t ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${reqFilterType === t ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.08)"}`, color: reqFilterType === t ? "#f59e0b" : "rgba(180,200,230,0.5)" }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Критичность:</span>
+                {["Все", ...REQ_CRITICALITIES].map((c) => {
+                  const meta = c !== "Все" ? REQ_CRITICALITY_META[c as ReqCriticality] : null;
+                  return (
+                    <button key={c} onClick={() => setReqFilterCrit(c)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: reqFilterCrit === c ? (meta ? meta.bg : "rgba(255,255,255,0.08)") : "rgba(255,255,255,0.03)", border: `1px solid ${reqFilterCrit === c ? (meta ? meta.color + "50" : "rgba(255,255,255,0.2)") : "rgba(255,255,255,0.08)"}`, color: reqFilterCrit === c ? (meta ? meta.color : "white") : "rgba(180,200,230,0.5)" }}>
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Статус:</span>
+                {["Все", ...REQ_STATUSES].map((s) => {
+                  const meta = s !== "Все" ? REQ_STATUS_META[s as ReqStatus] : null;
+                  return (
+                    <button key={s} onClick={() => setReqFilterStatus(s)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: reqFilterStatus === s ? (meta ? meta.bg : "rgba(255,255,255,0.08)") : "rgba(255,255,255,0.03)", border: `1px solid ${reqFilterStatus === s ? (meta ? meta.color + "50" : "rgba(255,255,255,0.2)") : "rgba(255,255,255,0.08)"}`, color: reqFilterStatus === s ? (meta ? meta.color : "white") : "rgba(180,200,230,0.5)" }}>
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Loading */}
+            {reqsLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#f59e0b" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!reqsLoading && filteredReqs.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                  <Icon name="FileCheck" size={28} style={{ color: "rgba(245,158,11,0.5)" }} />
+                </div>
+                <p className="text-sm" style={{ color: "rgba(180,200,230,0.4)" }}>
+                  {reqs.length === 0 ? "Нет требований. Нажмите «Добавить требование»" : "Ничего не найдено"}
+                </p>
+              </div>
+            )}
+
+            {/* Cards grid */}
+            {!reqsLoading && filteredReqs.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredReqs.map((r) => {
+                  const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                  const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                  const sm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                  const tech = reqTechRefs.find((t) => t.id === r.technology_id);
+                  const dom = reqTechDomainRefs.find((d) => d.id === r.tech_domain_id);
+                  return (
+                    <div key={r.id} onClick={() => setViewReq(r)}
+                      className="glass-card rounded-xl p-5 cursor-pointer hover:border-amber-500/20 transition-all group"
+                      style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                      {/* Top row */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-[11px] px-2 py-0.5 rounded shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium shrink-0" style={{ background: sm.bg, color: sm.color }}>
+                            <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.status}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button onClick={(e) => { e.stopPropagation(); openEditReq(r); }} className="p-1.5 rounded-lg hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }}><Icon name="Pencil" size={13} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); setDeleteReqId(r.id); }} className="p-1.5 rounded-lg hover:bg-red-500/10 transition-all" style={{ color: "rgba(239,68,68,0.5)" }}><Icon name="Trash2" size={13} /></button>
+                        </div>
+                      </div>
+
+                      {/* Name */}
+                      <h3 className="text-sm font-semibold text-white mb-2 leading-snug line-clamp-2">{r.name}</h3>
+
+                      {/* Type + Criticality */}
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium" style={{ background: tm.bg, color: tm.color }}>
+                          <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium" style={{ background: cm.bg, color: cm.color }}>
+                          <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {r.description && (
+                        <p className="text-xs line-clamp-2 mb-3" style={{ color: "rgba(180,200,230,0.6)" }}>{r.description}</p>
+                      )}
+
+                      {/* Meta */}
+                      <div className="space-y-1 mb-3">
+                        {tech && (
+                          <div className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
+                            <Icon name="Cpu" size={11} style={{ color: "#34d399", flexShrink: 0 }} />
+                            <span className="truncate">{tech.name}</span>
+                          </div>
+                        )}
+                        {dom && (
+                          <div className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
+                            <Icon name="Layers" size={11} style={{ color: "#63b0ff", flexShrink: 0 }} />
+                            <span className="truncate">{dom.name}</span>
+                          </div>
+                        )}
+                        {r.norm_doc_link && (
+                          <div className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
+                            <Icon name="Link" size={11} style={{ color: "#a78bfa", flexShrink: 0 }} />
+                            <span className="truncate">{r.norm_doc_link}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Score + Version */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>Балл: <span className="text-white font-semibold">{r.score_value}</span></span>
+                          <span className="text-[11px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>Вес: <span className="text-white font-semibold">{r.score_weight}</span></span>
+                          <span className="text-[11px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>v{r.version}</span>
+                        </div>
+                        {r.tags.length > 0 && (
+                          <div className="flex gap-1 flex-wrap justify-end">
+                            {r.tags.slice(0, 2).map((tag) => (
+                              <span key={tag} className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>{tag}</span>
+                            ))}
+                            {r.tags.length > 2 && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: "rgba(180,200,230,0.4)" }}>+{r.tags.length - 2}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════════ TECH SOLUTIONS SECTION ══════════════════ */}
+        {activeSection === "tech-solutions" && (() => {
+          return (
+            <div className="max-w-7xl mx-auto px-8 py-8 section-enter">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.25)" }}>
+                      <Icon name="Layers" size={20} style={{ color: "#63b0ff" }} />
+                    </div>
+                    <h1 className="text-2xl font-bold text-white">Технические решения</h1>
+                  </div>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>
+                    Архитектурные паттерны и конфигурации на базе технологий ИБ
+                  </p>
+                </div>
+                <button
+                  onClick={openCreateSol}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white"
+                  style={{ background: "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)", border: "1px solid rgba(0,102,255,0.4)" }}
+                >
+                  <Icon name="Plus" size={16} /> Добавить решение
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative mb-6">
+                <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+                <input value={solSearch} onChange={(e) => setSolSearch(e.target.value)}
+                  placeholder="Поиск по названию, ID, владельцу, тегам..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                />
+              </div>
+
+              {solsLoading && (
+                <div className="flex justify-center py-20">
+                  <Icon name="Loader2" size={32} className="animate-spin" style={{ color: "#63b0ff" }} />
+                </div>
+              )}
+
+              {!solsLoading && filteredSolutions.length === 0 && (
+                <div className="text-center py-20" style={{ color: "rgba(180,200,230,0.3)" }}>
+                  <Icon name="Layers" size={48} className="mx-auto mb-3 opacity-20" />
+                  <p className="text-base">Технических решений пока нет</p>
+                  <p className="text-sm mt-1">Нажмите «Добавить решение» чтобы создать первое</p>
+                </div>
+              )}
+
+              {!solsLoading && filteredSolutions.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {filteredSolutions.map((sol) => {
+                    const sm = SOL_STATUS_META[sol.status] || SOL_STATUS_META["В разработке"];
+                    const linkedTechs = (sol.technology_ids || [])
+                      .map((tid) => solTechRefs.find((t) => t.id === tid))
+                      .filter(Boolean) as SolTechRef[];
+                    return (
+                      <div
+                        key={sol.id}
+                        className="glass-card rounded-2xl p-5 flex flex-col gap-3 cursor-pointer hover:border-blue-500/30 transition-all"
+                        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                        onClick={() => openSolFull(sol)}
+                        onMouseEnter={(e) => { const b = e.currentTarget.querySelector("[data-sol-actions]") as HTMLElement; if (b) b.style.opacity = "1"; }}
+                        onMouseLeave={(e) => { const b = e.currentTarget.querySelector("[data-sol-actions]") as HTMLElement; if (b) b.style.opacity = "0"; }}
+                      >
+                        {/* ID + статус */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{sol.id}</span>
+                              {sol.version && <span className="text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>v{sol.version}</span>}
+                            </div>
+                            <h3 className="text-white font-semibold text-sm">{sol.name}</h3>
+                          </div>
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg shrink-0" style={{ background: sm.bg, border: `1px solid ${sm.color}30` }}>
+                            <Icon name={sm.icon as "CheckCircle2"} size={11} style={{ color: sm.color }} />
+                            <span className="text-xs font-medium" style={{ color: sm.color }}>{sol.status}</span>
+                          </div>
+                        </div>
+
+                        {sol.owner && (
+                          <div className="flex items-center gap-1.5">
+                            <Icon name="User" size={12} style={{ color: "rgba(180,200,230,0.4)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>{sol.owner}</span>
+                          </div>
+                        )}
+
+                        {sol.description && (
+                          <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{sol.description}</p>
+                        )}
+
+                        {linkedTechs.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {linkedTechs.slice(0, 3).map((t) => (
+                              <span key={t.id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>{t.name}</span>
+                            ))}
+                            {linkedTechs.length > 3 && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.4)" }}>+{linkedTechs.length - 3}</span>}
+                          </div>
+                        )}
+
+                        {(sol.tags || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {(sol.tags || []).map((tag) => (
+                              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>#{tag}</span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center gap-3 text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
+                            <span className="flex items-center gap-1">
+                              <Icon name="Link2" size={11} />{(sol.technology_ids || []).length} техн.
+                            </span>
+                            {sol.approved_ib && <span className="flex items-center gap-1 text-green-400"><Icon name="ShieldCheck" size={11} />ИБ</span>}
+                            {sol.approved_it && <span className="flex items-center gap-1 text-blue-400"><Icon name="BadgeCheck" size={11} />ИТ</span>}
+                            {(sol.attachments || []).length > 0 && <span className="flex items-center gap-1"><Icon name="GitBranch" size={11} />{sol.attachments.length}</span>}
+                          </div>
+                          <div data-sol-actions className="flex items-center gap-1 transition-opacity duration-150" style={{ opacity: 0 }}>
+                            <button onClick={(e) => { e.stopPropagation(); openEditSol(sol); }} className="p-1.5 rounded-lg hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }} title="Редактировать"><Icon name="Pencil" size={13} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteSolId(sol.id); }} className="p-1.5 rounded-lg hover:bg-red-500/10 transition-all" style={{ color: "rgba(239,68,68,0.6)" }} title="Удалить"><Icon name="Trash2" size={13} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!solsLoading && solutions.length > 0 && (
+                <div className="mt-5 text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>
+                  Всего: <strong className="text-white/40">{solutions.length}</strong> &nbsp;·&nbsp; Найдено: <strong className="text-white/40">{filteredSolutions.length}</strong>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       </main>
+
+      {/* ══════════ TECH SOLUTION CREATE/EDIT DIALOG ══════════ */}
+      <Dialog open={solDialogOpen} onOpenChange={(o) => { if (!o) setSolDialogOpen(false); }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.3)" }}>
+                <Icon name="Layers" size={15} style={{ color: "#63b0ff" }} />
+              </div>
+              {editingSol ? "Редактировать решение" : "Новое техническое решение"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="p-6 space-y-5">
+            {/* ID */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>ID решения</Label>
+              <Input value={solForm.id} onChange={(e) => setSolForm((f) => ({ ...f, id: e.target.value }))} disabled={!!editingSol} placeholder="tech.prod.001" className="font-mono text-sm bg-white/5 border-white/10 text-white" />
+            </div>
+
+            {/* Название */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Название <span className="text-red-400">*</span></Label>
+              <Input value={solForm.name} onChange={(e) => setSolForm((f) => ({ ...f, name: e.target.value }))} placeholder="Аутентификация микросервисов через JWT" className="bg-white/5 border-white/10 text-white" />
+            </div>
+
+            {/* Описание */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea value={solForm.description} onChange={(e) => setSolForm((f) => ({ ...f, description: e.target.value }))} rows={3} placeholder="Описание технического решения..."
+                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+              />
+            </div>
+
+            {/* Статус */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+              <div className="flex flex-wrap gap-2">
+                {SOL_STATUSES.map((s) => {
+                  const sm = SOL_STATUS_META[s];
+                  const active = solForm.status === s;
+                  return (
+                    <button key={s} onClick={() => setSolForm((f) => ({ ...f, status: s }))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                      style={{ background: active ? sm.bg : "rgba(255,255,255,0.04)", border: `1px solid ${active ? sm.color + "60" : "rgba(255,255,255,0.08)"}`, color: active ? sm.color : "rgba(180,200,230,0.5)" }}
+                    >
+                      <Icon name={sm.icon as "CheckCircle2"} size={11} />{s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Автор + Версия */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Автор / Владелец</Label>
+                <Input value={solForm.owner} onChange={(e) => setSolForm((f) => ({ ...f, owner: e.target.value }))} placeholder="Отдел ИБ" className="bg-white/5 border-white/10 text-white" />
+              </div>
+              <div>
+                <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={solForm.version} onChange={(e) => setSolForm((f) => ({ ...f, version: e.target.value }))} placeholder="1.0.0" className="bg-white/5 border-white/10 text-white" />
+              </div>
+            </div>
+
+            {/* Согласования */}
+            <div className="flex gap-3">
+              {([["approved_ib", "Согласован с ИБ", "#22c55e", "ShieldCheck"], ["approved_it", "Согласован с ИТ", "#63b0ff", "BadgeCheck"]] as const).map(([field, label, color, icon]) => {
+                const active = solForm[field as "approved_ib" | "approved_it"];
+                return (
+                  <button key={field} onClick={() => setSolForm((f) => ({ ...f, [field]: !f[field as "approved_ib"] }))}
+                    className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all"
+                    style={{ background: active ? `${color}18` : "rgba(255,255,255,0.04)", border: `1px solid ${active ? color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? color : "rgba(180,200,230,0.45)" }}
+                  >
+                    <Icon name={icon} size={15} />{label}
+                    <div className="ml-auto w-4 h-4 rounded flex items-center justify-center" style={{ background: active ? `${color}30` : "rgba(255,255,255,0.05)", border: `1px solid ${active ? color + "60" : "rgba(255,255,255,0.1)"}` }}>
+                      {active && <Icon name="Check" size={10} style={{ color }} />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Теги */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex gap-2 mb-2">
+                <input value={solTagInput} onChange={(e) => setSolTagInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSolTag(solTagInput); } }}
+                  placeholder="Введите тег и нажмите Enter"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+                />
+                <button onClick={() => addSolTag(solTagInput)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(0,102,255,0.2)", border: "1px solid rgba(0,102,255,0.3)", color: "#63b0ff" }}>+</button>
+              </div>
+              {(solForm.tags || []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(solForm.tags || []).map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                      #{tag}<button onClick={() => setSolForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="ml-0.5 hover:text-red-400">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Технологии */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Технологии ({(solForm.technology_ids || []).length} выбрано)</Label>
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", maxHeight: 200, overflowY: "auto" }}>
+                {solTechRefs.length === 0 ? (
+                  <div className="p-4 text-sm text-center" style={{ color: "rgba(180,200,230,0.35)" }}>Список технологий пуст</div>
+                ) : solTechRefs.map((t) => {
+                  const sel = (solForm.technology_ids || []).includes(t.id);
+                  return (
+                    <button key={t.id} onClick={() => toggleSolTech(t.id)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    >
+                      <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                        style={{ background: sel ? "rgba(0,102,255,0.3)" : "rgba(255,255,255,0.05)", border: `1px solid ${sel ? "rgba(0,102,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                        {sel && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-white">{t.name}</span>
+                        <span className="text-xs ml-2 font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Схемы Mermaid / ссылки */}
+            <div>
+              <Label className="text-xs mb-1.5 block" style={{ color: "rgba(180,200,230,0.6)" }}>Приложенные схемы</Label>
+              <div className="flex gap-2 mb-3">
+                {(["mermaid", "link"] as const).map((t) => (
+                  <button key={t} onClick={() => { setSolAttachTab(t); setSolAttachDraft({ type: t, name: "", content: "" }); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{ background: solAttachTab === t ? "rgba(0,102,255,0.2)" : "rgba(255,255,255,0.04)", border: `1px solid ${solAttachTab === t ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: solAttachTab === t ? "#63b0ff" : "rgba(180,200,230,0.5)" }}
+                  >
+                    <Icon name={t === "mermaid" ? "GitBranch" : "Link"} size={11} className="inline mr-1" />
+                    {t === "mermaid" ? "Mermaid-схема" : "Ссылка"}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <input value={solAttachDraft.name} onChange={(e) => setSolAttachDraft((d) => ({ ...d, name: e.target.value }))}
+                  placeholder="Название схемы / ссылки"
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+                />
+                <textarea value={solAttachDraft.content} onChange={(e) => setSolAttachDraft((d) => ({ ...d, content: e.target.value }))}
+                  rows={solAttachTab === "mermaid" ? 4 : 1}
+                  placeholder={solAttachTab === "mermaid" ? "graph TD\n  A --> B" : "https://..."}
+                  className="w-full px-3 py-2 rounded-lg text-sm font-mono outline-none resize-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
+                />
+                <button onClick={addSolAttachment}
+                  className="w-full py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.25)", color: "#63b0ff" }}
+                >
+                  + Добавить
+                </button>
+              </div>
+              {(solForm.attachments || []).length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {(solForm.attachments || []).map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <Icon name={a.type === "mermaid" ? "GitBranch" : "Link"} size={12} style={{ color: a.type === "mermaid" ? "#34d399" : "#a78bfa" }} />
+                      <span className="text-xs text-white flex-1 truncate">{a.name}</span>
+                      <button onClick={() => setSolForm((f) => ({ ...f, attachments: f.attachments.filter((x) => x.id !== a.id) }))} className="text-xs hover:text-red-400" style={{ color: "rgba(180,200,230,0.4)" }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {solSaveError && <p className="text-sm text-red-400">{solSaveError}</p>}
+          </div>
+
+          <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <button onClick={() => setSolDialogOpen(false)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>Отмена</button>
+            <button onClick={handleSaveSol} disabled={solSaving}
+              className="px-5 py-2 rounded-lg text-sm font-medium text-white"
+              style={{ background: "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)", border: "1px solid rgba(0,102,255,0.4)", opacity: solSaving ? 0.7 : 1 }}
+            >{solSaving ? "Сохранение..." : editingSol ? "Сохранить" : "Создать"}</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════ TECH SOLUTION FULL VIEW ══════════ */}
+      {viewSolFull && (
+        <Dialog open onOpenChange={(o) => { if (!o) setViewSolFull(null); }}>
+          <DialogContent className="border overflow-hidden flex flex-col"
+            style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxWidth: "76rem", width: "96vw", maxHeight: "92vh", overflowY: "auto" }}>
+            <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0 sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.07)" }}>
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.25)" }}>
+                  <Icon name="Layers" size={22} style={{ color: "#63b0ff" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{viewSolFull.solution.id}</span>
+                    {viewSolFull.solution.version && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewSolFull.solution.version}</span>}
+                    {(() => {
+                      const sm = SOL_STATUS_META[viewSolFull.solution.status] || SOL_STATUS_META["В разработке"];
+                      return <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}40` }}><Icon name={sm.icon as "CheckCircle2"} size={11} />{viewSolFull.solution.status}</span>;
+                    })()}
+                    {viewSolFull.solution.approved_ib && <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}><Icon name="ShieldCheck" size={11} />Согласован с ИБ</span>}
+                    {viewSolFull.solution.approved_it && <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.25)" }}><Icon name="BadgeCheck" size={11} />Согласован с ИТ</span>}
+                  </div>
+                  <DialogTitle className="text-xl font-bold text-white">{viewSolFull.solution.name}</DialogTitle>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
+              {viewSolFullLoading && (
+                <div className="flex justify-center py-10"><Icon name="Loader2" size={28} className="animate-spin" style={{ color: "#63b0ff" }} /></div>
+              )}
+
+              {!viewSolFullLoading && (
+                <>
+                  {/* Мета-инфо */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {viewSolFull.solution.owner && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Автор</div>
+                        <div className="text-sm font-medium text-white flex items-center gap-1.5"><Icon name="User" size={13} style={{ color: "#63b0ff" }} />{viewSolFull.solution.owner}</div>
+                      </div>
+                    )}
+                    {viewSolFull.sol_domains.length > 0 && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Тех. домен</div>
+                        <div className="text-sm font-medium text-white flex items-center gap-1.5"><Icon name="Grid3x3" size={13} style={{ color: "#a78bfa" }} />{viewSolFull.sol_domains.map((d) => d.name).join(", ")}</div>
+                      </div>
+                    )}
+                    {viewSolFull.solution.created_at && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Создано</div>
+                        <div className="text-sm font-medium text-white">{new Date(viewSolFull.solution.created_at).toLocaleDateString("ru-RU")}</div>
+                      </div>
+                    )}
+                    {viewSolFull.solution.updated_at && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Обновлено</div>
+                        <div className="text-sm font-medium text-white">{new Date(viewSolFull.solution.updated_at).toLocaleDateString("ru-RU")}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Описание */}
+                  {viewSolFull.solution.description && (
+                    <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <div className="text-xs mb-2 font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Описание</div>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(180,200,230,0.75)" }}>{viewSolFull.solution.description}</p>
+                    </div>
+                  )}
+
+                  {/* Теги */}
+                  {(viewSolFull.solution.tags || []).length > 0 && (
+                    <div>
+                      <div className="text-xs mb-2 font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Теги</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(viewSolFull.solution.tags || []).map((tag) => (
+                          <span key={tag} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Схемы Mermaid */}
+                  {(viewSolFull.solution.attachments || []).length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Icon name="GitBranch" size={15} style={{ color: "#34d399" }} />
+                        <span className="text-sm font-semibold text-white">Схемы и ссылки</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{viewSolFull.solution.attachments.length}</span>
+                      </div>
+                      <div className="space-y-3">
+                        {(viewSolFull.solution.attachments || []).map((a) => (
+                          <div key={a.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                              <Icon name={a.type === "mermaid" ? "GitBranch" : "Link"} size={13} style={{ color: a.type === "mermaid" ? "#34d399" : "#a78bfa" }} />
+                              <span className="text-sm font-medium text-white flex-1">{a.name}</span>
+                              {a.type === "mermaid" && (
+                                <button onClick={() => setViewSolMermaid(viewSolMermaid?.id === a.id ? null : a)}
+                                  className="text-xs px-2 py-1 rounded-lg transition-all"
+                                  style={{ background: viewSolMermaid?.id === a.id ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.05)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}
+                                >{viewSolMermaid?.id === a.id ? "Скрыть" : "Показать схему"}</button>
+                              )}
+                              {a.type === "link" && (
+                                <a href={a.content} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>Открыть</a>
+                              )}
+                            </div>
+                            {a.type === "mermaid" && viewSolMermaid?.id === a.id && (
+                              <div className="p-4" style={{ background: "rgba(0,0,0,0.3)" }}>
+                                <MermaidViewer chart={a.content} />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Связанные технологии */}
+                  {viewSolFull.technologies.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Icon name="Cpu" size={15} style={{ color: "#34d399" }} />
+                        <span className="text-sm font-semibold text-white">Связанные технологии</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{viewSolFull.technologies.length}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {viewSolFull.technologies.map((t) => {
+                          const TECH_SM: Record<string, { color: string; bg: string }> = {
+                            "Активен": { color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+                            "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+                            "Архив": { color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+                            "Устарел": { color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
+                            "Не активен": { color: "#6b7280", bg: "rgba(107,114,128,0.1)" },
+                          };
+                          const tsm = TECH_SM[t.status] || TECH_SM["Не активен"];
+                          return (
+                            <div key={t.id} className="rounded-xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.15)" }}>
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.1)" }}>
+                                <Icon name="Cpu" size={14} style={{ color: "#34d399" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-white truncate">{t.name}</div>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{t.id}</span>
+                                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: tsm.bg, color: tsm.color }}>{t.status}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Требования от технологий */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Icon name="FileCheck" size={15} style={{ color: "#a78bfa" }} />
+                      <span className="text-sm font-semibold text-white">Унаследованные требования</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>{viewSolFull.requirements.length}</span>
+                    </div>
+                    {viewSolFull.requirements.length === 0 && (
+                      <div className="rounded-xl p-6 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <Icon name="FileCheck" size={32} className="mx-auto mb-2 opacity-20" />
+                        <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований у связанных технологий</p>
+                      </div>
+                    )}
+                    {viewSolFull.requirements.length > 0 && (
+                      <div className="space-y-2">
+                        {viewSolFull.requirements.map((r) => {
+                          const rtm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                          const rcm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                          const rsm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                          const srcTech = viewSolFull.technologies.find((t) => t.id === r.technology_id);
+                          return (
+                            <div key={r.id} className="rounded-xl p-3" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.1)" }}>
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rtm.bg, color: rtm.color }}><Icon name={rtm.icon as "Cpu"} size={10} />{r.req_type}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rcm.bg, color: rcm.color }}><Icon name={rcm.icon as "AlertOctagon"} size={10} />{r.criticality}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: rsm.bg, color: rsm.color }}>{r.status}</span>
+                              </div>
+                              <div className="text-sm font-medium text-white mb-0.5">{r.name}</div>
+                              {srcTech && <div className="text-xs" style={{ color: "rgba(52,211,153,0.6)" }}>← {srcTech.name}</div>}
+                              {r.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.description}</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              <button onClick={() => { openEditSol(viewSolFull.solution); setViewSolFull(null); }}
+                className="px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                style={{ background: "rgba(0,102,255,0.15)", color: "#63b0ff", border: "1px solid rgba(0,102,255,0.3)" }}>
+                <Icon name="Pencil" size={14} />Редактировать
+              </button>
+              <button onClick={() => setViewSolFull(null)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>Закрыть</button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ══════════ DELETE SOL CONFIRM ══════════ */}
+      {deleteSolId && (
+        <Dialog open onOpenChange={(o) => { if (!o) setDeleteSolId(null); }}>
+          <DialogContent className="max-w-sm" style={{ background: "#0b1628", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <DialogHeader><DialogTitle className="text-white">Удалить решение?</DialogTitle></DialogHeader>
+            <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>Это действие нельзя отменить.</p>
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setDeleteSolId(null)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>Отмена</button>
+              <button onClick={() => handleDeleteSol(deleteSolId)} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ background: "rgba(239,68,68,0.8)", border: "1px solid rgba(239,68,68,0.4)" }}>Удалить</button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Requirement Create/Edit Dialog ── */}
+      <Dialog open={reqDialogOpen} onOpenChange={(o) => { if (!o) setReqDialogOpen(false); }}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                <Icon name="FileCheck" size={15} style={{ color: "#f59e0b" }} />
+              </div>
+              {editingReq ? "Редактировать требование" : "Добавить требование"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* ID */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID требования</Label>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#f59e0b" }}>
+                <Icon name="Hash" size={13} style={{ color: "rgba(245,158,11,0.4)" }} />
+                {reqForm.id}
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название требования *</Label>
+              <Input value={reqForm.name} onChange={(e) => setReqForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Например: Многофакторная аутентификация для привилегированных пользователей"
+                className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+
+            {/* Technology + Tech Domain */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технология</Label>
+                <select value={reqForm.technology_id} onChange={(e) => setReqForm((f) => ({ ...f, technology_id: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: reqForm.technology_id ? "white" : "rgba(180,200,230,0.4)" }}>
+                  <option value="">— не выбрано —</option>
+                  {reqTechRefs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технический домен</Label>
+                <select value={reqForm.tech_domain_id} onChange={(e) => setReqForm((f) => ({ ...f, tech_domain_id: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: reqForm.tech_domain_id ? "white" : "rgba(180,200,230,0.4)" }}>
+                  <option value="">— не выбрано —</option>
+                  {reqTechDomainRefs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание требования</Label>
+              <textarea value={reqForm.description} onChange={(e) => setReqForm((f) => ({ ...f, description: e.target.value }))}
+                rows={3} placeholder="Подробное описание требования, его цель и область применения..."
+                className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+
+            {/* Type + Criticality + Status */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Тип требования</Label>
+                <div className="flex flex-col gap-1.5">
+                  {REQ_TYPES.map((t) => {
+                    const m = REQ_TYPE_META[t]; const active = reqForm.req_type === t;
+                    return <button key={t} onClick={() => setReqForm((f) => ({ ...f, req_type: t }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{t}
+                    </button>;
+                  })}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Критичность</Label>
+                <div className="flex flex-col gap-1.5">
+                  {REQ_CRITICALITIES.map((c) => {
+                    const m = REQ_CRITICALITY_META[c]; const active = reqForm.criticality === c;
+                    return <button key={c} onClick={() => setReqForm((f) => ({ ...f, criticality: c }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{c}
+                    </button>;
+                  })}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <div className="flex flex-col gap-1.5">
+                  {REQ_STATUSES.map((s) => {
+                    const m = REQ_STATUS_META[s]; const active = reqForm.status === s;
+                    return <button key={s} onClick={() => setReqForm((f) => ({ ...f, status: s }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{s}
+                    </button>;
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Control metric + description */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Метрика контроля</Label>
+                <Input value={reqForm.control_metric} onChange={(e) => setReqForm((f) => ({ ...f, control_metric: e.target.value }))}
+                  placeholder="Например: % систем с MFA" className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание способа контроля</Label>
+                <Input value={reqForm.control_description} onChange={(e) => setReqForm((f) => ({ ...f, control_description: e.target.value }))}
+                  placeholder="Как проверяется выполнение..." className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Version + Norm doc link */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={reqForm.version} onChange={(e) => setReqForm((f) => ({ ...f, version: e.target.value }))}
+                  placeholder="1.0.0" className="text-sm font-mono"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Ссылка на нормативный документ</Label>
+                <Input value={reqForm.norm_doc_link} onChange={(e) => setReqForm((f) => ({ ...f, norm_doc_link: e.target.value }))}
+                  placeholder="ГОСТ Р 57580, ISO 27001..." className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Environments */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Среда применения</Label>
+              <div className="flex gap-2 flex-wrap">
+                {REQ_ENVS.map((env) => {
+                  const active = reqForm.environments.includes(env);
+                  return <button key={env} onClick={() => toggleReqEnv(env)} className="px-3 py-1.5 rounded-lg text-xs font-medium font-mono transition-all" style={{ background: active ? "rgba(99,176,255,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(99,176,255,0.35)" : "rgba(255,255,255,0.08)"}`, color: active ? "#63b0ff" : "rgba(180,200,230,0.5)" }}>
+                    {active && <Icon name="Check" size={11} className="inline mr-1" />}{env}
+                  </button>;
+                })}
+              </div>
+            </div>
+
+            {/* Stages */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Стадия применения</Label>
+              <div className="flex gap-2 flex-wrap">
+                {REQ_STAGES.map((s) => {
+                  const active = reqForm.stages.includes(s);
+                  return <button key={s} onClick={() => toggleReqStage(s)} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(167,139,250,0.35)" : "rgba(255,255,255,0.08)"}`, color: active ? "#a78bfa" : "rgba(180,200,230,0.5)" }}>
+                    {active && <Icon name="Check" size={11} className="inline mr-1" />}{s}
+                  </button>;
+                })}
+              </div>
+            </div>
+
+            {/* Procurement */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Закупки</Label>
+              <textarea value={reqForm.procurement} onChange={(e) => setReqForm((f) => ({ ...f, procurement: e.target.value }))}
+                rows={2} placeholder="Требования к закупаемым компонентам, сертификаты, стандарты..."
+                className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+
+            {/* Interactions */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Взаимодействие</Label>
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                {([
+                  { key: "ext_with_iod" as const, label: "Внешнее с ИОД" },
+                  { key: "ext_without_iod" as const, label: "Внешнее без ИОД" },
+                  { key: "int_with_iod" as const, label: "Внутреннее с ИОД" },
+                  { key: "int_without_iod" as const, label: "Внутреннее без ИОД" },
+                ] as { key: "ext_with_iod" | "ext_without_iod" | "int_with_iod" | "int_without_iod"; label: string }[]).map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <span className="text-[11px]" style={{ color: "rgba(180,200,230,0.5)" }}>{label}</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {REQ_INTERACTIONS.map((v) => {
+                        const m = REQ_INTERACTION_META[v]; const active = reqForm[key] === v;
+                        return <button key={v} onClick={() => setReqForm((f) => ({ ...f, [key]: v }))} className="px-2 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: active ? `${m.color}15` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "40" : "rgba(255,255,255,0.06)"}`, color: active ? m.color : "rgba(180,200,230,0.4)" }}>{v}</button>;
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Score */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Скор.Балл (1–4)</Label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((v) => (
+                    <button key={v} onClick={() => setReqForm((f) => ({ ...f, score_value: v }))}
+                      className="flex-1 py-2 rounded-lg text-sm font-bold transition-all"
+                      style={{ background: reqForm.score_value === v ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${reqForm.score_value === v ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.08)"}`, color: reqForm.score_value === v ? "#f59e0b" : "rgba(180,200,230,0.4)" }}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Скор.Вес (1–10)</Label>
+                <div className="flex gap-1 flex-wrap">
+                  {[1,2,3,4,5,6,7,8,9,10].map((v) => (
+                    <button key={v} onClick={() => setReqForm((f) => ({ ...f, score_weight: v }))}
+                      className="flex-1 min-w-[2rem] py-2 rounded-lg text-sm font-bold transition-all"
+                      style={{ background: reqForm.score_weight === v ? "rgba(99,176,255,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${reqForm.score_weight === v ? "rgba(99,176,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: reqForm.score_weight === v ? "#63b0ff" : "rgba(180,200,230,0.4)" }}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex gap-2">
+                <Input value={reqTagInput} onChange={(e) => setReqTagInput(e.target.value)}
+                  placeholder="mfa, authn, gost..." className="text-sm flex-1"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addReqTag(reqTagInput); } }} />
+                <button onClick={() => addReqTag(reqTagInput)} className="px-3 rounded-lg text-xs font-medium" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}>
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {reqForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {reqForm.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>
+                      {tag}
+                      <button onClick={() => setReqForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:text-red-400 transition-colors"><Icon name="X" size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Error */}
+            {reqSaveError && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <Icon name="AlertTriangle" size={14} style={{ color: "#ef4444" }} />
+                <span className="text-xs" style={{ color: "#ef4444" }}>{reqSaveError}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1 text-sm" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setReqDialogOpen(false)}>
+                Отмена
+              </Button>
+              <button onClick={handleSaveReq} disabled={reqSaving || !reqForm.name.trim()}
+                className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all"
+                style={{ background: reqSaving || !reqForm.name.trim() ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: reqSaving || !reqForm.name.trim() ? "rgba(180,200,230,0.3)" : "white", cursor: reqSaving || !reqForm.name.trim() ? "not-allowed" : "pointer" }}>
+                {reqSaving && <Icon name="Loader" size={14} className="animate-spin" />}
+                {editingReq ? "Сохранить изменения" : "Добавить требование"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Requirement Detail Sheet ── */}
+      <Sheet open={!!viewReq} onOpenChange={(o) => { if (!o) setViewReq(null); }}>
+        <SheetContent side="right" className="w-[580px] sm:w-[580px] p-0 border-l overflow-y-auto" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)" }}>
+          {viewReq && (() => {
+            const tm = REQ_TYPE_META[viewReq.req_type] || REQ_TYPE_META["Техническое"];
+            const cm = REQ_CRITICALITY_META[viewReq.criticality] || REQ_CRITICALITY_META["Средний"];
+            const sm = REQ_STATUS_META[viewReq.status] || REQ_STATUS_META["В разработке"];
+            const tech = reqTechRefs.find((t) => t.id === viewReq.technology_id);
+            const dom = reqTechDomainRefs.find((d) => d.id === viewReq.tech_domain_id);
+            return (
+              <>
+                <SheetHeader className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-xs px-2 py-0.5 rounded mb-2" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                        <Icon name="Hash" size={11} />{viewReq.id}
+                      </span>
+                      <SheetTitle className="text-white text-lg font-semibold leading-snug">{viewReq.name}</SheetTitle>
+                    </div>
+                    <div className="flex flex-col gap-1.5 items-end shrink-0">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: sm.bg, color: sm.color }}>
+                        <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{viewReq.status}
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: cm.bg, color: cm.color }}>
+                        <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{viewReq.criticality}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: tm.bg, color: tm.color }}>
+                      <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{viewReq.req_type}
+                    </div>
+                    <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewReq.version}</span>
+                  </div>
+                </SheetHeader>
+
+                <div className="px-6 py-5 space-y-5">
+                  {viewReq.description && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Описание</p>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>{viewReq.description}</p>
+                    </div>
+                  )}
+
+                  {(tech || dom) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {tech && (
+                        <div className="px-3 py-2.5 rounded-lg" style={{ background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.15)" }}>
+                          <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "#34d399" }}>Технология</p>
+                          <p className="text-sm text-white">{tech.name}</p>
+                        </div>
+                      )}
+                      {dom && (
+                        <div className="px-3 py-2.5 rounded-lg" style={{ background: "rgba(99,176,255,0.05)", border: "1px solid rgba(99,176,255,0.15)" }}>
+                          <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "#63b0ff" }}>Тех. домен</p>
+                          <p className="text-sm text-white">{dom.name}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {(viewReq.control_metric || viewReq.control_description) && (
+                    <div className="p-3 rounded-lg space-y-2" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p className="text-xs uppercase tracking-wide font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Контроль</p>
+                      {viewReq.control_metric && <div><span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Метрика: </span><span className="text-sm text-white">{viewReq.control_metric}</span></div>}
+                      {viewReq.control_description && <div><span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Способ: </span><span className="text-sm" style={{ color: "rgba(210,225,245,0.8)" }}>{viewReq.control_description}</span></div>}
+                    </div>
+                  )}
+
+                  {viewReq.norm_doc_link && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Нормативный документ</p>
+                      <span className="text-sm px-3 py-1.5 rounded-lg inline-block" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{viewReq.norm_doc_link}</span>
+                    </div>
+                  )}
+
+                  {viewReq.environments.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Среда применения</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewReq.environments.map((e) => <span key={e} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{e}</span>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewReq.stages.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Стадия применения</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewReq.stages.map((s) => <span key={s} className="text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{s}</span>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewReq.procurement && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Закупки</p>
+                      <p className="text-sm" style={{ color: "rgba(210,225,245,0.8)" }}>{viewReq.procurement}</p>
+                    </div>
+                  )}
+
+                  {/* Interactions table */}
+                  <div>
+                    <p className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Взаимодействие</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: "ext_with_iod" as const, label: "Внешнее с ИОД" },
+                        { key: "ext_without_iod" as const, label: "Внешнее без ИОД" },
+                        { key: "int_with_iod" as const, label: "Внутреннее с ИОД" },
+                        { key: "int_without_iod" as const, label: "Внутреннее без ИОД" },
+                      ] as { key: "ext_with_iod" | "ext_without_iod" | "int_with_iod" | "int_without_iod"; label: string }[]).map(({ key, label }) => {
+                        const val = viewReq[key];
+                        const m = REQ_INTERACTION_META[val];
+                        return (
+                          <div key={key} className="px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>{label}</p>
+                            <p className="text-sm font-medium mt-0.5" style={{ color: m.color }}>{val}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div className="flex gap-4">
+                    <div className="flex-1 px-4 py-3 rounded-xl text-center" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "#f59e0b" }}>Скор.Балл</p>
+                      <p className="text-2xl font-bold" style={{ color: "#f59e0b" }}>{viewReq.score_value}</p>
+                    </div>
+                    <div className="flex-1 px-4 py-3 rounded-xl text-center" style={{ background: "rgba(99,176,255,0.08)", border: "1px solid rgba(99,176,255,0.2)" }}>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "#63b0ff" }}>Скор.Вес</p>
+                      <p className="text-2xl font-bold" style={{ color: "#63b0ff" }}>{viewReq.score_weight}</p>
+                    </div>
+                    <div className="flex-1 px-4 py-3 rounded-xl text-center" style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "#a78bfa" }}>Итог</p>
+                      <p className="text-2xl font-bold" style={{ color: "#a78bfa" }}>{viewReq.score_value * viewReq.score_weight}</p>
+                    </div>
+                  </div>
+
+                  {viewReq.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide mb-1.5 font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewReq.tags.map((tag) => <span key={tag} className="text-xs font-mono px-2.5 py-1 rounded-lg" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{tag}</span>)}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <button onClick={() => { setViewReq(null); openEditReq(viewReq); }} className="flex-1 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b" }}>
+                      <Icon name="Pencil" size={14} /> Редактировать
+                    </button>
+                    <button onClick={() => { setViewReq(null); setDeleteReqId(viewReq.id); }} className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+                      <Icon name="Trash2" size={14} />
+                    </button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Requirement Delete Confirm ── */}
+      <Dialog open={!!deleteReqId} onOpenChange={(o) => { if (!o) setDeleteReqId(null); }}>
+        <DialogContent className="max-w-sm border" style={{ background: "#0b1628", borderColor: "rgba(239,68,68,0.2)" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Icon name="AlertTriangle" size={18} style={{ color: "#ef4444" }} />
+              Удалить требование?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm" style={{ color: "rgba(180,200,230,0.7)" }}>
+            Требование <span className="font-mono text-white">{deleteReqId}</span> будет удалено без возможности восстановления.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setDeleteReqId(null)}>Отмена</Button>
+            <button onClick={() => handleDeleteReq(deleteReqId!)} className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
+              <Icon name="Trash2" size={14} /> Удалить
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Technology Create/Edit Dialog ── */}
+      <Dialog open={techDialogOpen2} onOpenChange={(o) => { if (!o) setTechDialogOpen2(false); }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "90vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                <Icon name="Cpu" size={15} style={{ color: "#10b981" }} />
+              </div>
+              {editingTech2 ? "Редактировать технологию" : "Добавить технологию"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* ID */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID технологии</Label>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#34d399" }}>
+                <Icon name="Hash" size={13} style={{ color: "rgba(52,211,153,0.4)" }} />
+                {techForm2.id}
+              </div>
+            </div>
+
+            {/* Name + Library */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название *</Label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input
+                    value={techForm2.name}
+                    onChange={(e) => { setTechForm2((f) => ({ ...f, name: e.target.value })); setTechNameError2(validateTechName2(e.target.value)); }}
+                    placeholder="Например: JWT, OAuth 2.0, RBAC..."
+                    className="text-sm"
+                    style={{ background: "rgba(15,22,41,0.8)", border: `1px solid ${techNameError2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}`, color: "white" }}
+                  />
+                  {techNameError2 && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{techNameError2}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setTechLibrarySearch(""); setTechLibraryOpen(true); }}
+                  title="Библиотека технологий"
+                  className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all hover:opacity-80"
+                  style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                >
+                  <Icon name="BookOpen" size={14} />
+                  Библиотека
+                </button>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+              <div className="flex flex-wrap gap-2">
+                {TECH_STATUSES.map((s) => {
+                  const sm = TECH_STATUS_META[s];
+                  const active = techForm2.status === s;
+                  return (
+                    <button key={s} onClick={() => setTechForm2((f) => ({ ...f, status: s }))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: active ? sm.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? sm.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? sm.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea
+                value={techForm2.description}
+                onChange={(e) => setTechForm2((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+                placeholder="Краткое описание технологии и её роли в архитектуре ИБ..."
+                className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+              />
+            </div>
+
+            {/* Versions */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версии</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={techVersionInput}
+                  onChange={(e) => setTechVersionInput(e.target.value)}
+                  placeholder="2.0.0"
+                  className="text-sm font-mono"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addVersion(techVersionInput); } }}
+                />
+                <button onClick={() => addVersion(techVersionInput)} className="px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-80" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {techForm2.versions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {techForm2.versions.map((v) => (
+                    <span key={v} className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>
+                      v{v}
+                      <button onClick={() => setTechForm2((f) => ({ ...f, versions: f.versions.filter((x) => x !== v) }))} className="hover:text-red-400 transition-colors"><Icon name="X" size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tech Domain binding */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технические домены</Label>
+              <div className="flex flex-wrap gap-2 p-3 rounded-lg max-h-32 overflow-y-auto" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {techDomainRefs.length === 0 && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Нет доменов</span>}
+                {techDomainRefs.map((d) => {
+                  const sel = techForm2.tech_domain_ids.includes(d.id);
+                  return (
+                    <button key={d.id} onClick={() => toggleTechDomainRef(d.id)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: sel ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${sel ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)"}`, color: sel ? "#34d399" : "rgba(180,200,230,0.5)" }}>
+                      {sel && <Icon name="Check" size={11} />}
+                      {d.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={techTagInput2}
+                  onChange={(e) => setTechTagInput2(e.target.value)}
+                  placeholder="authn, encryption, token..."
+                  className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTechTag2(techTagInput2); } if (e.key === ",") { e.preventDefault(); addTechTag2(techTagInput2); } }}
+                />
+                <button onClick={() => addTechTag2(techTagInput2)} className="px-3 rounded-lg text-xs font-medium" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}>
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {techForm2.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {techForm2.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>
+                      {tag}
+                      <button onClick={() => setTechForm2((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:text-red-400 transition-colors"><Icon name="X" size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Вложения</Label>
+              {/* Tab switcher */}
+              <div className="flex gap-1 p-1 rounded-lg w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {(["link","mermaid","file"] as AttachmentType[]).map((t) => (
+                  <button key={t} onClick={() => { setAttachmentTab(t); setAttachDraft({ type:t, name:"", content:"" }); }}
+                    className="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                    style={{ background: attachmentTab === t ? "rgba(255,255,255,0.08)" : "transparent", color: attachmentTab === t ? "white" : "rgba(180,200,230,0.4)" }}>
+                    {t === "link" ? "Ссылка" : t === "mermaid" ? "Mermaid" : "Файл"}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <Input
+                  value={attachDraft.name}
+                  onChange={(e) => setAttachDraft((d) => ({ ...d, name: e.target.value }))}
+                  placeholder={attachmentTab === "link" ? "Название ссылки" : attachmentTab === "mermaid" ? "Название схемы" : "Имя файла"}
+                  className="text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                />
+                {attachmentTab === "mermaid" ? (
+                  <textarea
+                    value={attachDraft.content}
+                    onChange={(e) => setAttachDraft((d) => ({ ...d, content: e.target.value }))}
+                    rows={4}
+                    placeholder={"graph TD\n  A[Client] --> B[Auth Server]\n  B --> C[Resource]"}
+                    className="w-full px-3 py-2 rounded-lg text-sm font-mono resize-none outline-none"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "#a5f3fc" }}
+                  />
+                ) : (
+                  <Input
+                    value={attachDraft.content}
+                    onChange={(e) => setAttachDraft((d) => ({ ...d, content: e.target.value }))}
+                    placeholder={attachmentTab === "link" ? "https://..." : "base64 или путь к файлу"}
+                    className="text-sm"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                  />
+                )}
+                <button
+                  onClick={addAttachment}
+                  disabled={!attachDraft.name.trim() || !attachDraft.content.trim()}
+                  className="w-full py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: attachDraft.name.trim() && attachDraft.content.trim() ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(16,185,129,0.2)", color: attachDraft.name.trim() && attachDraft.content.trim() ? "#34d399" : "rgba(180,200,230,0.2)" }}>
+                  Добавить вложение
+                </button>
+              </div>
+
+              {/* Existing attachments */}
+              {techForm2.attachments.length > 0 && (
+                <div className="space-y-1.5">
+                  {techForm2.attachments.map((att) => (
+                    <div key={att.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icon name={att.type === "link" ? "ExternalLink" : att.type === "mermaid" ? "GitBranch" : "FileText"} size={13} style={{ color: att.type === "link" ? "#63b0ff" : att.type === "mermaid" ? "#a78bfa" : "#f59e0b", flexShrink: 0 }} />
+                        <span className="text-xs truncate" style={{ color: "rgba(210,225,245,0.8)" }}>{att.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.4)" }}>{att.type}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => setViewAttachment(att)} className="p-1 rounded hover:bg-white/5 transition-all" style={{ color: "rgba(180,200,230,0.5)" }}><Icon name="Eye" size={12} /></button>
+                        <button onClick={() => removeAttachment(att.id)} className="p-1 rounded hover:bg-red-500/10 transition-all" style={{ color: "rgba(239,68,68,0.5)" }}><Icon name="Trash2" size={12} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Error */}
+            {techSaveError2 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <Icon name="AlertTriangle" size={14} style={{ color: "#ef4444" }} />
+                <span className="text-xs" style={{ color: "#ef4444" }}>{techSaveError2}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1 text-sm" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setTechDialogOpen2(false)}>
+                Отмена
+              </Button>
+              <button
+                onClick={handleSaveTech2}
+                disabled={techSaving2 || !!techNameError2}
+                className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all"
+                style={{ background: techSaving2 || techNameError2 ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #10b981 0%, #0d9488 100%)", color: techSaving2 || techNameError2 ? "rgba(180,200,230,0.3)" : "white", border: "1px solid rgba(16,185,129,0.3)", cursor: techSaving2 || techNameError2 ? "not-allowed" : "pointer" }}
+              >
+                {techSaving2 && <Icon name="Loader" size={14} className="animate-spin" />}
+                {editingTech2 ? "Сохранить изменения" : "Добавить технологию"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Technology Library Popover ── */}
+      <Dialog open={techLibraryOpen} onOpenChange={setTechLibraryOpen}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)" }}>
+          <DialogHeader className="px-4 pt-4 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white text-sm flex items-center gap-2">
+              <Icon name="BookOpen" size={15} style={{ color: "#10b981" }} />
+              Библиотека технологий
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-4 py-3 space-y-3">
+            <div className="relative">
+              <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+              <Input value={techLibrarySearch} onChange={(e) => setTechLibrarySearch(e.target.value)} placeholder="Поиск..." className="pl-8 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {existingTechNames.filter((n) => n.name.toLowerCase().includes(techLibrarySearch.toLowerCase())).length === 0 && (
+                <p className="text-xs text-center py-4" style={{ color: "rgba(180,200,230,0.4)" }}>Ничего не найдено</p>
+              )}
+              {existingTechNames.filter((n) => n.name.toLowerCase().includes(techLibrarySearch.toLowerCase())).map((n) => (
+                <button key={n.id} onClick={() => { setTechForm2((f) => ({ ...f, name: n.name })); setTechNameError2(""); setTechLibraryOpen(false); }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all hover:bg-white/5"
+                  style={{ color: "rgba(210,225,245,0.85)" }}>
+                  <span>{n.name}</span>
+                  <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{n.id}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Technology Detail Sheet ── */}
+      <Sheet open={!!viewTech2} onOpenChange={(o) => { if (!o) { setViewTech2(null); setTechReqFilter("Все"); } }}>
+        <SheetContent side="right" className="w-[580px] sm:w-[580px] p-0 border-l overflow-y-auto" style={{ background: "#0a1120", borderColor: "rgba(255,255,255,0.07)" }}>
+          {viewTech2 && (() => {
+            const sm = TECH_STATUS_META[viewTech2.status] || TECH_STATUS_META["В разработке"];
+            const linkedReqs = reqs.filter((r) => r.technology_id === viewTech2.id);
+            const critOptions = ["Все", ...Array.from(new Set(linkedReqs.map((r) => r.criticality)))];
+            const filteredReqs = techReqFilter === "Все" ? linkedReqs : linkedReqs.filter((r) => r.criticality === techReqFilter);
+            return (
+              <>
+                {/* ── Gradient Header ── */}
+                <div className="relative px-8 pt-8 pb-6" style={{ background: "linear-gradient(180deg, rgba(16,185,129,0.07) 0%, transparent 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs px-2.5 py-1 rounded-lg flex items-center gap-1" style={{ background: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                        <Icon name="Hash" size={11} />{viewTech2.id}
+                      </span>
+                      {viewTech2.versions && viewTech2.versions.length > 0 && (
+                        <span className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                          v{viewTech2.versions[viewTech2.versions.length - 1]}
+                        </span>
+                      )}
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                      <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={12} />
+                      {viewTech2.status}
+                    </span>
+                  </div>
+                  <SheetHeader>
+                    <SheetTitle className="text-xl font-semibold text-white text-left leading-snug">{viewTech2.name}</SheetTitle>
+                  </SheetHeader>
+                  {linkedReqs.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-4">
+                      <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                      <span className="text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
+                        {linkedReqs.length} {linkedReqs.length === 1 ? "требование" : linkedReqs.length < 5 ? "требования" : "требований"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Body ── */}
+                <div className="px-8 py-6 space-y-7">
+
+                  {/* Description */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Описание</p>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>
+                      {viewTech2.description || <span style={{ color: "rgba(180,200,230,0.3)" }}>Описание не указано</span>}
+                    </p>
+                  </div>
+
+                  {/* Attributes grid */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Атрибуты</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "ID технологии", value: viewTech2.id, icon: "Hash", mono: true },
+                        { label: "Статус", value: viewTech2.status, icon: sm.icon, mono: false, color: sm.color },
+                        { label: "Версий", value: viewTech2.versions?.length ? viewTech2.versions.length.toString() : "—", icon: "Tag", mono: true },
+                        { label: "Доменов", value: viewTech2.tech_domain_ids?.length ? viewTech2.tech_domain_ids.length.toString() : "—", icon: "Layers", mono: true },
+                      ].map((attr) => (
+                        <div key={attr.label} className="rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Icon name={attr.icon as Parameters<typeof Icon>[0]["name"]} size={12} style={{ color: "rgba(180,200,230,0.3)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{attr.label}</span>
+                          </div>
+                          <span className={`text-sm font-medium ${attr.mono ? "font-mono" : ""}`} style={{ color: attr.color || "rgba(210,225,245,0.9)" }}>
+                            {attr.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Versions */}
+                  {viewTech2.versions && viewTech2.versions.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Версии</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech2.versions.map((v) => (
+                          <span key={v} className="text-xs font-mono px-3 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>v{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Technical Domains */}
+                  {viewTech2.tech_domain_ids && viewTech2.tech_domain_ids.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Технические домены</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech2.tech_domain_ids.map((id) => {
+                          const d = techDomainRefs.find((r) => r.id === id);
+                          return (
+                            <span key={id} className="text-xs px-3 py-1 rounded-lg flex items-center gap-1.5" style={{ background: "rgba(16,185,129,0.08)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>
+                              <Icon name="Layers" size={11} />
+                              {d ? d.name : id}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {viewTech2.tags && viewTech2.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech2.tags.map((tag) => (
+                          <span key={tag} className="text-xs font-mono px-3 py-1 rounded-full font-medium" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attachments */}
+                  {viewTech2.attachments && viewTech2.attachments.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Вложения</p>
+                      <div className="space-y-2">
+                        {viewTech2.attachments.map((att) => (
+                          <div key={att.id} className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: att.type === "link" ? "rgba(99,176,255,0.1)" : att.type === "mermaid" ? "rgba(167,139,250,0.1)" : "rgba(245,158,11,0.1)" }}>
+                                <Icon name={att.type === "link" ? "ExternalLink" : att.type === "mermaid" ? "GitBranch" : "FileText"} size={14} style={{ color: att.type === "link" ? "#63b0ff" : att.type === "mermaid" ? "#a78bfa" : "#f59e0b" }} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm truncate font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{att.name}</p>
+                                <p className="text-[11px] capitalize" style={{ color: "rgba(180,200,230,0.4)" }}>{att.type === "link" ? "Ссылка" : att.type === "mermaid" ? "Диаграмма" : "Документ"}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {att.type === "link" ? (
+                                <a href={att.content} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1.5 text-xs font-medium" style={{ color: "#63b0ff" }} onClick={(e) => e.stopPropagation()}>
+                                  <Icon name="ExternalLink" size={13} /> Открыть
+                                </a>
+                              ) : (
+                                <button onClick={() => setViewAttachment(att)} className="p-2 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1.5 text-xs font-medium" style={{ color: "rgba(180,200,230,0.6)" }}>
+                                  <Icon name="Eye" size={13} /> Просмотр
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timestamps */}
+                  {(viewTech2.created_at || viewTech2.updated_at) && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>История</p>
+                      <div className="space-y-2">
+                        {[
+                          { label: "Создана", value: viewTech2.created_at, icon: "PlusCircle" },
+                          { label: "Обновлена", value: viewTech2.updated_at, icon: "RefreshCw" },
+                        ].filter((t) => t.value).map((t) => (
+                          <div key={t.label} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
+                            <div className="flex items-center gap-2">
+                              <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                              <span className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>{t.label}</span>
+                            </div>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>
+                              {new Date(t.value!).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Linked Requirements ── */}
+                  <div className="border-t pt-6" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs font-medium uppercase tracking-widest flex items-center gap-2" style={{ color: "rgba(180,200,230,0.3)" }}>
+                        <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                        Требования
+                        {linkedReqs.length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                            {linkedReqs.length}
+                          </span>
+                        )}
+                      </p>
+                      {linkedReqs.length > 0 && critOptions.length > 2 && (
+                        <div className="flex gap-1">
+                          {critOptions.map((c) => {
+                            const m = c !== "Все" ? REQ_CRITICALITY_META[c as ReqCriticality] : null;
+                            return (
+                              <button key={c} onClick={() => setTechReqFilter(c)}
+                                className="px-2 py-0.5 rounded-md text-[11px] font-medium transition-all"
+                                style={{ background: techReqFilter === c ? (m ? m.bg : "rgba(255,255,255,0.08)") : "rgba(255,255,255,0.03)", border: `1px solid ${techReqFilter === c ? (m ? m.color + "40" : "rgba(255,255,255,0.15)") : "rgba(255,255,255,0.06)"}`, color: techReqFilter === c ? (m ? m.color : "white") : "rgba(180,200,230,0.4)" }}>
+                                {c}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {linkedReqs.length === 0 ? (
+                      <div className="py-6 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                        <Icon name="FileX" size={24} className="mx-auto mb-2" style={{ color: "rgba(180,200,230,0.2)" }} />
+                        <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не привязаны</p>
+                      </div>
+                    ) : filteredReqs.length === 0 ? (
+                      <p className="text-xs py-4 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>Нет требований с такой критичностью</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {filteredReqs.map((r) => {
+                          const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                          const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                          const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                          return (
+                            <button key={r.id} onClick={() => { setViewTech2(null); setViewReq(r); }}
+                              className="w-full text-left px-4 py-3 rounded-xl transition-all hover:border-amber-500/20 group"
+                              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1" style={{ background: cm.bg, color: cm.color }}>
+                                    <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.criticality}
+                                  </span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                </div>
+                              </div>
+                              <p className="text-sm font-medium text-white leading-snug mb-2 line-clamp-2 group-hover:text-amber-300 transition-colors">{r.name}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] flex items-center gap-1" style={{ background: tm.bg, color: tm.color, padding: "2px 6px", borderRadius: 6 }}>
+                                  <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={9} />{r.req_type}
+                                </span>
+                                <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>Балл: <span style={{ color: "#f59e0b" }}>{r.score_value}</span> · Вес: <span style={{ color: "#63b0ff" }}>{r.score_weight}</span></span>
+                                <Icon name="ChevronRight" size={11} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "#f59e0b" }} />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Footer actions ── */}
+                <div className="px-8 pb-8 pt-4 flex gap-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <button
+                    onClick={() => { setViewTech2(null); openEditTech2(viewTech2); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                    style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                  >
+                    <Icon name="Pencil" size={14} />
+                    Редактировать
+                  </button>
+                  <button
+                    onClick={() => { setViewTech2(null); setDeleteTechId2(viewTech2.id); }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}
+                  >
+                    <Icon name="Trash2" size={14} />
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Technology Delete Confirm ── */}
+      <Dialog open={!!deleteTechId2} onOpenChange={(o) => { if (!o) setDeleteTechId2(null); }}>
+        <DialogContent className="max-w-sm border" style={{ background: "#0b1628", borderColor: "rgba(239,68,68,0.2)" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Icon name="AlertTriangle" size={18} style={{ color: "#ef4444" }} />
+              Удалить технологию?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm" style={{ color: "rgba(180,200,230,0.7)" }}>
+            Технология <span className="font-mono text-white">{deleteTechId2}</span> будет удалена без возможности восстановления.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setDeleteTechId2(null)}>Отмена</Button>
+            <button onClick={() => handleDeleteTech2(deleteTechId2!)} className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all hover:opacity-80" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
+              <Icon name="Trash2" size={14} /> Удалить
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Attachment Viewer ── */}
+      <Dialog open={!!viewAttachment} onOpenChange={(o) => { if (!o) setViewAttachment(null); }}>
+        <DialogContent className="max-w-2xl border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "80vh", overflowY: "auto" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2 text-sm">
+              <Icon name={viewAttachment?.type === "mermaid" ? "GitBranch" : "FileText"} size={15} style={{ color: viewAttachment?.type === "mermaid" ? "#a78bfa" : "#f59e0b" }} />
+              {viewAttachment?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            {viewAttachment?.type === "mermaid" ? (
+              <MermaidViewer content={viewAttachment.content} />
+            ) : (
+              <pre className="p-4 rounded-xl text-sm font-mono overflow-x-auto whitespace-pre-wrap" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a5f3fc" }}>
+                {viewAttachment?.content}
+              </pre>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Technology Full View Dialog ── */}
+      {viewTechFull && (() => {
+        const tech = viewTechFull;
+        const sm = TECH_STATUS_META[tech.status] || TECH_STATUS_META["В разработке"];
+        const linkedReqs = reqs.filter((r) => r.technology_id === tech.id);
+        const mermaidAttachments = (tech.attachments || []).filter((a) => a.type === "mermaid");
+        const linkAttachments = (tech.attachments || []).filter((a) => a.type === "link");
+        const fileAttachments = (tech.attachments || []).filter((a) => a.type !== "mermaid" && a.type !== "link");
+
+        const searchLower = techFullSearch.toLowerCase();
+        const filteredReqs = linkedReqs.filter((r) =>
+          !searchLower ||
+          r.id.toLowerCase().includes(searchLower) ||
+          r.name.toLowerCase().includes(searchLower) ||
+          r.description.toLowerCase().includes(searchLower) ||
+          r.req_type.toLowerCase().includes(searchLower) ||
+          r.criticality.toLowerCase().includes(searchLower) ||
+          r.status.toLowerCase().includes(searchLower) ||
+          r.version.toLowerCase().includes(searchLower) ||
+          r.control_metric.toLowerCase().includes(searchLower)
+        );
+
+        const sortedReqs = [...filteredReqs].sort((a, b) => {
+          let va: string | number = "";
+          let vb: string | number = "";
+          if (techFullSortField === "id") { va = a.id; vb = b.id; }
+          else if (techFullSortField === "name") { va = a.name; vb = b.name; }
+          else if (techFullSortField === "criticality") { va = a.criticality; vb = b.criticality; }
+          else if (techFullSortField === "status") { va = a.status; vb = b.status; }
+          else if (techFullSortField === "req_type") { va = a.req_type; vb = b.req_type; }
+          else if (techFullSortField === "score_value") { va = a.score_value; vb = b.score_value; }
+          else if (techFullSortField === "score_weight") { va = a.score_weight; vb = b.score_weight; }
+          const cmp = typeof va === "number" ? va - (vb as number) : String(va).localeCompare(String(vb), "ru");
+          return techFullSortDir === "asc" ? cmp : -cmp;
+        });
+
+        const toggleSort = (field: string) => {
+          if (techFullSortField === field) setTechFullSortDir((d) => d === "asc" ? "desc" : "asc");
+          else { setTechFullSortField(field); setTechFullSortDir("asc"); }
+        };
+
+        const SortIcon = ({ field }: { field: string }) => {
+          if (techFullSortField !== field) return <Icon name="ChevronsUpDown" size={12} style={{ color: "rgba(180,200,230,0.3)" }} />;
+          return <Icon name={techFullSortDir === "asc" ? "ChevronUp" : "ChevronDown"} size={12} style={{ color: "#34d399" }} />;
+        };
+
+        return (
+          <Dialog open onOpenChange={(o) => { if (!o) setViewTechFull(null); }}>
+            <DialogContent
+              className="border overflow-hidden flex flex-col"
+              style={{
+                background: "#080f1e",
+                borderColor: "rgba(255,255,255,0.08)",
+                maxWidth: "95vw",
+                width: "1200px",
+                maxHeight: "95vh",
+                padding: 0,
+              }}
+            >
+              {/* ── Header ── */}
+              <div className="px-8 pt-7 pb-5 flex-shrink-0" style={{ background: "linear-gradient(180deg, rgba(16,185,129,0.06) 0%, transparent 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <span className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }}>{tech.id}</span>
+                      {tech.versions && tech.versions.map((v) => (
+                        <span key={v} className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>v{v}</span>
+                      ))}
+                      <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                        <Icon name={sm.icon as Parameters<typeof Icon>[0]["name"]} size={11} />{tech.status}
+                      </span>
+                    </div>
+                    <DialogTitle className="text-2xl font-bold text-white leading-tight">{tech.name}</DialogTitle>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => { setViewTechFull(null); openEditTech2(tech); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                      style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}
+                    >
+                      <Icon name="Pencil" size={14} /> Редактировать
+                    </button>
+                    <button
+                      onClick={() => { setViewTechFull(null); setDeleteTechId2(tech.id); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.8)" }}
+                    >
+                      <Icon name="Trash2" size={14} /> Удалить
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Scrollable Body ── */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-3 gap-0 min-h-0">
+                  {/* Left column — description + meta */}
+                  <div className="col-span-1 px-6 py-6 space-y-6 border-r" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+
+                    {/* Description */}
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Описание</p>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>
+                        {tech.description || <span style={{ color: "rgba(180,200,230,0.3)" }}>Не указано</span>}
+                      </p>
+                    </div>
+
+                    {/* Tech domains */}
+                    {tech.tech_domain_ids && tech.tech_domain_ids.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Технические домены</p>
+                        <div className="flex flex-col gap-1.5">
+                          {tech.tech_domain_ids.map((id) => {
+                            const d = techDomainRefs.find((r) => r.id === id);
+                            return (
+                              <span key={id} className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ background: "rgba(16,185,129,0.07)", color: "#34d399", border: "1px solid rgba(16,185,129,0.15)" }}>
+                                <Icon name="Layers" size={11} />{d ? d.name : id}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tags */}
+                    {tech.tags && tech.tags.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tech.tags.map((tag) => (
+                            <span key={tag} className="text-xs font-mono px-2.5 py-1 rounded-full" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>#{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Links */}
+                    {linkAttachments.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Ссылки</p>
+                        <div className="flex flex-col gap-1.5">
+                          {linkAttachments.map((att) => (
+                            <a key={att.id} href={att.content} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs group hover:bg-white/5 transition-all"
+                              style={{ background: "rgba(99,176,255,0.05)", border: "1px solid rgba(99,176,255,0.15)", color: "#63b0ff" }}>
+                              <Icon name="ExternalLink" size={12} className="flex-shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* File attachments */}
+                    {fileAttachments.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Документы</p>
+                        <div className="flex flex-col gap-1.5">
+                          {fileAttachments.map((att) => (
+                            <button key={att.id} onClick={() => setViewAttachment(att)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs hover:bg-white/5 transition-all text-left"
+                              style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.15)", color: "#f59e0b" }}>
+                              <Icon name="FileText" size={12} className="flex-shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Timestamps */}
+                    {(tech.created_at || tech.updated_at) && (
+                      <div className="border-t pt-4 space-y-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        {tech.created_at && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs flex items-center gap-1.5" style={{ color: "rgba(180,200,230,0.35)" }}><Icon name="PlusCircle" size={11} />Создана</span>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{new Date(tech.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                          </div>
+                        )}
+                        {tech.updated_at && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs flex items-center gap-1.5" style={{ color: "rgba(180,200,230,0.35)" }}><Icon name="RefreshCw" size={11} />Обновлена</span>
+                            <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>{new Date(tech.updated_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right 2 columns — mermaid + requirements */}
+                  <div className="col-span-2 flex flex-col">
+
+                    {/* Mermaid section */}
+                    {mermaidAttachments.length > 0 && (
+                      <div className="px-6 py-6 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2" style={{ color: "rgba(180,200,230,0.3)" }}>
+                            <Icon name="GitBranch" size={13} style={{ color: "#a78bfa" }} />
+                            Mermaid-схемы
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{mermaidAttachments.length}</span>
+                          </p>
+                        </div>
+                        <div className="space-y-5">
+                          {mermaidAttachments.map((att) => (
+                            <div key={att.id}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: "rgba(167,139,250,0.1)" }}>
+                                  <Icon name="GitBranch" size={13} style={{ color: "#a78bfa" }} />
+                                </div>
+                                <span className="text-sm font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{att.name}</span>
+                              </div>
+                              <MermaidViewer content={att.content} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Requirements table */}
+                    <div className="px-6 py-6 flex-1">
+                      <div className="flex items-center justify-between mb-4 gap-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 flex-shrink-0" style={{ color: "rgba(180,200,230,0.3)" }}>
+                          <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
+                          Привязанные требования
+                          {linkedReqs.length > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>{linkedReqs.length}</span>
+                          )}
+                        </p>
+                        <div className="relative flex-1 max-w-xs">
+                          <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                          <input
+                            value={techFullSearch}
+                            onChange={(e) => setTechFullSearch(e.target.value)}
+                            placeholder="Поиск по любому полю..."
+                            className="w-full pl-9 pr-3 py-1.5 rounded-lg text-xs outline-none"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                          />
+                        </div>
+                      </div>
+
+                      {linkedReqs.length === 0 ? (
+                        <div className="py-10 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                          <Icon name="FileX" size={28} className="mx-auto mb-2" style={{ color: "rgba(180,200,230,0.2)" }} />
+                          <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не привязаны</p>
+                        </div>
+                      ) : sortedReqs.length === 0 ? (
+                        <div className="py-10 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                          <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Ничего не найдено</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                  {[
+                                    { field: "id", label: "ID" },
+                                    { field: "name", label: "Название" },
+                                    { field: "req_type", label: "Тип" },
+                                    { field: "criticality", label: "Критичность" },
+                                    { field: "status", label: "Статус" },
+                                    { field: "score_value", label: "Балл" },
+                                    { field: "score_weight", label: "Вес" },
+                                  ].map(({ field, label }) => (
+                                    <th key={field}
+                                      onClick={() => toggleSort(field)}
+                                      className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-white/5 select-none whitespace-nowrap"
+                                      style={{ color: techFullSortField === field ? "#34d399" : "rgba(180,200,230,0.45)" }}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        {label}
+                                        <SortIcon field={field} />
+                                      </div>
+                                    </th>
+                                  ))}
+                                  <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.45)" }}>
+                                    Описание
+                                  </th>
+                                  <th className="px-3 py-2.5" style={{ color: "rgba(180,200,230,0.45)" }}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sortedReqs.map((r, idx) => {
+                                  const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                                  const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                                  const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                                  return (
+                                    <tr key={r.id}
+                                      onClick={() => { setViewTechFull(null); setViewReq(r); }}
+                                      className="cursor-pointer transition-colors hover:bg-white/[0.03]"
+                                      style={{ borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined }}
+                                    >
+                                      <td className="px-3 py-2.5">
+                                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 min-w-[160px]">
+                                        <span className="font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{r.name}</span>
+                                        {r.version && <span className="ml-1.5 font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: tm.bg, color: tm.color }}>
+                                          <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: cm.bg, color: cm.color }}>
+                                          <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#f59e0b" }}>{r.score_value}</td>
+                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#63b0ff" }}>{r.score_weight}</td>
+                                      <td className="px-3 py-2.5 max-w-[200px]">
+                                        <span className="line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.description || "—"}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <Icon name="ChevronRight" size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Domain Detail Sheet */}
       <Sheet open={!!viewDomain} onOpenChange={(o) => { if (!o) setViewDomain(null); }}>
@@ -1168,6 +4512,21 @@ export default function Index() {
                       {viewDomain.description || "Описание не указано"}
                     </p>
                   </div>
+
+                  {/* Tags */}
+                  {viewDomain.tags && viewDomain.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewDomain.tags.map((tag) => (
+                          <span key={tag} className="text-xs px-3 py-1 rounded-full font-mono font-medium"
+                            style={{ background: "rgba(0,212,255,0.08)", color: "rgba(0,212,255,0.8)", border: "1px solid rgba(0,212,255,0.2)" }}>
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Attributes grid */}
                   <div>
@@ -1261,13 +4620,11 @@ export default function Index() {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID домена</Label>
-                <Input
-                  value={domainForm.id}
-                  onChange={(e) => setDomainForm({ ...domainForm, id: e.target.value })}
-                  placeholder="org.dom.001"
-                  className="font-mono text-sm"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
-                />
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#63b0ff" }}>
+                  <Icon name="Hash" size={13} style={{ color: "rgba(99,176,255,0.4)" }} />
+                  {domainForm.id}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
@@ -1283,14 +4640,36 @@ export default function Index() {
 
             {/* Name */}
             <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название организационного домена</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название организационного домена</Label>
+                {nameError && (
+                  <span className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <Icon name="AlertCircle" size={11} />
+                    {nameError}
+                  </span>
+                )}
+              </div>
               <Input
                 value={domainForm.name}
-                onChange={(e) => setDomainForm({ ...domainForm, name: e.target.value })}
+                onChange={(e) => {
+                  setDomainForm({ ...domainForm, name: e.target.value });
+                  setNameError(validateName(e.target.value));
+                }}
+                onBlur={(e) => setNameError(validateName(e.target.value))}
                 placeholder="Введите название домена"
                 className="text-sm"
-                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                style={{
+                  background: "rgba(15,22,41,0.8)",
+                  border: `1px solid ${nameError ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}`,
+                  color: "white",
+                }}
               />
+              <div className="flex justify-between">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Минимум 3 символа</span>
+                <span className="text-xs font-mono" style={{ color: domainForm.name.length > 90 ? "#f59e0b" : "rgba(180,200,230,0.3)" }}>
+                  {domainForm.name.length}/100
+                </span>
+              </div>
             </div>
 
             {/* Owner + Status row */}
@@ -1323,6 +4702,79 @@ export default function Index() {
                   <Icon name="ChevronDown" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "rgba(180,200,230,0.4)" }} />
                 </div>
               </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+                <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.3)" }}>
+                  {domainForm.tags.length}/10
+                </span>
+              </div>
+              {/* Tag input */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Icon name="Hash" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(0,212,255,0.4)" }} />
+                  <input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value.replace(/[^a-zA-Zа-яёА-ЯЁ0-9\-_]/g, ""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === "," || e.key === " ") {
+                        e.preventDefault();
+                        addTag(tagInput);
+                      }
+                    }}
+                    placeholder="Введите тег и нажмите Enter"
+                    maxLength={30}
+                    disabled={domainForm.tags.length >= 10}
+                    className="w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none font-mono"
+                    style={{
+                      background: "rgba(15,22,41,0.8)",
+                      border: "1px solid rgba(0,212,255,0.15)",
+                      color: "rgba(210,225,245,0.9)",
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = "rgba(0,212,255,0.4)")}
+                    onBlur={(e) => (e.target.style.borderColor = "rgba(0,212,255,0.15)")}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addTag(tagInput)}
+                  disabled={!tagInput.trim() || domainForm.tags.length >= 10}
+                  className="px-3 py-2 rounded-lg text-sm transition-all"
+                  style={{
+                    background: tagInput.trim() ? "rgba(0,212,255,0.12)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${tagInput.trim() ? "rgba(0,212,255,0.3)" : "rgba(255,255,255,0.07)"}`,
+                    color: tagInput.trim() ? "rgba(0,212,255,0.8)" : "rgba(180,200,230,0.2)",
+                    cursor: !tagInput.trim() || domainForm.tags.length >= 10 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {/* Tag chips */}
+              {domainForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  {domainForm.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-mono"
+                      style={{ background: "rgba(0,212,255,0.1)", color: "rgba(0,212,255,0.85)", border: "1px solid rgba(0,212,255,0.2)" }}>
+                      #{tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="ml-0.5 rounded-full transition-all hover:text-white"
+                        style={{ color: "rgba(0,212,255,0.5)", lineHeight: 1 }}
+                      >
+                        <Icon name="X" size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>
+                Нажмите Enter, пробел или запятую для добавления тега
+              </p>
             </div>
 
             {/* Description */}
@@ -1363,13 +4815,13 @@ export default function Index() {
               <button
                 className="flex-1 rounded-lg text-sm font-medium py-2 transition-all flex items-center justify-center gap-2"
                 onClick={handleSaveDomain}
-                disabled={!domainForm.name.trim() || !domainForm.id.trim() || domainSaving}
+                disabled={!domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving}
                 style={{
-                  background: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving
+                  background: !domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving
                     ? "rgba(255,255,255,0.05)"
                     : "linear-gradient(135deg, #10b981 0%, #0066ff 100%)",
-                  color: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving ? "rgba(180,200,230,0.3)" : "white",
-                  cursor: !domainForm.name.trim() || !domainForm.id.trim() || domainSaving ? "not-allowed" : "pointer",
+                  color: !domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving ? "rgba(180,200,230,0.3)" : "white",
+                  cursor: !domainForm.name.trim() || !!nameError || !domainForm.id.trim() || domainSaving ? "not-allowed" : "pointer",
                 }}
               >
                 {domainSaving && <Icon name="Loader" size={14} className="animate-spin" />}
@@ -1416,6 +4868,398 @@ export default function Index() {
                 onClick={() => deleteDomainId && handleDeleteDomain(deleteDomainId)}
                 style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}
               >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Tech Domain Detail Sheet ─────────────────────────────── */}
+      <Sheet open={!!viewTech} onOpenChange={(o) => { if (!o) setViewTech(null); }}>
+        <SheetContent side="right" className="w-[520px] sm:w-[520px] p-0 border-l overflow-y-auto"
+          style={{ background: "#0a1120", borderColor: "rgba(255,255,255,0.07)" }}>
+          {viewTech && (() => {
+            const meta = DOMAIN_STATUS_META[viewTech.status];
+            const linkedOrgs = techOrgRefs.filter((o) => viewTech.org_domain_ids.includes(o.id));
+            return (
+              <>
+                <div className="relative px-8 pt-8 pb-6" style={{ background: "linear-gradient(180deg, rgba(139,92,246,0.08) 0%, transparent 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa" }}>{viewTech.id}</span>
+                      <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewTech.version}</span>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0"
+                      style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.color}30` }}>
+                      <Icon name={meta.icon} size={12} />{viewTech.status}
+                    </span>
+                  </div>
+                  <SheetHeader>
+                    <SheetTitle className="text-xl font-semibold text-white text-left leading-snug">{viewTech.name}</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex items-center gap-3 mt-4">
+                    <div className="flex items-center gap-1.5">
+                      <Icon name="User" size={13} style={{ color: "rgba(180,200,230,0.35)" }} />
+                      <span className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{viewTech.owner || "—"}</span>
+                    </div>
+                    {viewTech.created_at && (<>
+                      <span style={{ color: "rgba(255,255,255,0.1)" }}>·</span>
+                      <div className="flex items-center gap-1.5">
+                        <Icon name="Calendar" size={13} style={{ color: "rgba(180,200,230,0.35)" }} />
+                        <span className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>
+                          {new Date(viewTech.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                        </span>
+                      </div>
+                    </>)}
+                  </div>
+                </div>
+
+                <div className="px-8 py-6 space-y-6">
+                  {/* Description */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Описание</p>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.8)" }}>{viewTech.description || "Описание не указано"}</p>
+                  </div>
+
+                  {/* Tags */}
+                  {viewTech.tags && viewTech.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Теги</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewTech.tags.map((tag) => (
+                          <span key={tag} className="text-xs px-3 py-1 rounded-full font-mono font-medium"
+                            style={{ background: "rgba(139,92,246,0.1)", color: "rgba(167,139,250,0.9)", border: "1px solid rgba(139,92,246,0.25)" }}>
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Org domains */}
+                  {linkedOrgs.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Связанные организационные домены</p>
+                      <div className="space-y-2">
+                        {linkedOrgs.map((o) => {
+                          const om = DOMAIN_STATUS_META[o.status];
+                          return (
+                            <div key={o.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                              style={{ background: "rgba(0,102,255,0.06)", border: "1px solid rgba(0,102,255,0.12)" }}>
+                              <div className="flex items-center gap-2">
+                                <Icon name="Link2" size={13} style={{ color: "rgba(99,176,255,0.5)" }} />
+                                <span className="text-sm font-medium" style={{ color: "rgba(210,225,245,0.85)" }}>{o.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{o.id}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: om.bg, color: om.color }}>{o.status}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attributes */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>Атрибуты</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "ID домена", value: viewTech.id, icon: "Hash", mono: true },
+                        { label: "Версия", value: viewTech.version, icon: "Tag", mono: true },
+                        { label: "Владелец", value: viewTech.owner || "—", icon: "User", mono: false },
+                        { label: "Статус", value: viewTech.status, icon: meta.icon, mono: false, color: meta.color },
+                      ].map((attr) => (
+                        <div key={attr.label} className="rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Icon name={attr.icon} size={12} style={{ color: "rgba(180,200,230,0.3)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>{attr.label}</span>
+                          </div>
+                          <span className={`text-sm font-medium ${attr.mono ? "font-mono" : ""}`} style={{ color: attr.color || "rgba(210,225,245,0.9)" }}>
+                            {attr.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Timestamps */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "rgba(180,200,230,0.3)" }}>История</p>
+                    <div className="space-y-2">
+                      {[
+                        { label: "Создан", value: viewTech.created_at, icon: "PlusCircle" },
+                        { label: "Обновлён", value: viewTech.updated_at || viewTech.created_at, icon: "RefreshCw" },
+                      ].filter((t) => t.value).map((t) => (
+                        <div key={t.label} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
+                          <div className="flex items-center gap-2">
+                            <Icon name={t.icon} size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                            <span className="text-xs" style={{ color: "rgba(180,200,230,0.45)" }}>{t.label}</span>
+                          </div>
+                          <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.55)" }}>
+                            {new Date(t.value!).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-8 pb-8 pt-2 flex gap-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <button onClick={() => { openEditTech(viewTech); setViewTech(null); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}>
+                    <Icon name="Pencil" size={14} />Редактировать
+                  </button>
+                  <button onClick={() => { setDeleteTechId(viewTech.id); setViewTech(null); }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}>
+                    <Icon name="Trash2" size={14} />
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Tech Domain Create/Edit Dialog ───────────────────────── */}
+      <Dialog open={techDialogOpen} onOpenChange={setTechDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+          style={{ background: "#0d1528", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.35)" }}>
+                <Icon name={editingTech ? "Pencil" : "Plus"} size={15} style={{ color: "#a78bfa" }} />
+              </div>
+              {editingTech ? "Редактировать тех. домен" : "Создать технический домен"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* ID + Version */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID технического домена</Label>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a78bfa" }}>
+                  <Icon name="Hash" size={13} style={{ color: "rgba(167,139,250,0.4)" }} />
+                  {techForm.id}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={techForm.version} onChange={(e) => setTechForm({ ...techForm, version: e.target.value })}
+                  placeholder="1.0.0" className="font-mono text-sm"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+
+            {/* Name with validation */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название технического домена</Label>
+                {techNameError && (
+                  <span className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <Icon name="AlertCircle" size={11} />{techNameError}
+                  </span>
+                )}
+                {techSaveError && !techNameError && (
+                  <span className="text-xs flex items-center gap-1" style={{ color: "#f97316" }}>
+                    <Icon name="AlertCircle" size={11} />{techSaveError}
+                  </span>
+                )}
+              </div>
+              <Input value={techForm.name}
+                onChange={(e) => { setTechForm({ ...techForm, name: e.target.value }); setTechNameError(validateTechName(e.target.value)); setTechSaveError(""); }}
+                onBlur={(e) => setTechNameError(validateTechName(e.target.value))}
+                placeholder="Введите название домена"
+                style={{ background: "rgba(15,22,41,0.8)", border: `1px solid ${techNameError || techSaveError ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}`, color: "white" }} />
+              <div className="flex justify-between">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Минимум 3 символа · Уникальное в системе</span>
+                <span className="text-xs font-mono" style={{ color: techForm.name.length > 90 ? "#f59e0b" : "rgba(180,200,230,0.3)" }}>{techForm.name.length}/100</span>
+              </div>
+            </div>
+
+            {/* Owner + Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Владелец</Label>
+                <Input value={techForm.owner} onChange={(e) => setTechForm({ ...techForm, owner: e.target.value })}
+                  placeholder="Отдел / ФИО"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <div className="relative">
+                  <select value={techForm.status} onChange={(e) => setTechForm({ ...techForm, status: e.target.value as DomainStatus })}
+                    className="w-full px-3 py-2 rounded-lg text-sm appearance-none outline-none"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: DOMAIN_STATUS_META[techForm.status].color }}>
+                    {DOMAIN_STATUSES.map((s) => (
+                      <option key={s} value={s} style={{ background: "#0d1528", color: DOMAIN_STATUS_META[s].color }}>{s}</option>
+                    ))}
+                  </select>
+                  <Icon name="ChevronDown" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "rgba(180,200,230,0.4)" }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Тег</Label>
+                <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.3)" }}>{techForm.tags.length}/10</span>
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Icon name="Hash" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(139,92,246,0.5)" }} />
+                  <input value={techTagInput}
+                    onChange={(e) => setTechTagInput(e.target.value.replace(/[^a-zA-Zа-яёА-ЯЁ0-9\-_]/g, ""))}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === "," || e.key === " ") { e.preventDefault(); addTechTag(techTagInput); } }}
+                    placeholder="Введите тег и нажмите Enter"
+                    maxLength={30} disabled={techForm.tags.length >= 10}
+                    className="w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none font-mono"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(139,92,246,0.2)", color: "rgba(210,225,245,0.9)" }}
+                    onFocus={(e) => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+                    onBlur={(e) => (e.target.style.borderColor = "rgba(139,92,246,0.2)")}
+                  />
+                </div>
+                <button type="button" onClick={() => addTechTag(techTagInput)}
+                  disabled={!techTagInput.trim() || techForm.tags.length >= 10}
+                  className="px-3 py-2 rounded-lg text-sm transition-all"
+                  style={{ background: techTagInput.trim() ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${techTagInput.trim() ? "rgba(139,92,246,0.35)" : "rgba(255,255,255,0.07)"}`, color: techTagInput.trim() ? "#a78bfa" : "rgba(180,200,230,0.2)", cursor: !techTagInput.trim() || techForm.tags.length >= 10 ? "not-allowed" : "pointer" }}>
+                  <Icon name="Plus" size={14} />
+                </button>
+              </div>
+              {techForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  {techForm.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-mono"
+                      style={{ background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)" }}>
+                      #{tag}
+                      <button type="button" onClick={() => removeTechTag(tag)} className="ml-0.5 rounded-full" style={{ color: "rgba(167,139,250,0.5)", lineHeight: 1 }}>
+                        <Icon name="X" size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea value={techForm.description} onChange={(e) => setTechForm({ ...techForm, description: e.target.value })}
+                placeholder="Опишите назначение и область применения домена..."
+                rows={3} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none font-sans"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(210,225,245,0.9)" }}
+                onFocus={(e) => (e.target.style.borderColor = "rgba(139,92,246,0.4)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+              />
+            </div>
+
+            {/* Org domains multiselect */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
+                Организационные домены ({techForm.org_domain_ids.length} выбрано)
+              </Label>
+              {techOrgRefs.length === 0 ? (
+                <div className="px-3 py-3 rounded-lg text-xs text-center" style={{ background: "rgba(255,255,255,0.03)", color: "rgba(180,200,230,0.35)" }}>
+                  Нет доступных организационных доменов
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {techOrgRefs.map((o) => {
+                    const selected = techForm.org_domain_ids.includes(o.id);
+                    const om = DOMAIN_STATUS_META[o.status];
+                    return (
+                      <button key={o.id} type="button" onClick={() => toggleOrgDomain(o.id)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                        style={{ background: selected ? "rgba(0,102,255,0.1)" : "rgba(255,255,255,0.02)", border: `1px solid ${selected ? "rgba(0,102,255,0.3)" : "rgba(255,255,255,0.05)"}` }}>
+                        <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                          style={{ background: selected ? "rgba(0,102,255,0.3)" : "rgba(255,255,255,0.06)", border: `1px solid ${selected ? "rgba(0,102,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                          {selected && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium" style={{ color: selected ? "rgba(210,225,245,0.95)" : "rgba(180,200,230,0.65)" }}>
+                            {o.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>{o.id}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: om.bg, color: om.color }}>{o.status}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Status preview */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: DOMAIN_STATUS_META[techForm.status].bg }}>
+              <Icon name={DOMAIN_STATUS_META[techForm.status].icon} size={13} style={{ color: DOMAIN_STATUS_META[techForm.status].color }} />
+              <span className="text-xs font-medium" style={{ color: DOMAIN_STATUS_META[techForm.status].color }}>
+                Статус: {techForm.status}
+              </span>
+              <span className="font-mono text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{techForm.id}</span>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1 text-sm"
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}
+                onClick={() => setTechDialogOpen(false)}>
+                Отмена
+              </Button>
+              <button className="flex-1 rounded-lg text-sm font-medium py-2 transition-all flex items-center justify-center gap-2"
+                onClick={handleSaveTech}
+                disabled={!techForm.name.trim() || !!techNameError || !techForm.id.trim() || techSaving}
+                style={{
+                  background: !techForm.name.trim() || !!techNameError || !techForm.id.trim() || techSaving
+                    ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #8b5cf6 0%, #0066ff 100%)",
+                  color: !techForm.name.trim() || !!techNameError || !techForm.id.trim() || techSaving ? "rgba(180,200,230,0.3)" : "white",
+                  cursor: !techForm.name.trim() || !!techNameError || !techForm.id.trim() || techSaving ? "not-allowed" : "pointer",
+                }}>
+                {techSaving && <Icon name="Loader" size={14} className="animate-spin" />}
+                {techSaving ? "Сохранение..." : editingTech ? "Сохранить изменения" : "Создать домен"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Tech Domain Delete Confirm ────────────────────────────── */}
+      <Dialog open={!!deleteTechId} onOpenChange={() => setDeleteTechId(null)}>
+        <DialogContent className="sm:max-w-sm"
+          style={{ background: "#0d1528", border: "1px solid rgba(239,68,68,0.2)", color: "white" }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-white">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                <Icon name="Trash2" size={15} style={{ color: "#ef4444" }} />
+              </div>
+              Удалить технический домен
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pt-2 space-y-4">
+            <p className="text-sm" style={{ color: "rgba(180,200,230,0.7)" }}>
+              Домен{" "}
+              <span className="font-mono font-medium" style={{ color: "#ef4444" }}>{deleteTechId}</span>{" "}
+              будет удалён без возможности восстановления.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 text-sm"
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}
+                onClick={() => setDeleteTechId(null)}>
+                Отмена
+              </Button>
+              <button className="flex-1 rounded-lg text-sm font-medium py-2"
+                onClick={() => deleteTechId && handleDeleteTech(deleteTechId)}
+                style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
                 Удалить
               </button>
             </div>
