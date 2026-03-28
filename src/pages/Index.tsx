@@ -492,6 +492,10 @@ export default function Index() {
   const [libApprovedItFilter, setLibApprovedItFilter] = useState("Все");
   const [libAuthorFilter, setLibAuthorFilter] = useState("Все");
   const [libShowFilters, setLibShowFilters] = useState(false);
+  const [libExtWithIodFilter, setLibExtWithIodFilter] = useState("Все");
+  const [libExtWithoutIodFilter, setLibExtWithoutIodFilter] = useState("Все");
+  const [libIntWithIodFilter, setLibIntWithIodFilter] = useState("Все");
+  const [libIntWithoutIodFilter, setLibIntWithoutIodFilter] = useState("Все");
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -1931,6 +1935,10 @@ export default function Index() {
               if (libCriticalityFilter !== "Все" && r.criticality !== libCriticalityFilter) return false;
               if (libEnvFilter !== "Все" && !(r.environments || []).includes(libEnvFilter as ReqEnv)) return false;
               if (libStageFilter !== "Все" && !(r.stages || []).includes(libStageFilter as ReqStage)) return false;
+              if (libExtWithIodFilter !== "Все" && r.ext_with_iod !== libExtWithIodFilter) return false;
+              if (libExtWithoutIodFilter !== "Все" && r.ext_without_iod !== libExtWithoutIodFilter) return false;
+              if (libIntWithIodFilter !== "Все" && r.int_with_iod !== libIntWithIodFilter) return false;
+              if (libIntWithoutIodFilter !== "Все" && r.int_without_iod !== libIntWithoutIodFilter) return false;
               if (!q) return true;
               return (
                 r.name.toLowerCase().includes(q) ||
@@ -2031,14 +2039,21 @@ export default function Index() {
             libApprovedIbFilter !== "Все",
             libApprovedItFilter !== "Все",
             libAuthorFilter !== "Все",
+            libExtWithIodFilter !== "Все",
+            libExtWithoutIodFilter !== "Все",
+            libIntWithIodFilter !== "Все",
+            libIntWithoutIodFilter !== "Все",
           ].filter(Boolean).length;
           const resetAllFilters = () => {
             setLibStatusFilter("Все"); setLibTypeFilter("Все");
             setLibCriticalityFilter("Все"); setLibEnvFilter("Все");
             setLibStageFilter("Все"); setLibApprovedIbFilter("Все");
             setLibApprovedItFilter("Все"); setLibAuthorFilter("Все");
+            setLibExtWithIodFilter("Все"); setLibExtWithoutIodFilter("Все");
+            setLibIntWithIodFilter("Все"); setLibIntWithoutIodFilter("Все");
             setLibQuery("");
           };
+          const INTERACTION_VALUES: ReqInteraction[] = ["Обязательный", "Рекомендуемый", "Не требуется", "Запрещено"];
 
           // ── per-section status counters ───────────────────────────────────
           const countByStatus = <T extends { status: string }>(arr: T[]) =>
@@ -2210,6 +2225,36 @@ export default function Index() {
                       {allAuthors.map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
+                )}
+
+                {/* ── Interaction filters — reqs only ── */}
+                {(libSection === "all" || libSection === "reqs") && (
+                  <>
+                    <div className="w-full mt-1 mb-0.5 flex items-center gap-2">
+                      <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                      <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Взаимодействие</span>
+                      <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                    </div>
+                    {([
+                      { label: "Внешнее с ИОД",    value: libExtWithIodFilter,    set: setLibExtWithIodFilter },
+                      { label: "Внешнее без ИОД",   value: libExtWithoutIodFilter, set: setLibExtWithoutIodFilter },
+                      { label: "Внутреннее с ИОД",  value: libIntWithIodFilter,    set: setLibIntWithIodFilter },
+                      { label: "Внутреннее без ИОД", value: libIntWithoutIodFilter, set: setLibIntWithoutIodFilter },
+                    ] as const).map((f) => (
+                      <div key={f.label} className="flex flex-col gap-1">
+                        <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>{f.label}</span>
+                        <select
+                          value={f.value}
+                          onChange={(e) => f.set(e.target.value)}
+                          className="text-xs rounded-lg px-3 py-1.5 outline-none"
+                          style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${f.value !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: f.value === "Все" ? "rgba(180,200,230,0.5)" : "white" }}
+                        >
+                          <option value="Все">Любое</option>
+                          {INTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
             )}
