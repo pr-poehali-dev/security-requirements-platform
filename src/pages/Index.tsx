@@ -484,6 +484,14 @@ export default function Index() {
   const [libReqFilterType, setLibReqFilterType] = useState("Все");
   const [libReqFilterEnv, setLibReqFilterEnv] = useState("Все");
   const [libReqFilterStage, setLibReqFilterStage] = useState("Все");
+  // Extended library filters
+  const [libCriticalityFilter, setLibCriticalityFilter] = useState("Все");
+  const [libEnvFilter, setLibEnvFilter] = useState("Все");
+  const [libStageFilter, setLibStageFilter] = useState("Все");
+  const [libApprovedIbFilter, setLibApprovedIbFilter] = useState("Все");
+  const [libApprovedItFilter, setLibApprovedItFilter] = useState("Все");
+  const [libAuthorFilter, setLibAuthorFilter] = useState("Все");
+  const [libShowFilters, setLibShowFilters] = useState(false);
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -1920,12 +1928,28 @@ export default function Index() {
               if (libSection !== "all" && libSection !== "reqs") return false;
               if (libStatusFilter !== "Все" && r.status !== libStatusFilter) return false;
               if (libTypeFilter !== "Все" && r.req_type !== libTypeFilter) return false;
+              if (libCriticalityFilter !== "Все" && r.criticality !== libCriticalityFilter) return false;
+              if (libEnvFilter !== "Все" && !(r.environments || []).includes(libEnvFilter as ReqEnv)) return false;
+              if (libStageFilter !== "Все" && !(r.stages || []).includes(libStageFilter as ReqStage)) return false;
               if (!q) return true;
               return (
                 r.name.toLowerCase().includes(q) ||
                 (r.description || "").toLowerCase().includes(q) ||
                 (r.req_type || "").toLowerCase().includes(q) ||
                 (r.criticality || "").toLowerCase().includes(q) ||
+                (r.status || "").toLowerCase().includes(q) ||
+                (r.control_metric || "").toLowerCase().includes(q) ||
+                (r.control_description || "").toLowerCase().includes(q) ||
+                (r.norm_doc_link || "").toLowerCase().includes(q) ||
+                (r.procurement || "").toLowerCase().includes(q) ||
+                (r.version || "").toLowerCase().includes(q) ||
+                (r.id || "").toLowerCase().includes(q) ||
+                (r.ext_with_iod || "").toLowerCase().includes(q) ||
+                (r.ext_without_iod || "").toLowerCase().includes(q) ||
+                (r.int_with_iod || "").toLowerCase().includes(q) ||
+                (r.int_without_iod || "").toLowerCase().includes(q) ||
+                (r.environments || []).some((e) => e.toLowerCase().includes(q)) ||
+                (r.stages || []).some((s) => s.toLowerCase().includes(q)) ||
                 r.tags.some((t) => t.toLowerCase().includes(q))
               );
             })
@@ -1940,7 +1964,9 @@ export default function Index() {
               return (
                 t.name.toLowerCase().includes(q) ||
                 (t.description || "").toLowerCase().includes(q) ||
-                t.tags.some((tg) => tg.toLowerCase().includes(q))
+                (t.versions || []).some((v) => v.toLowerCase().includes(q)) ||
+                t.tags.some((tg) => tg.toLowerCase().includes(q)) ||
+                (t.id || "").toLowerCase().includes(q)
               );
             })
             .map((t) => ({ kind: "tech" as const, data: t }));
@@ -1950,12 +1976,18 @@ export default function Index() {
               if (libSection !== "all" && libSection !== "techsolutions") return false;
               if (libStatusFilter !== "Все" && ts.status !== libStatusFilter) return false;
               if (libTypeFilter !== "Все") return false;
+              if (libApprovedIbFilter !== "Все" && String(ts.approved_ib) !== libApprovedIbFilter) return false;
+              if (libApprovedItFilter !== "Все" && String(ts.approved_it) !== libApprovedItFilter) return false;
+              if (libAuthorFilter !== "Все" && (ts.author || "") !== libAuthorFilter) return false;
               if (!q) return true;
               return (
                 ts.name.toLowerCase().includes(q) ||
                 (ts.description || "").toLowerCase().includes(q) ||
-                ts.tags.some((tg) => tg.toLowerCase().includes(q)) ||
-                (ts.author || "").toLowerCase().includes(q)
+                (ts.author || "").toLowerCase().includes(q) ||
+                (ts.version || "").toLowerCase().includes(q) ||
+                (ts.tech_domain || "").toLowerCase().includes(q) ||
+                (ts.id || "").toLowerCase().includes(q) ||
+                ts.tags.some((tg) => tg.toLowerCase().includes(q))
               );
             })
             .map((ts) => ({ kind: "tsol" as const, data: ts }));
@@ -1965,12 +1997,17 @@ export default function Index() {
               if (libSection !== "all" && libSection !== "arch") return false;
               if (libStatusFilter !== "Все" && a.status !== libStatusFilter) return false;
               if (libTypeFilter !== "Все") return false;
+              if (libApprovedIbFilter !== "Все" && String(a.approved_ib) !== libApprovedIbFilter) return false;
+              if (libApprovedItFilter !== "Все" && String(a.approved_it) !== libApprovedItFilter) return false;
+              if (libAuthorFilter !== "Все" && (a.author || "") !== libAuthorFilter) return false;
               if (!q) return true;
               return (
                 a.name.toLowerCase().includes(q) ||
                 (a.description || "").toLowerCase().includes(q) ||
-                a.tags.some((tg) => tg.toLowerCase().includes(q)) ||
-                (a.author || "").toLowerCase().includes(q)
+                (a.author || "").toLowerCase().includes(q) ||
+                (a.version || "").toLowerCase().includes(q) ||
+                (a.id || "").toLowerCase().includes(q) ||
+                a.tags.some((tg) => tg.toLowerCase().includes(q))
               );
             })
             .map((a) => ({ kind: "arch" as const, data: a }));
@@ -1979,6 +2016,29 @@ export default function Index() {
 
           // unique req_types for filter
           const reqTypes = [...new Set(reqs.map((r) => r.req_type).filter(Boolean))];
+          const reqCriticalities = [...new Set(reqs.map((r) => r.criticality).filter(Boolean))];
+          const reqEnvs: ReqEnv[] = ["Prod", "ProdLike", "Stage", "Test", "Dev"];
+          const reqStages: ReqStage[] = ["Стадия дизайн", "Стадия деплоя", "Стадия рантайм"];
+          const allAuthors = [...new Set([
+            ...techSolutions.map((ts) => ts.author).filter(Boolean),
+            ...archTemplates.map((a) => a.author).filter(Boolean),
+          ])].sort();
+          // count active extended filters
+          const activeFilterCount = [
+            libCriticalityFilter !== "Все",
+            libEnvFilter !== "Все",
+            libStageFilter !== "Все",
+            libApprovedIbFilter !== "Все",
+            libApprovedItFilter !== "Все",
+            libAuthorFilter !== "Все",
+          ].filter(Boolean).length;
+          const resetAllFilters = () => {
+            setLibStatusFilter("Все"); setLibTypeFilter("Все");
+            setLibCriticalityFilter("Все"); setLibEnvFilter("Все");
+            setLibStageFilter("Все"); setLibApprovedIbFilter("Все");
+            setLibApprovedItFilter("Все"); setLibAuthorFilter("Все");
+            setLibQuery("");
+          };
 
           // ── per-section status counters ───────────────────────────────────
           const countByStatus = <T extends { status: string }>(arr: T[]) =>
@@ -2050,19 +2110,109 @@ export default function Index() {
                 );
               })}
               <div className="ml-auto flex items-center gap-2">
-                {/* Status filter */}
-                <select value={libStatusFilter} onChange={(e) => setLibStatusFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.08)", color: libStatusFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                {/* Status filter — always visible */}
+                <select value={libStatusFilter} onChange={(e) => setLibStatusFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libStatusFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libStatusFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
                   {STATUS_LIST.map((s) => <option key={s} value={s}>{s === "Все" ? "Все статусы" : s}</option>)}
                 </select>
-                {/* Type filter — only for reqs */}
-                {(libSection === "all" || libSection === "reqs") && reqTypes.length > 0 && (
-                  <select value={libTypeFilter} onChange={(e) => setLibTypeFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.08)", color: libTypeFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                    <option value="Все">Все типы</option>
-                    {reqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                {/* Toggle extended filters */}
+                <button
+                  onClick={() => setLibShowFilters((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: libShowFilters || activeFilterCount > 0 ? "rgba(0,102,255,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${libShowFilters || activeFilterCount > 0 ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libShowFilters || activeFilterCount > 0 ? "#63b0ff" : "rgba(180,200,230,0.55)" }}
+                >
+                  <Icon name="SlidersHorizontal" size={12} />
+                  Фильтры
+                  {activeFilterCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(0,102,255,0.3)", color: "#63b0ff" }}>{activeFilterCount}</span>
+                  )}
+                </button>
+                {/* Reset all */}
+                {(activeFilterCount > 0 || libStatusFilter !== "Все" || libQuery) && (
+                  <button onClick={resetAllFilters} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}>
+                    <Icon name="RotateCcw" size={11} />
+                    Сброс
+                  </button>
                 )}
               </div>
             </div>
+
+            {/* ── Extended filter panel ───────────────────────────────────── */}
+            {libShowFilters && (
+              <div className="mb-5 p-4 rounded-xl flex flex-wrap gap-3" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(0,102,255,0.12)" }}>
+                {/* Req type — reqs only */}
+                {(libSection === "all" || libSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Тип требования</span>
+                    <select value={libTypeFilter} onChange={(e) => setLibTypeFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libTypeFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libTypeFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все типы</option>
+                      {reqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* Criticality — reqs only */}
+                {(libSection === "all" || libSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Критичность</span>
+                    <select value={libCriticalityFilter} onChange={(e) => setLibCriticalityFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libCriticalityFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libCriticalityFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Любая</option>
+                      {reqCriticalities.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* Environment — reqs only */}
+                {(libSection === "all" || libSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Окружение</span>
+                    <select value={libEnvFilter} onChange={(e) => setLibEnvFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libEnvFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libEnvFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все окружения</option>
+                      {reqEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* Stage — reqs only */}
+                {(libSection === "all" || libSection === "reqs") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Стадия</span>
+                    <select value={libStageFilter} onChange={(e) => setLibStageFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libStageFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libStageFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все стадии</option>
+                      {reqStages.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* Approved IB — tsol + arch */}
+                {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Согласовано ИБ</span>
+                    <select value={libApprovedIbFilter} onChange={(e) => setLibApprovedIbFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libApprovedIbFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libApprovedIbFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Любое</option>
+                      <option value="true">Да</option>
+                      <option value="false">Нет</option>
+                    </select>
+                  </div>
+                )}
+                {/* Approved IT — tsol + arch */}
+                {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Согласовано ИТ</span>
+                    <select value={libApprovedItFilter} onChange={(e) => setLibApprovedItFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libApprovedItFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libApprovedItFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Любое</option>
+                      <option value="true">Да</option>
+                      <option value="false">Нет</option>
+                    </select>
+                  </div>
+                )}
+                {/* Author — tsol + arch */}
+                {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && allAuthors.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Автор</span>
+                    <select value={libAuthorFilter} onChange={(e) => setLibAuthorFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libAuthorFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libAuthorFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                      <option value="Все">Все авторы</option>
+                      {allAuthors.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Status counters per section ─────────────────────────────── */}
             <div className="grid grid-cols-4 gap-3 mb-6">
