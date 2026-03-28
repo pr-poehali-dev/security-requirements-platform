@@ -394,6 +394,9 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
+  const [libraryDesc, setLibraryDesc] = useState("Реестр требований информационной безопасности и нормативных документов");
+  const [libraryDescEditing, setLibraryDescEditing] = useState(false);
+  const [libraryDescDraft, setLibraryDescDraft] = useState(libraryDesc);
 
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
@@ -1349,14 +1352,18 @@ export default function Index() {
                   Библиотека потребителя
                 </h1>
               </div>
-              <p
-                className="text-sm ml-4 outline-none cursor-text rounded px-1 -mx-1 transition-colors hover:bg-white/5 focus:bg-white/5"
-                style={{ color: "rgba(180,200,230,0.6)" }}
-                contentEditable
-                suppressContentEditableWarning
-              >
-                Реестр требований информационной безопасности и нормативных документов
-              </p>
+              {libraryDescEditing ? (
+                <div className="flex items-center gap-2 ml-4">
+                  <Input value={libraryDescDraft} onChange={(e) => setLibraryDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                  <button onClick={() => { setLibraryDesc(libraryDescDraft); setLibraryDescEditing(false); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                  <button onClick={() => setLibraryDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                </div>
+              ) : (
+                <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setLibraryDescDraft(libraryDesc); setLibraryDescEditing(true); }}>
+                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{libraryDesc}</p>
+                  <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.6)" }} />
+                </button>
+              )}
             </div>
 
             {/* Filters */}
