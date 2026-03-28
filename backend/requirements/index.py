@@ -54,15 +54,15 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     method = event.get("httpMethod", "GET")
-    path = event.get("path", "/").rstrip("/")
+    qs = event.get("queryStringParameters") or {}
     body = json.loads(event.get("body") or "{}")
 
     conn = get_conn()
     cur = conn.cursor()
 
     try:
-        # PATCH /settings
-        if method == "PATCH" and "settings" in path:
+        # PATCH ?mode=settings
+        if method == "PATCH" and qs.get("mode") == "settings":
             desc = body.get("section_description", "")
             cur.execute(
                 f"INSERT INTO {SCHEMA}.section_settings (key, value) VALUES ('requirements_section_description', %s) "

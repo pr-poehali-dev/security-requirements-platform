@@ -49,21 +49,21 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     method = event.get("httpMethod", "GET")
-    path = event.get("path", "/").rstrip("/")
+    qs = event.get("queryStringParameters") or {}
     body = json.loads(event.get("body") or "{}")
 
     conn = get_conn()
     cur = conn.cursor()
 
     try:
-        # GET /names — список имён для валидации
-        if method == "GET" and path.endswith("/names"):
+        # GET ?mode=names — список имён для валидации
+        if method == "GET" and qs.get("mode") == "names":
             cur.execute(f"SELECT id, name FROM {SCHEMA}.technologies ORDER BY name")
             rows = [{"id": r[0], "name": r[1]} for r in cur.fetchall()]
             return ok({"names": rows})
 
-        # PATCH /settings
-        if method == "PATCH" and "settings" in path:
+        # PATCH ?mode=settings
+        if method == "PATCH" and qs.get("mode") == "settings":
             desc = body.get("section_description", "")
             cur.execute(
                 f"INSERT INTO {SCHEMA}.section_settings (key, value) VALUES ('technologies_section_description', %s) "

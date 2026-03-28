@@ -1,11 +1,11 @@
 {
   "tests": [
     {
-      "name": "GET /  — список технологий",
+      "name": "GET / — список технологий",
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"items": []},
+      "expectedBody": {"section_description": ""},
       "bodyMatcher": "partial"
     }
   ]
