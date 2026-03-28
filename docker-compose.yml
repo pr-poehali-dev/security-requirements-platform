@@ -13,7 +13,7 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -22,7 +22,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # ─── Backend (Python / FastAPI + Lambda-handlers) ────────────
+  # ─── Backend (Python / FastAPI) ───────────────────────────────
   backend:
     build:
       context: ./backend
@@ -30,12 +30,16 @@ services:
     container_name: securearch_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/securearch?options=-csearch_path%3Dt_p90536134_security_requirement
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/securearch
+      APP_ENV: local
+      SECRET_KEY: change_me_in_production
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./backend:/app
 
   # ─── Frontend (React / Vite) ──────────────────────────────────
   frontend:
@@ -45,11 +49,14 @@ services:
     container_name: securearch_frontend
     restart: unless-stopped
     environment:
-      VITE_API_BASE: http://localhost:8000
+      VITE_API_URL: http://localhost:8000
     ports:
       - "5173:5173"
     depends_on:
       - backend
+    volumes:
+      - .:/app
+      - /app/node_modules
 
 volumes:
   db_data:
