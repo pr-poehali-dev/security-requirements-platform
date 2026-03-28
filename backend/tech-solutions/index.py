@@ -61,9 +61,10 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
 
     try:
-        # GET /full/{id}
-        if method == "GET" and "/full/" in path:
-            sol_id = path.split("/full/")[-1]
+        # GET /full?id={id}  (или /full/{id} — оба варианта)
+        if method == "GET" and "full" in path:
+            qs = event.get("queryStringParameters") or {}
+            sol_id = qs.get("id") or path.split("/full/")[-1].split("?")[0]
 
             cur.execute(
                 f"SELECT id, name, version, owner, status, description, tags, technology_ids, "

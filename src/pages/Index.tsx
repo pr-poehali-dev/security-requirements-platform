@@ -1163,9 +1163,9 @@ export default function Index() {
     setViewSolFull({ solution: sol, technologies: [], requirements: [], sol_domains: [] });
     setViewSolFullLoading(true);
     try {
-      const res = await fetch(`${TECH_SOLUTIONS_API}/full/${sol.id}`);
+      const res = await fetch(`${TECH_SOLUTIONS_API}/full?id=${encodeURIComponent(sol.id)}`);
       const data = await res.json();
-      setViewSolFull(data);
+      if (data.solution) setViewSolFull(data);
     } finally {
       setViewSolFullLoading(false);
     }
@@ -2947,7 +2947,7 @@ export default function Index() {
                       <div className="flex items-center gap-2 mb-3">
                         <Icon name="GitBranch" size={15} style={{ color: "#34d399" }} />
                         <span className="text-sm font-semibold text-white">Схемы и ссылки</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{viewSolFull.solution.attachments.length}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{(viewSolFull.solution.attachments || []).length}</span>
                       </div>
                       <div className="space-y-3">
                         {(viewSolFull.solution.attachments || []).map((a) => (
