@@ -7975,27 +7975,78 @@ export default function Index() {
 
             {/* Сервисная (Локальная) БД */}
             {pendingMode === "cloud" && (
-              <div
-                className="rounded-xl p-4 space-y-3"
-                style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.18)" }}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="status-dot" style={{ backgroundColor: "#22c55e", color: "#22c55e" }} />
-                  <span className="text-sm font-medium" style={{ color: "#00d4ff" }}>
-                    Сервисная база данных активна
-                  </span>
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>
-                  Используется встроенная сервисная PostgreSQL платформы. Подключение настроено автоматически — данные доступны без дополнительной конфигурации.
-                </p>
+              <div className="space-y-3">
+                {/* Текущий режим — облако или Docker */}
                 <div
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                  style={{ background: "rgba(0,0,0,0.25)" }}
+                  className="rounded-xl p-4 space-y-3"
+                  style={{
+                    background: API_BASE !== undefined ? "rgba(124,58,237,0.07)" : "rgba(0,212,255,0.06)",
+                    border: `1px solid ${API_BASE !== undefined ? "rgba(124,58,237,0.25)" : "rgba(0,212,255,0.18)"}`,
+                  }}
                 >
-                  <Icon name="Lock" size={12} style={{ color: "rgba(180,200,230,0.4)" }} />
-                  <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>
-                    Управляется платформой · SSL · Автобэкап
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="status-dot" style={{ backgroundColor: "#22c55e", color: "#22c55e" }} />
+                      <span className="text-sm font-medium" style={{ color: API_BASE !== undefined ? "#a78bfa" : "#00d4ff" }}>
+                        {API_BASE !== undefined ? "Docker / локальный бэкенд" : "Облачный бэкенд poehali.dev"}
+                      </span>
+                    </div>
+                    <span
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{
+                        background: API_BASE !== undefined ? "rgba(124,58,237,0.15)" : "rgba(0,212,255,0.12)",
+                        color: API_BASE !== undefined ? "#a78bfa" : "#00d4ff",
+                      }}
+                    >
+                      {API_BASE !== undefined ? "LOCAL" : "CLOUD"}
+                    </span>
+                  </div>
+
+                  {/* Адрес API */}
+                  <div
+                    className="rounded-lg px-3 py-2 flex items-center gap-2"
+                    style={{ background: "rgba(0,0,0,0.3)" }}
+                  >
+                    <Icon name="Globe" size={12} style={{ color: "rgba(180,200,230,0.35)" }} />
+                    <span className="font-mono text-xs truncate" style={{ color: "rgba(180,200,230,0.55)" }}>
+                      {API_BASE !== undefined
+                        ? (API_BASE || "http://localhost:8000") + "/api/..."
+                        : "https://functions.poehali.dev/..."}
+                    </span>
+                  </div>
+
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.55)" }}>
+                    {API_BASE !== undefined
+                      ? "Запросы идут на локальный бэкенд. Убедитесь что контейнер backend запущен и доступен."
+                      : "Используется встроенная сервисная PostgreSQL платформы. Подключение настроено автоматически."}
+                  </p>
+                </div>
+
+                {/* Плашки характеристик */}
+                <div className="grid grid-cols-3 gap-2">
+                  {(API_BASE !== undefined
+                    ? [
+                        { icon: "HardDrive", label: "Локальная БД", color: "#a78bfa" },
+                        { icon: "Unplug",    label: "Без SSL",       color: "rgba(180,200,230,0.4)" },
+                        { icon: "Wrench",    label: "Docker Compose", color: "#a78bfa" },
+                      ]
+                    : [
+                        { icon: "Lock",       label: "SSL / TLS",     color: "#00d4ff" },
+                        { icon: "RefreshCw",  label: "Автобэкап",     color: "#00d4ff" },
+                        { icon: "CloudCog",   label: "Управляется платформой", color: "#00d4ff" },
+                      ]
+                  ).map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg"
+                      style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)" }}
+                    >
+                      <Icon name={item.icon} size={11} style={{ color: item.color, flexShrink: 0 }} />
+                      <span className="text-[10px] leading-tight" style={{ color: "rgba(180,200,230,0.5)" }}>
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
