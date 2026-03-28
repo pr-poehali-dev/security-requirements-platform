@@ -648,6 +648,11 @@ export default function Index() {
   const [techFullSearch, setTechFullSearch] = useState("");
   const [techFullSortField, setTechFullSortField] = useState<string>("id");
   const [techFullSortDir, setTechFullSortDir] = useState<"asc" | "desc">("asc");
+  const [techFullFilterType, setTechFullFilterType] = useState<ReqType[]>([]);
+  const [techFullFilterCrit, setTechFullFilterCrit] = useState<ReqCriticality[]>([]);
+  const [techFullFilterStatus, setTechFullFilterStatus] = useState<ReqStatus[]>([]);
+  const [techFullFilterEnv, setTechFullFilterEnv] = useState<ReqEnv[]>([]);
+  const [techFullFilterStage, setTechFullFilterStage] = useState<ReqStage[]>([]);
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
     id: `tech.${String(count + 1).padStart(3, "0")}`,
@@ -3385,17 +3390,59 @@ export default function Index() {
         const fileAttachments = (tech.attachments || []).filter((a) => a.type !== "mermaid" && a.type !== "link");
 
         const searchLower = techFullSearch.toLowerCase();
-        const filteredReqs = linkedReqs.filter((r) =>
-          !searchLower ||
-          r.id.toLowerCase().includes(searchLower) ||
-          r.name.toLowerCase().includes(searchLower) ||
-          r.description.toLowerCase().includes(searchLower) ||
-          r.req_type.toLowerCase().includes(searchLower) ||
-          r.criticality.toLowerCase().includes(searchLower) ||
-          r.status.toLowerCase().includes(searchLower) ||
-          r.version.toLowerCase().includes(searchLower) ||
-          r.control_metric.toLowerCase().includes(searchLower)
-        );
+        const filteredReqs = linkedReqs.filter((r) => {
+          if (techFullFilterType.length > 0 && !techFullFilterType.includes(r.req_type)) return false;
+          if (techFullFilterCrit.length > 0 && !techFullFilterCrit.includes(r.criticality)) return false;
+          if (techFullFilterStatus.length > 0 && !techFullFilterStatus.includes(r.status)) return false;
+          if (techFullFilterEnv.length > 0 && !techFullFilterEnv.some((e) => r.environments.includes(e))) return false;
+          if (techFullFilterStage.length > 0 && !techFullFilterStage.some((s) => r.stages.includes(s))) return false;
+          if (searchLower) {
+            const match =
+              r.id.toLowerCase().includes(searchLower) ||
+              r.name.toLowerCase().includes(searchLower) ||
+              r.description.toLowerCase().includes(searchLower) ||
+              r.req_type.toLowerCase().includes(searchLower) ||
+              r.criticality.toLowerCase().includes(searchLower) ||
+              r.status.toLowerCase().includes(searchLower) ||
+              r.version.toLowerCase().includes(searchLower) ||
+              r.control_metric.toLowerCase().includes(searchLower) ||
+              r.tags.some((t) => t.toLowerCase().includes(searchLower)) ||
+              r.procurement.toLowerCase().includes(searchLower);
+            if (!match) return false;
+          }
+          return true;
+        });
+
+        const exportReqsCSV = () => {
+          const techDomain = (id: string) => domains.find((d) => d.id === id)?.name || id;
+          const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+          const headers = [
+            "Технология ID", "Технология", "Версии технологии", "Статус технологии",
+            "ID требования", "Название", "Версия", "Тип", "Критичность", "Статус",
+            "Домен", "Описание", "Контрольная метрика", "Описание контроля",
+            "Среды", "Стадии", "Балл", "Вес", "Закупка",
+            "Внешнее с ИОД", "Внешнее без ИОД", "Внутреннее с ИОД", "Внутреннее без ИОД",
+            "Теги", "Норм. документ"
+          ];
+          const rows = filteredReqs.map((r) => [
+            esc(tech.id), esc(tech.name), esc((tech.versions || []).join("; ")), esc(tech.status),
+            esc(r.id), esc(r.name), esc(r.version), esc(r.req_type), esc(r.criticality), esc(r.status),
+            esc(techDomain(r.tech_domain_id)), esc(r.description), esc(r.control_metric), esc(r.control_description),
+            esc((r.environments || []).join("; ")), esc((r.stages || []).join("; ")),
+            esc(r.score_value), esc(r.score_weight), esc(r.procurement),
+            esc(r.ext_with_iod), esc(r.ext_without_iod), esc(r.int_with_iod), esc(r.int_without_iod),
+            esc((r.tags || []).join("; ")), esc(r.norm_doc_link)
+          ].join(","));
+          const csv = "\uFEFF" + [headers.map(esc).join(","), ...rows].join("\n");
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${tech.id}_requirements.csv`; a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        const hasActiveFilters = techFullFilterType.length > 0 || techFullFilterCrit.length > 0 || techFullFilterStatus.length > 0 || techFullFilterEnv.length > 0 || techFullFilterStage.length > 0;
+        const clearAllFilters = () => { setTechFullFilterType([]); setTechFullFilterCrit([]); setTechFullFilterStatus([]); setTechFullFilterEnv([]); setTechFullFilterStage([]); };
 
         const sortedReqs = [...filteredReqs].sort((a, b) => {
           let va: string | number = "";
@@ -3422,7 +3469,7 @@ export default function Index() {
         };
 
         return (
-          <Dialog open onOpenChange={(o) => { if (!o) setViewTechFull(null); }}>
+          <Dialog open onOpenChange={(o) => { if (!o) { setViewTechFull(null); clearAllFilters(); setTechFullSearch(""); } }}>
             <DialogContent
               className="border overflow-hidden flex flex-col"
               style={{
@@ -3595,25 +3642,132 @@ export default function Index() {
 
                     {/* Requirements table */}
                     <div className="px-6 py-6 flex-1">
-                      <div className="flex items-center justify-between mb-4 gap-3">
+                      {/* Header row: title + search + CSV */}
+                      <div className="flex items-center justify-between mb-3 gap-3">
                         <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 flex-shrink-0" style={{ color: "rgba(180,200,230,0.3)" }}>
                           <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
                           Привязанные требования
                           {linkedReqs.length > 0 && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>{linkedReqs.length}</span>
                           )}
+                          {filteredReqs.length !== linkedReqs.length && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(99,176,255,0.12)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>показано {filteredReqs.length}</span>
+                          )}
                         </p>
-                        <div className="relative flex-1 max-w-xs">
-                          <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
-                          <input
-                            value={techFullSearch}
-                            onChange={(e) => setTechFullSearch(e.target.value)}
-                            placeholder="Поиск по любому полю..."
-                            className="w-full pl-9 pr-3 py-1.5 rounded-lg text-xs outline-none"
-                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
-                          />
+                        <div className="flex items-center gap-2">
+                          <div className="relative">
+                            <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                            <input
+                              value={techFullSearch}
+                              onChange={(e) => setTechFullSearch(e.target.value)}
+                              placeholder="Поиск..."
+                              className="pl-9 pr-3 py-1.5 rounded-lg text-xs outline-none w-44"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                            />
+                          </div>
+                          {linkedReqs.length > 0 && (
+                            <button
+                              onClick={exportReqsCSV}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
+                              style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "#34d399" }}
+                              title="Выгрузить в CSV"
+                            >
+                              <Icon name="Download" size={13} />
+                              CSV
+                              {(hasActiveFilters || techFullSearch) && filteredReqs.length !== linkedReqs.length && (
+                                <span className="font-mono" style={{ color: "rgba(52,211,153,0.6)" }}>({filteredReqs.length})</span>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
+
+                      {/* Filter panel */}
+                      {linkedReqs.length > 0 && (
+                        <div className="mb-4 flex flex-col gap-2 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                          {/* Тип */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Тип</span>
+                            {(Object.keys(REQ_TYPE_META) as ReqType[]).map((v) => {
+                              const m = REQ_TYPE_META[v];
+                              const active = techFullFilterType.includes(v);
+                              return (
+                                <button key={v} onClick={() => setTechFullFilterType((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all"
+                                  style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.07)"}`, color: active ? m.color : "rgba(180,200,230,0.45)" }}>
+                                  <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{v}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Критичность */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Критич.</span>
+                            {(Object.keys(REQ_CRITICALITY_META) as ReqCriticality[]).map((v) => {
+                              const m = REQ_CRITICALITY_META[v];
+                              const active = techFullFilterCrit.includes(v);
+                              return (
+                                <button key={v} onClick={() => setTechFullFilterCrit((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all"
+                                  style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.07)"}`, color: active ? m.color : "rgba(180,200,230,0.45)" }}>
+                                  <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{v}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Статус */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Статус</span>
+                            {(Object.keys(REQ_STATUS_META) as ReqStatus[]).map((v) => {
+                              const m = REQ_STATUS_META[v];
+                              const active = techFullFilterStatus.includes(v);
+                              return (
+                                <button key={v} onClick={() => setTechFullFilterStatus((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
+                                  className="px-2 py-0.5 rounded text-[11px] transition-all"
+                                  style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.07)"}`, color: active ? m.color : "rgba(180,200,230,0.45)" }}>
+                                  {v}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Среда */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Среда</span>
+                            {REQ_ENVS.map((v) => {
+                              const active = techFullFilterEnv.includes(v);
+                              return (
+                                <button key={v} onClick={() => setTechFullFilterEnv((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
+                                  className="px-2 py-0.5 rounded text-[11px] font-mono transition-all"
+                                  style={{ background: active ? "rgba(99,176,255,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(99,176,255,0.4)" : "rgba(255,255,255,0.07)"}`, color: active ? "#63b0ff" : "rgba(180,200,230,0.45)" }}>
+                                  {v}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Стадия */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Стадия</span>
+                            {REQ_STAGES.map((v) => {
+                              const active = techFullFilterStage.includes(v);
+                              return (
+                                <button key={v} onClick={() => setTechFullFilterStage((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
+                                  className="px-2 py-0.5 rounded text-[11px] transition-all"
+                                  style={{ background: active ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(167,139,250,0.4)" : "rgba(255,255,255,0.07)"}`, color: active ? "#a78bfa" : "rgba(180,200,230,0.45)" }}>
+                                  {v}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Сброс */}
+                          {hasActiveFilters && (
+                            <div className="flex justify-end pt-1">
+                              <button onClick={clearAllFilters} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-all hover:opacity-80" style={{ color: "rgba(180,200,230,0.4)", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                <Icon name="X" size={10} />Сбросить фильтры
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {linkedReqs.length === 0 ? (
                         <div className="py-10 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
