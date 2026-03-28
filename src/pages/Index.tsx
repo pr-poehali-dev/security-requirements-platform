@@ -1162,7 +1162,7 @@ export default function Index() {
 
   const filteredTsols = techSolutions.filter((s) => {
     const q = tsolSearch.toLowerCase();
-    const matchQ = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
+    const matchQ = !q || (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q) || (s.description||"").toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
     const matchStatus = tsolFilterStatus === "Все" || s.status === tsolFilterStatus;
     const matchTag = !tsolFilterTag || (s.tags||[]).some((t) => t.toLowerCase().includes(tsolFilterTag.toLowerCase()));
     return matchQ && matchStatus && matchTag;
