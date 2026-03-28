@@ -451,21 +451,23 @@ const complianceData = [
 export default function Index() {
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
-  // cloud = сервисная БД (Локальная для платформы), local = внешняя PostgreSQL
-  const [dbMode, setDbMode] = useState<DbMode>("cloud");
+  // cloud = сервисная БД (платформа poehali.dev), local = внешняя PostgreSQL (Docker)
+  const [dbMode, setDbMode] = useState<DbMode>(() => (localStorage.getItem("sa_dbMode") as DbMode) || "cloud");
   const [dbExternalConnected, setDbExternalConnected] = useState(false);
   const [dbExternalVersion, setDbExternalVersion] = useState("");
-  const [dbConfig, setDbConfig] = useState<DbConfig>({
-    host: "localhost",
-    port: "5432",
-    name: "securearch",
-    user: "postgres",
-    password: "",
+  const [dbConfig, setDbConfig] = useState<DbConfig>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sa_dbConfig") || "null");
+      if (saved && saved.host) return saved;
+    } catch { /* ignore */ }
+    return { host: "localhost", port: "5432", name: "securearch", user: "postgres", password: "" };
   });
   const [pendingMode, setPendingMode] = useState<DbMode>("cloud");
   const [skipCheck, setSkipCheck] = useState(false);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "ok" | "error">("idle");
   const [checkError, setCheckError] = useState("");
+  const [diagRunning, setDiagRunning] = useState(false);
+  const [diagResults, setDiagResults] = useState<Record<string, { status: "idle"|"ok"|"error"|"checking"; ms?: number; detail?: string }>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
@@ -1748,6 +1750,8 @@ export default function Index() {
   const handleDbSave = () => {
     if (pendingMode === "local" && !skipCheck && checkState !== "ok") return;
     setDbMode(pendingMode);
+    localStorage.setItem("sa_dbMode", pendingMode);
+    localStorage.setItem("sa_dbConfig", JSON.stringify(dbConfig));
     if (pendingMode === "cloud") {
       setDbExternalConnected(false);
       setDbExternalVersion("");
@@ -1755,6 +1759,40 @@ export default function Index() {
       setDbExternalConnected(true);
     }
     setDbDialogOpen(false);
+  };
+
+  const API_ENDPOINTS = [
+    { key: "domains",       label: "Орг. домены",       url: "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177" },
+    { key: "tech-domains",  label: "Тех. домены",        url: "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246" },
+    { key: "technologies",  label: "Технологии",         url: "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8" },
+    { key: "requirements",  label: "Требования",         url: "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177" },
+    { key: "tech-solutions",label: "Тех. решения",       url: "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2" },
+    { key: "hardening",     label: "Харденинг",          url: "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf" },
+    { key: "arch-templates",label: "Типовые архитектуры",url: "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa" },
+    { key: "products",      label: "Продукты",           url: "https://functions.poehali.dev/83496f55-f31c-499a-8d22-618295a6da0f" },
+    { key: "db-check",      label: "Проверка БД",        url: "https://functions.poehali.dev/5622928b-26f7-4ee8-b41f-03e43463dcc9" },
+  ];
+
+  const runDiagnostics = async () => {
+    setDiagRunning(true);
+    setDiagResults({});
+    for (const ep of API_ENDPOINTS) {
+      setDiagResults((prev) => ({ ...prev, [ep.key]: { status: "checking" } }));
+      const t0 = Date.now();
+      try {
+        const res = await fetch(ep.url, { method: "GET", signal: AbortSignal.timeout(5000) });
+        const ms = Date.now() - t0;
+        if (res.ok || res.status < 500) {
+          setDiagResults((prev) => ({ ...prev, [ep.key]: { status: "ok", ms, detail: `HTTP ${res.status}` } }));
+        } else {
+          setDiagResults((prev) => ({ ...prev, [ep.key]: { status: "error", ms, detail: `HTTP ${res.status}` } }));
+        }
+      } catch (e: unknown) {
+        const ms = Date.now() - t0;
+        setDiagResults((prev) => ({ ...prev, [ep.key]: { status: "error", ms, detail: e instanceof Error ? e.message : "Timeout / недоступен" } }));
+      }
+    }
+    setDiagRunning(false);
   };
 
   return (
@@ -9831,6 +9869,220 @@ export default function Index() {
               </>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DB / Environment Diagnostics Dialog ── */}
+      <Dialog open={dbDialogOpen} onOpenChange={(o) => { if (!o) setDbDialogOpen(false); }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0a1120", borderColor: "rgba(255,255,255,0.08)", maxHeight: "90vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-5 pb-4 border-b sticky top-0 z-10" style={{ background: "#0a1120", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,rgba(0,102,255,0.3),rgba(0,212,255,0.2))", border: "1px solid rgba(0,212,255,0.3)" }}>
+                <Icon name="ServerCog" size={14} style={{ color: "#00d4ff" }} />
+              </div>
+              Среда выполнения
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-5 space-y-5">
+
+            {/* ── Режим ── */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.4)" }}>Режим работы</p>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  {
+                    mode: "cloud" as DbMode,
+                    title: "Платформа poehali.dev",
+                    desc: "Облачные функции + сервисная PostgreSQL. Данные хранятся на платформе. Не требует локального окружения.",
+                    icon: "Cloud",
+                    color: "#00d4ff",
+                    bg: "rgba(0,212,255,0.08)",
+                    border: "rgba(0,212,255,0.25)",
+                  },
+                  {
+                    mode: "local" as DbMode,
+                    title: "Docker Desktop (локально)",
+                    desc: "Бэкенд и БД запущены локально через Docker Compose. Используется для разработки и отладки.",
+                    icon: "Container",
+                    color: "#a78bfa",
+                    bg: "rgba(139,92,246,0.08)",
+                    border: "rgba(139,92,246,0.25)",
+                  },
+                ] as const).map((opt) => {
+                  const isActive = pendingMode === opt.mode;
+                  return (
+                    <button
+                      key={opt.mode}
+                      onClick={() => { setPendingMode(opt.mode); setCheckState("idle"); setCheckError(""); }}
+                      className="rounded-xl p-4 text-left transition-all"
+                      style={{ background: isActive ? opt.bg : "rgba(255,255,255,0.02)", border: `2px solid ${isActive ? opt.border : "rgba(255,255,255,0.06)"}` }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${opt.color}18`, border: `1px solid ${opt.color}30` }}>
+                          <Icon name={opt.icon} size={13} style={{ color: opt.color }} />
+                        </div>
+                        <span className="text-sm font-semibold" style={{ color: isActive ? "white" : "rgba(180,200,230,0.6)" }}>{opt.title}</span>
+                        {isActive && <div className="ml-auto w-2 h-2 rounded-full" style={{ background: opt.color }} />}
+                      </div>
+                      <p className="text-[11px] leading-relaxed" style={{ color: "rgba(180,200,230,0.45)" }}>{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Текущий статус ── */}
+            <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.4)" }}>Активная конфигурация</p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span style={{ color: "rgba(180,200,230,0.4)" }}>Режим: </span>
+                  <span className="font-mono" style={{ color: dbMode === "cloud" ? "#00d4ff" : "#a78bfa" }}>
+                    {dbMode === "cloud" ? "Платформа (облако)" : "Docker (локально)"}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: "rgba(180,200,230,0.4)" }}>API: </span>
+                  <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.6)" }}>
+                    functions.poehali.dev
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: "rgba(180,200,230,0.4)" }}>Статус: </span>
+                  <span style={{ color: isConnected ? "#22c55e" : "#ef4444" }}>
+                    {isConnected ? "● Подключено" : "● Не подключено"}
+                  </span>
+                </div>
+                {dbMode === "local" && dbExternalConnected && (
+                  <div>
+                    <span style={{ color: "rgba(180,200,230,0.4)" }}>PostgreSQL: </span>
+                    <span className="font-mono text-[10px]" style={{ color: "#22c55e" }}>{dbExternalVersion || "OK"}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Конфиг внешней БД (только для Docker режима) ── */}
+            {pendingMode === "local" && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(139,92,246,0.7)" }}>Подключение к PostgreSQL</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    { field: "host" as const, label: "Хост", placeholder: "localhost" },
+                    { field: "port" as const, label: "Порт", placeholder: "5432" },
+                    { field: "name" as const, label: "База данных", placeholder: "securearch" },
+                    { field: "user" as const, label: "Пользователь", placeholder: "postgres" },
+                  ] as const).map((f) => (
+                    <div key={f.field}>
+                      <label className="block text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.45)" }}>{f.label}</label>
+                      <input
+                        value={dbConfig[f.field]}
+                        onChange={(e) => setDbConfig((c) => ({ ...c, [f.field]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        className="w-full text-xs px-3 py-2 rounded-lg outline-none font-mono"
+                        style={{ background: "rgba(10,17,35,0.9)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <label className="block text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.45)" }}>Пароль</label>
+                  <input
+                    type="password"
+                    value={dbConfig.password}
+                    onChange={(e) => setDbConfig((c) => ({ ...c, password: e.target.value }))}
+                    placeholder="••••••••"
+                    className="w-full text-xs px-3 py-2 rounded-lg outline-none font-mono"
+                    style={{ background: "rgba(10,17,35,0.9)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleCheckConnection}
+                    disabled={checkState === "checking"}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+                    style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", opacity: checkState === "checking" ? 0.6 : 1 }}
+                  >
+                    {checkState === "checking" ? <Icon name="Loader" size={12} className="animate-spin" /> : <Icon name="Plug" size={12} />}
+                    {checkState === "checking" ? "Проверяю..." : "Проверить соединение"}
+                  </button>
+                  {checkState === "ok" && (
+                    <span className="text-xs flex items-center gap-1" style={{ color: "#22c55e" }}>
+                      <Icon name="CheckCircle2" size={13} /> Подключено {dbExternalVersion && `· ${dbExternalVersion}`}
+                    </span>
+                  )}
+                  {checkState === "error" && (
+                    <span className="text-xs flex items-center gap-1" style={{ color: "#ef4444" }}>
+                      <Icon name="AlertCircle" size={13} /> {checkError}
+                    </span>
+                  )}
+                </div>
+                <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "rgba(180,200,230,0.5)" }}>
+                  <input type="checkbox" checked={skipCheck} onChange={(e) => setSkipCheck(e.target.checked)} className="accent-violet-500" />
+                  Пропустить проверку и сохранить без теста
+                </label>
+              </div>
+            )}
+
+            {/* ── Диагностика API endpoint'ов ── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.4)" }}>Диагностика API функций</p>
+                <button
+                  onClick={runDiagnostics}
+                  disabled={diagRunning}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: "rgba(0,102,255,0.12)", border: "1px solid rgba(0,102,255,0.3)", color: "#63b0ff", opacity: diagRunning ? 0.6 : 1 }}
+                >
+                  {diagRunning ? <Icon name="Loader" size={11} className="animate-spin" /> : <Icon name="Activity" size={11} />}
+                  {diagRunning ? "Проверяю..." : "Запустить ping"}
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {API_ENDPOINTS.map((ep) => {
+                  const r = diagResults[ep.key];
+                  const statusColor = !r ? "rgba(180,200,230,0.2)" : r.status === "ok" ? "#22c55e" : r.status === "error" ? "#ef4444" : "#fbbf24";
+                  const statusIcon = !r ? "Minus" : r.status === "ok" ? "CheckCircle2" : r.status === "error" ? "XCircle" : "Loader";
+                  return (
+                    <div key={ep.key} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                      <Icon name={statusIcon} size={13} style={{ color: statusColor, flexShrink: 0 }} className={r?.status === "checking" ? "animate-spin" : ""} />
+                      <span className="text-xs font-medium flex-1" style={{ color: "rgba(180,200,230,0.7)" }}>{ep.label}</span>
+                      {r?.ms !== undefined && (
+                        <span className="text-[10px] font-mono" style={{ color: r.ms < 300 ? "#22c55e" : r.ms < 1000 ? "#fbbf24" : "#ef4444" }}>{r.ms}ms</span>
+                      )}
+                      {r?.detail && (
+                        <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.3)" }}>{r.detail}</span>
+                      )}
+                      <span className="text-[9px] font-mono truncate max-w-[180px]" style={{ color: "rgba(180,200,230,0.18)" }}>
+                        {ep.url.replace("https://functions.poehali.dev/", "…/")}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10px]" style={{ color: "rgba(180,200,230,0.25)" }}>
+                Пинг идёт напрямую из браузера. Зелёный ≤300ms · Жёлтый ≤1000ms · Красный — недоступен или таймаут 5s
+              </p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t flex items-center justify-end gap-3" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0a1120" }}>
+            <button onClick={() => setDbDialogOpen(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+            <button
+              onClick={handleDbSave}
+              disabled={pendingMode === "local" && !skipCheck && checkState !== "ok"}
+              className="px-5 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: pendingMode === "local" && !skipCheck && checkState !== "ok" ? "rgba(255,255,255,0.04)" : "linear-gradient(135deg,#0066ff,#0047d6)",
+                color: pendingMode === "local" && !skipCheck && checkState !== "ok" ? "rgba(180,200,230,0.3)" : "white",
+                cursor: pendingMode === "local" && !skipCheck && checkState !== "ok" ? "not-allowed" : "pointer",
+              }}
+            >
+              Применить
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
