@@ -1618,6 +1618,18 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setActiveSection("data-io")}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
+              style={{
+                background: activeSection === "data-io" ? "rgba(99,102,241,0.15)" : "rgba(15,22,41,0.8)",
+                border: `1px solid ${activeSection === "data-io" ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
+                color: activeSection === "data-io" ? "#818cf8" : "rgba(180,200,230,0.6)",
+              }}
+            >
+              <Icon name="ArrowLeftRight" size={13} />
+              Экспорт / Импорт
+            </button>
+            <button
               onClick={handleOpenDialog}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all hover:border-blue-500/40"
               style={{
@@ -1670,7 +1682,6 @@ export default function Index() {
                 { key: "hardening",      label: "Харденинг",              onClick: () => { setActiveSection("hardening"); loadHardenings(); } },
                 { key: "arch-templates", label: "Типовые архитектуры",    onClick: () => { setActiveSection("arch-templates"); loadArchTemplates(); } },
                 { key: "analytics",      label: "Аналитика",              onClick: () => setActiveSection("analytics") },
-                { key: "data-io",        label: "Экспорт / Импорт",       onClick: () => setActiveSection("data-io") },
               ].map((item) => (
                 <button
                   key={item.key}
