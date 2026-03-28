@@ -838,6 +838,8 @@ export default function Index() {
     (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
   );
 
+  const clearAllFilters = () => { setTechFullFilterType([]); setTechFullFilterCrit([]); setTechFullFilterStatus([]); setTechFullFilterEnv([]); setTechFullFilterStage([]); };
+
   // ── Requirements state ──────────────────────────────────────────
   const REQUIREMENTS_API = "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177";
   const [reqs, setReqs] = useState<Req[]>([]);
@@ -4153,7 +4155,6 @@ export default function Index() {
         };
 
         const hasActiveFilters = techFullFilterType.length > 0 || techFullFilterCrit.length > 0 || techFullFilterStatus.length > 0 || techFullFilterEnv.length > 0 || techFullFilterStage.length > 0;
-        const clearAllFilters = () => { setTechFullFilterType([]); setTechFullFilterCrit([]); setTechFullFilterStatus([]); setTechFullFilterEnv([]); setTechFullFilterStage([]); };
 
         const sortedReqs = [...filteredReqs].sort((a, b) => {
           let va: string | number = "";
