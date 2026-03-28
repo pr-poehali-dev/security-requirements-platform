@@ -491,7 +491,6 @@ export default function Index() {
   const [libApprovedIbFilter, setLibApprovedIbFilter] = useState("Все");
   const [libApprovedItFilter, setLibApprovedItFilter] = useState("Все");
   const [libAuthorFilter, setLibAuthorFilter] = useState("Все");
-  const [libShowFilters, setLibShowFilters] = useState(false);
   const [libExtWithIodFilter, setLibExtWithIodFilter] = useState("Все");
   const [libExtWithoutIodFilter, setLibExtWithoutIodFilter] = useState("Все");
   const [libIntWithIodFilter, setLibIntWithIodFilter] = useState("Все");
@@ -2125,139 +2124,17 @@ export default function Index() {
                 );
               })}
               <div className="ml-auto flex items-center gap-2">
-                {/* Status filter — always visible */}
-                <select value={libStatusFilter} onChange={(e) => setLibStatusFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libStatusFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libStatusFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                  {STATUS_LIST.map((s) => <option key={s} value={s}>{s === "Все" ? "Все статусы" : s}</option>)}
-                </select>
-                {/* Toggle extended filters */}
-                <button
-                  onClick={() => setLibShowFilters((v) => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{ background: libShowFilters || activeFilterCount > 0 ? "rgba(0,102,255,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${libShowFilters || activeFilterCount > 0 ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libShowFilters || activeFilterCount > 0 ? "#63b0ff" : "rgba(180,200,230,0.55)" }}
-                >
-                  <Icon name="SlidersHorizontal" size={12} />
-                  Фильтры
-                  {activeFilterCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(0,102,255,0.3)", color: "#63b0ff" }}>{activeFilterCount}</span>
-                  )}
-                </button>
-                {/* Reset all */}
                 {(activeFilterCount > 0 || libStatusFilter !== "Все" || libQuery) && (
                   <button onClick={resetAllFilters} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.7)" }}>
                     <Icon name="RotateCcw" size={11} />
-                    Сброс
+                    Сбросить фильтры
+                    {(activeFilterCount + (libStatusFilter !== "Все" ? 1 : 0)) > 0 && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(239,68,68,0.15)" }}>{activeFilterCount + (libStatusFilter !== "Все" ? 1 : 0)}</span>
+                    )}
                   </button>
                 )}
               </div>
             </div>
-
-            {/* ── Extended filter panel ───────────────────────────────────── */}
-            {libShowFilters && (
-              <div className="mb-5 p-4 rounded-xl flex flex-wrap gap-3" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(0,102,255,0.12)" }}>
-                {/* Req type — reqs only */}
-                {(libSection === "all" || libSection === "reqs") && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Тип требования</span>
-                    <select value={libTypeFilter} onChange={(e) => setLibTypeFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libTypeFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libTypeFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Все типы</option>
-                      {reqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                )}
-                {/* Criticality — reqs only */}
-                {(libSection === "all" || libSection === "reqs") && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Критичность</span>
-                    <select value={libCriticalityFilter} onChange={(e) => setLibCriticalityFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libCriticalityFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libCriticalityFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Любая</option>
-                      {reqCriticalities.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                )}
-                {/* Environment — reqs only */}
-                {(libSection === "all" || libSection === "reqs") && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Окружение</span>
-                    <select value={libEnvFilter} onChange={(e) => setLibEnvFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libEnvFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libEnvFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Все окружения</option>
-                      {reqEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                  </div>
-                )}
-                {/* Stage — reqs only */}
-                {(libSection === "all" || libSection === "reqs") && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Стадия</span>
-                    <select value={libStageFilter} onChange={(e) => setLibStageFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libStageFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libStageFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Все стадии</option>
-                      {reqStages.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                )}
-                {/* Approved IB — tsol + arch */}
-                {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Согласовано ИБ</span>
-                    <select value={libApprovedIbFilter} onChange={(e) => setLibApprovedIbFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libApprovedIbFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libApprovedIbFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Любое</option>
-                      <option value="true">Да</option>
-                      <option value="false">Нет</option>
-                    </select>
-                  </div>
-                )}
-                {/* Approved IT — tsol + arch */}
-                {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Согласовано ИТ</span>
-                    <select value={libApprovedItFilter} onChange={(e) => setLibApprovedItFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libApprovedItFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libApprovedItFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Любое</option>
-                      <option value="true">Да</option>
-                      <option value="false">Нет</option>
-                    </select>
-                  </div>
-                )}
-                {/* Author — tsol + arch */}
-                {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && allAuthors.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>Автор</span>
-                    <select value={libAuthorFilter} onChange={(e) => setLibAuthorFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${libAuthorFilter !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: libAuthorFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                      <option value="Все">Все авторы</option>
-                      {allAuthors.map((a) => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* ── Interaction filters — reqs only ── */}
-                {(libSection === "all" || libSection === "reqs") && (
-                  <>
-                    <div className="w-full mt-1 mb-0.5 flex items-center gap-2">
-                      <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-                      <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Взаимодействие</span>
-                      <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-                    </div>
-                    {([
-                      { label: "Внешнее с ИОД",    value: libExtWithIodFilter,    set: setLibExtWithIodFilter },
-                      { label: "Внешнее без ИОД",   value: libExtWithoutIodFilter, set: setLibExtWithoutIodFilter },
-                      { label: "Внутреннее с ИОД",  value: libIntWithIodFilter,    set: setLibIntWithIodFilter },
-                      { label: "Внутреннее без ИОД", value: libIntWithoutIodFilter, set: setLibIntWithoutIodFilter },
-                    ] as const).map((f) => (
-                      <div key={f.label} className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: "rgba(180,200,230,0.4)" }}>{f.label}</span>
-                        <select
-                          value={f.value}
-                          onChange={(e) => f.set(e.target.value)}
-                          className="text-xs rounded-lg px-3 py-1.5 outline-none"
-                          style={{ background: "rgba(10,17,35,0.9)", border: `1px solid ${f.value !== "Все" ? "rgba(0,102,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: f.value === "Все" ? "rgba(180,200,230,0.5)" : "white" }}
-                        >
-                          <option value="Все">Любое</option>
-                          {INTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
 
             {/* ── Status counters per section ─────────────────────────────── */}
             <div className="grid grid-cols-4 gap-3 mb-6">
@@ -2296,7 +2173,131 @@ export default function Index() {
 
             {/* ── Results ─────────────────────────────────────────────────── */}
             {!isLoading && (
-              <div className="flex gap-5 items-start">
+              <div className="flex gap-4 items-start">
+
+                {/* ── Sidebar filters ──────────────────────────────────────── */}
+                <div className="w-52 shrink-0 sticky top-6 rounded-xl overflow-hidden" style={{ background: "rgba(8,13,28,0.9)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="px-3 py-2.5 flex items-center justify-between border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center gap-1.5">
+                      <Icon name="SlidersHorizontal" size={12} style={{ color: "rgba(180,200,230,0.5)" }} />
+                      <span className="text-xs font-medium" style={{ color: "rgba(180,200,230,0.6)" }}>Фильтры</span>
+                    </div>
+                    {(activeFilterCount + (libStatusFilter !== "Все" ? 1 : 0)) > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(0,102,255,0.2)", color: "#63b0ff" }}>
+                        {activeFilterCount + (libStatusFilter !== "Все" ? 1 : 0)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-3 space-y-4 max-h-[75vh] overflow-y-auto">
+
+                    {/* ── Общие ── */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Общие</p>
+                      <div className="space-y-1">
+                        <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Статус</label>
+                        <select value={libStatusFilter} onChange={(e) => setLibStatusFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libStatusFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libStatusFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                          {STATUS_LIST.map((s) => <option key={s} value={s}>{s === "Все" ? "Все статусы" : s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* ── Требования ── */}
+                    {(libSection === "all" || libSection === "reqs") && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "rgba(0,102,255,0.6)" }}>Требования</p>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Тип</label>
+                          <select value={libTypeFilter} onChange={(e) => setLibTypeFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libTypeFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libTypeFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                            <option value="Все">Все типы</option>
+                            {reqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Критичность</label>
+                          <select value={libCriticalityFilter} onChange={(e) => setLibCriticalityFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libCriticalityFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libCriticalityFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                            <option value="Все">Любая</option>
+                            {reqCriticalities.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Окружение</label>
+                          <select value={libEnvFilter} onChange={(e) => setLibEnvFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libEnvFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libEnvFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                            <option value="Все">Все окружения</option>
+                            {reqEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Стадия</label>
+                          <select value={libStageFilter} onChange={(e) => setLibStageFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libStageFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libStageFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                            <option value="Все">Все стадии</option>
+                            {reqStages.map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+
+                        {/* Взаимодействие */}
+                        <div className="pt-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.25)" }}>Взаимодействие</p>
+                          {([
+                            { label: "Внешнее с ИОД",     value: libExtWithIodFilter,    set: setLibExtWithIodFilter },
+                            { label: "Внешнее без ИОД",    value: libExtWithoutIodFilter, set: setLibExtWithoutIodFilter },
+                            { label: "Внутреннее с ИОД",   value: libIntWithIodFilter,    set: setLibIntWithIodFilter },
+                            { label: "Внутреннее без ИОД", value: libIntWithoutIodFilter, set: setLibIntWithoutIodFilter },
+                          ] as const).map((f) => (
+                            <div key={f.label} className="space-y-1 mb-2">
+                              <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>{f.label}</label>
+                              <select value={f.value} onChange={(e) => f.set(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${f.value !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: f.value === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                                <option value="Все">Любое</option>
+                                {INTERACTION_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Техрешения / Архитектуры ── */}
+                    {(libSection === "all" || libSection === "techsolutions" || libSection === "arch") && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "rgba(139,92,246,0.6)" }}>Техрешения / Архитектуры</p>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Согласовано ИБ</label>
+                          <select value={libApprovedIbFilter} onChange={(e) => setLibApprovedIbFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libApprovedIbFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libApprovedIbFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                            <option value="Все">Любое</option>
+                            <option value="true">Да</option>
+                            <option value="false">Нет</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Согласовано ИТ</label>
+                          <select value={libApprovedItFilter} onChange={(e) => setLibApprovedItFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libApprovedItFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libApprovedItFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                            <option value="Все">Любое</option>
+                            <option value="true">Да</option>
+                            <option value="false">Нет</option>
+                          </select>
+                        </div>
+
+                        {allAuthors.length > 0 && (
+                          <div className="space-y-1">
+                            <label className="text-[10px]" style={{ color: "rgba(180,200,230,0.45)" }}>Автор</label>
+                            <select value={libAuthorFilter} onChange={(e) => setLibAuthorFilter(e.target.value)} className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: `1px solid ${libAuthorFilter !== "Все" ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.08)"}`, color: libAuthorFilter === "Все" ? "rgba(180,200,230,0.45)" : "white" }}>
+                              <option value="Все">Все авторы</option>
+                              {allAuthors.map((a) => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+
                 {/* List */}
                 <div className="flex-1 min-w-0 space-y-1.5">
                   {allResults.length === 0 ? (
