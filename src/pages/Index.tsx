@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -151,43 +151,6 @@ interface OrgDomain {
   updated_at?: string;
   created_at?: string;
 }
-
-type SolStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
-
-interface TechSolution {
-  id: string;
-  name: string;
-  version: string;
-  owner: string;
-  status: SolStatus;
-  description: string;
-  tags: string[];
-  technology_ids: string[];
-  created_at?: string;
-  updated_at?: string;
-}
-
-interface TechRef {
-  id: string;
-  name: string;
-  status: TechStatus;
-  versions: string[];
-}
-
-interface SolFullData {
-  solution: TechSolution;
-  technologies: TechRef[];
-  requirements: Req[];
-}
-
-const SOL_STATUS_META: Record<SolStatus, { color: string; bg: string; icon: string }> = {
-  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
-  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
-  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
-  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
-  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
-};
-const SOL_STATUSES: SolStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
 const DOMAIN_STATUS_META: Record<DomainStatus, { color: string; bg: string; icon: string }> = {
   "Активен":       { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
@@ -685,11 +648,6 @@ export default function Index() {
   const [techFullSearch, setTechFullSearch] = useState("");
   const [techFullSortField, setTechFullSortField] = useState<string>("id");
   const [techFullSortDir, setTechFullSortDir] = useState<"asc" | "desc">("asc");
-  const [techFullFilterType, setTechFullFilterType] = useState<ReqType[]>([]);
-  const [techFullFilterCrit, setTechFullFilterCrit] = useState<ReqCriticality[]>([]);
-  const [techFullFilterStatus, setTechFullFilterStatus] = useState<ReqStatus[]>([]);
-  const [techFullFilterEnv, setTechFullFilterEnv] = useState<ReqEnv[]>([]);
-  const [techFullFilterStage, setTechFullFilterStage] = useState<ReqStage[]>([]);
 
   const makeEmptyTechForm2 = (count: number): Technology => ({
     id: `tech.${String(count + 1).padStart(3, "0")}`,
@@ -837,8 +795,6 @@ export default function Index() {
     t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
     (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
   );
-
-  const clearAllFilters = () => { setTechFullFilterType([]); setTechFullFilterCrit([]); setTechFullFilterStatus([]); setTechFullFilterEnv([]); setTechFullFilterStage([]); };
 
   // ── Requirements state ──────────────────────────────────────────
   const REQUIREMENTS_API = "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177";
@@ -996,125 +952,6 @@ export default function Index() {
     const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
     return matchSearch && matchType && matchCrit && matchStatus;
   });
-  // ── Tech Solutions state ──────────────────────────────────────────
-  const TECH_SOLUTIONS_API = "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2";
-  const [solutions, setSolutions] = useState<TechSolution[]>([]);
-  const [solTechRefs, setSolTechRefs] = useState<TechRef[]>([]);
-  const [solsLoading, setSolsLoading] = useState(false);
-  const [solDialogOpen, setSolDialogOpen] = useState(false);
-  const [solSaving, setSolSaving] = useState(false);
-  const [solSaveError, setSolSaveError] = useState("");
-  const [deleteSolId, setDeleteSolId] = useState<string | null>(null);
-  const [editingSol, setEditingSol] = useState<TechSolution | null>(null);
-  const [viewSolFull, setViewSolFull] = useState<SolFullData | null>(null);
-  const [viewSolFullLoading, setViewSolFullLoading] = useState(false);
-  const [solSearch, setSolSearch] = useState("");
-  const [solTagInput, setSolTagInput] = useState("");
-  const [solForm, setSolForm] = useState<TechSolution>({
-    id: "tech.prod.001", name: "", version: "1.0.0", owner: "",
-    status: "В разработке", description: "", tags: [], technology_ids: [],
-  });
-
-  const makeEmptySolForm = (count: number): TechSolution => ({
-    id: `tech.prod.${String(count + 1).padStart(3, "0")}`,
-    name: "", version: "1.0.0", owner: "",
-    status: "В разработке", description: "", tags: [], technology_ids: [],
-  });
-
-  const loadSolutions = async () => {
-    setSolsLoading(true);
-    try {
-      const res = await fetch(TECH_SOLUTIONS_API);
-      const data = await res.json();
-      setSolutions(data.items || []);
-      setSolTechRefs(data.technologies || []);
-    } finally {
-      setSolsLoading(false);
-    }
-  };
-
-  const openCreateSol = () => {
-    setEditingSol(null);
-    setSolForm(makeEmptySolForm(solutions.length));
-    setSolTagInput(""); setSolSaveError("");
-    setSolDialogOpen(true);
-  };
-
-  const openEditSol = (s: TechSolution) => {
-    setEditingSol(s);
-    setSolForm({ ...s, tags: s.tags || [], technology_ids: s.technology_ids || [] });
-    setSolTagInput(""); setSolSaveError("");
-    setSolDialogOpen(true);
-  };
-
-  const addSolTag = (raw: string) => {
-    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
-    if (!tag || solForm.tags.includes(tag) || solForm.tags.length >= 10) return;
-    setSolForm((f) => ({ ...f, tags: [...f.tags, tag] }));
-    setSolTagInput("");
-  };
-
-  const toggleSolTech = (id: string) => {
-    setSolForm((f) => ({
-      ...f,
-      technology_ids: f.technology_ids.includes(id)
-        ? f.technology_ids.filter((x) => x !== id)
-        : [...f.technology_ids, id],
-    }));
-  };
-
-  const handleSaveSol = async () => {
-    if (!solForm.name.trim() || !solForm.id.trim()) { setSolSaveError("Название и ID обязательны"); return; }
-    setSolSaving(true); setSolSaveError("");
-    try {
-      const method = editingSol ? "PUT" : "POST";
-      const res = await fetch(TECH_SOLUTIONS_API, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(solForm),
-      });
-      const data = await res.json();
-      if (data.error) { setSolSaveError(data.error); return; }
-      if (editingSol) {
-        setSolutions((prev) => prev.map((s) => (s.id === editingSol.id ? data : s)));
-      } else {
-        setSolutions((prev) => [...prev, data]);
-      }
-      setSolDialogOpen(false);
-    } finally {
-      setSolSaving(false);
-    }
-  };
-
-  const handleDeleteSol = async (id: string) => {
-    await fetch(TECH_SOLUTIONS_API, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setSolutions((prev) => prev.filter((s) => s.id !== id));
-    setDeleteSolId(null);
-    if (viewSolFull?.solution.id === id) setViewSolFull(null);
-  };
-
-  const openSolFull = async (sol: TechSolution) => {
-    setViewSolFull({ solution: sol, technologies: [], requirements: [] });
-    setViewSolFullLoading(true);
-    try {
-      const res = await fetch(`${TECH_SOLUTIONS_API}/full/${sol.id}`);
-      const data = await res.json();
-      setViewSolFull(data);
-    } finally {
-      setViewSolFullLoading(false);
-    }
-  };
-
-  const filteredSolutions = solutions.filter((s) =>
-    s.name.toLowerCase().includes(solSearch.toLowerCase()) ||
-    s.id.toLowerCase().includes(solSearch.toLowerCase()) ||
-    s.owner.toLowerCase().includes(solSearch.toLowerCase()) ||
-    (s.tags || []).some((t) => t.toLowerCase().includes(solSearch.toLowerCase()))
-  );
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -1257,12 +1094,6 @@ export default function Index() {
               onClick={() => { setActiveSection("requirements"); loadReqs(); }}
             >
               Требования
-            </button>
-            <button
-              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-solutions" ? "active" : ""}`}
-              onClick={() => { setActiveSection("tech-solutions"); loadSolutions(); }}
-            >
-              Тех. решения
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -2027,7 +1858,7 @@ export default function Index() {
                             ) : null;
                           })()}
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={(e) => { e.stopPropagation(); openEditTech2(tech); }}
                             className="p-1.5 rounded-lg hover:bg-white/5 transition-all"
@@ -2505,556 +2336,7 @@ export default function Index() {
           </div>
         )}
 
-        {/* ── Tech Solutions Section ── */}
-        {activeSection === "tech-solutions" && (() => {
-          return (
-            <div className="max-w-7xl mx-auto px-8 py-8">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-8">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.25)" }}>
-                      <Icon name="Layers" size={20} style={{ color: "#63b0ff" }} />
-                    </div>
-                    <h1 className="text-2xl font-bold text-white">Технические решения</h1>
-                  </div>
-                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>
-                    Реестр технических решений — архитектурные паттерны и конфигурации технологий ИБ
-                  </p>
-                </div>
-                <button
-                  onClick={openCreateSol}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-all"
-                  style={{ background: "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)", border: "1px solid rgba(0,102,255,0.4)" }}
-                >
-                  <Icon name="Plus" size={16} />
-                  Добавить решение
-                </button>
-              </div>
-
-              {/* Search */}
-              <div className="relative mb-6">
-                <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
-                <input
-                  value={solSearch}
-                  onChange={(e) => setSolSearch(e.target.value)}
-                  placeholder="Поиск по названию, ID, владельцу, тегам..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
-                />
-              </div>
-
-              {/* Loading */}
-              {solsLoading && (
-                <div className="flex items-center justify-center py-20">
-                  <Icon name="Loader2" size={32} className="animate-spin" style={{ color: "#63b0ff" }} />
-                </div>
-              )}
-
-              {/* Cards grid */}
-              {!solsLoading && (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {filteredSolutions.length === 0 && (
-                    <div className="col-span-3 text-center py-20" style={{ color: "rgba(180,200,230,0.3)" }}>
-                      <Icon name="Layers" size={48} className="mx-auto mb-3 opacity-30" />
-                      <p className="text-lg">Технических решений пока нет</p>
-                      <p className="text-sm mt-1">Создайте первое решение, нажав «Добавить решение»</p>
-                    </div>
-                  )}
-                  {filteredSolutions.map((sol) => {
-                    const sm = SOL_STATUS_META[sol.status] || SOL_STATUS_META["В разработке"];
-                    const linkedTechs = (sol.technology_ids || []).map((tid) => solTechRefs.find((t) => t.id === tid)).filter(Boolean) as TechRef[];
-                    return (
-                      <div
-                        key={sol.id}
-                        className="rounded-2xl overflow-hidden flex flex-col transition-all hover:translate-y-[-2px]"
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
-                      >
-                        {/* Card header */}
-                        <div className="p-5 flex-1">
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{sol.id}</span>
-                                {sol.version && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{sol.version}</span>}
-                              </div>
-                              <h3 className="text-base font-semibold text-white leading-snug">{sol.name}</h3>
-                            </div>
-                            <div className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0" style={{ background: sm.bg, border: `1px solid ${sm.color}30` }}>
-                              <Icon name={sm.icon as "CheckCircle2"} size={12} style={{ color: sm.color }} />
-                              <span className="text-xs font-medium" style={{ color: sm.color }}>{sol.status}</span>
-                            </div>
-                          </div>
-
-                          {sol.owner && (
-                            <div className="flex items-center gap-1.5 mb-3">
-                              <Icon name="User" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
-                              <span className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{sol.owner}</span>
-                            </div>
-                          )}
-
-                          {sol.description && (
-                            <p className="text-sm mb-3 line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{sol.description}</p>
-                          )}
-
-                          {/* Linked technologies */}
-                          {linkedTechs.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-3">
-                              {linkedTechs.slice(0, 3).map((t) => (
-                                <span key={t.id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
-                                  {t.name}
-                                </span>
-                              ))}
-                              {linkedTechs.length > 3 && (
-                                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.5)" }}>
-                                  +{linkedTechs.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Tags */}
-                          {(sol.tags || []).length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {(sol.tags || []).map((tag) => (
-                                <span key={tag} className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.45)" }}>#{tag}</span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Card footer */}
-                        <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                          <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
-                            <Icon name="Link2" size={12} />
-                            <span>{(sol.technology_ids || []).length} технологий</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => openSolFull(sol)}
-                              className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
-                              title="Просмотр"
-                              style={{ color: "#63b0ff" }}
-                            >
-                              <Icon name="Eye" size={15} />
-                            </button>
-                            <button
-                              onClick={() => openEditSol(sol)}
-                              className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
-                              title="Редактировать"
-                              style={{ color: "rgba(180,200,230,0.5)" }}
-                            >
-                              <Icon name="Pencil" size={15} />
-                            </button>
-                            <button
-                              onClick={() => setDeleteSolId(sol.id)}
-                              className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
-                              title="Удалить"
-                              style={{ color: "rgba(239,68,68,0.6)" }}
-                            >
-                              <Icon name="Trash2" size={15} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Stats footer */}
-              {!solsLoading && solutions.length > 0 && (
-                <div className="mt-6 flex items-center gap-4 text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>
-                  <span>Всего решений: <strong className="text-white/50">{solutions.length}</strong></span>
-                  <span>Найдено: <strong className="text-white/50">{filteredSolutions.length}</strong></span>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
       </main>
-
-      {/* ── Tech Solution Create/Edit Dialog ── */}
-      <Dialog open={solDialogOpen} onOpenChange={(o) => { if (!o) setSolDialogOpen(false); }}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
-          <div className="p-6 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-            <h2 className="text-lg font-semibold text-white">{editingSol ? "Редактировать решение" : "Новое техническое решение"}</h2>
-          </div>
-          <div className="p-6 space-y-5">
-            {/* ID */}
-            <div>
-              <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>ID решения</Label>
-              <Input
-                value={solForm.id}
-                onChange={(e) => setSolForm((f) => ({ ...f, id: e.target.value }))}
-                disabled={!!editingSol}
-                placeholder="tech.prod.001"
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-            {/* Name */}
-            <div>
-              <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Название <span className="text-red-400">*</span></Label>
-              <Input
-                value={solForm.name}
-                onChange={(e) => setSolForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Например: Аутентификация микросервисов"
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-            {/* Version + Owner */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Версия</Label>
-                <Input
-                  value={solForm.version}
-                  onChange={(e) => setSolForm((f) => ({ ...f, version: e.target.value }))}
-                  placeholder="1.0.0"
-                  className="bg-white/5 border-white/10 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Владелец</Label>
-                <Input
-                  value={solForm.owner}
-                  onChange={(e) => setSolForm((f) => ({ ...f, owner: e.target.value }))}
-                  placeholder="Отдел ИБ"
-                  className="bg-white/5 border-white/10 text-white"
-                />
-              </div>
-            </div>
-            {/* Status */}
-            <div>
-              <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Статус</Label>
-              <div className="flex flex-wrap gap-2">
-                {SOL_STATUSES.map((s) => {
-                  const sm = SOL_STATUS_META[s];
-                  const active = solForm.status === s;
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => setSolForm((f) => ({ ...f, status: s }))}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
-                      style={{
-                        background: active ? sm.bg : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${active ? sm.color + "60" : "rgba(255,255,255,0.08)"}`,
-                        color: active ? sm.color : "rgba(180,200,230,0.5)",
-                      }}
-                    >
-                      <Icon name={sm.icon as "CheckCircle2"} size={12} />
-                      {s}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Description */}
-            <div>
-              <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Описание</Label>
-              <textarea
-                value={solForm.description}
-                onChange={(e) => setSolForm((f) => ({ ...f, description: e.target.value }))}
-                rows={3}
-                placeholder="Описание технического решения..."
-                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
-              />
-            </div>
-            {/* Tags */}
-            <div>
-              <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Теги</Label>
-              <div className="flex gap-2 mb-2">
-                <input
-                  value={solTagInput}
-                  onChange={(e) => setSolTagInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSolTag(solTagInput); } }}
-                  placeholder="Введите тег и нажмите Enter"
-                  className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "white" }}
-                />
-                <button
-                  onClick={() => addSolTag(solTagInput)}
-                  className="px-3 py-2 rounded-lg text-sm"
-                  style={{ background: "rgba(0,102,255,0.2)", border: "1px solid rgba(0,102,255,0.3)", color: "#63b0ff" }}
-                >
-                  +
-                </button>
-              </div>
-              {(solForm.tags || []).length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {(solForm.tags || []).map((tag) => (
-                    <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(180,200,230,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                      #{tag}
-                      <button onClick={() => setSolForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="ml-0.5 hover:text-red-400">×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Technologies multi-select */}
-            <div>
-              <Label className="text-sm mb-1.5 block" style={{ color: "rgba(180,200,230,0.7)" }}>Технологии ({(solForm.technology_ids || []).length} выбрано)</Label>
-              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", maxHeight: 220, overflowY: "auto" }}>
-                {solTechRefs.length === 0 && (
-                  <div className="p-4 text-sm text-center" style={{ color: "rgba(180,200,230,0.35)" }}>Список технологий пуст</div>
-                )}
-                {solTechRefs.map((t) => {
-                  const sel = (solForm.technology_ids || []).includes(t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => toggleSolTech(t.id)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                    >
-                      <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "rgba(0,102,255,0.3)" : "rgba(255,255,255,0.05)", border: `1px solid ${sel ? "rgba(0,102,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
-                        {sel && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-white">{t.name}</span>
-                        <span className="text-xs ml-2 font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {solSaveError && <p className="text-sm text-red-400">{solSaveError}</p>}
-          </div>
-          <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <button onClick={() => setSolDialogOpen(false)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              Отмена
-            </button>
-            <button
-              onClick={handleSaveSol}
-              disabled={solSaving}
-              className="px-5 py-2 rounded-lg text-sm font-medium text-white"
-              style={{ background: "linear-gradient(135deg, #0066ff 0%, #0047d6 100%)", border: "1px solid rgba(0,102,255,0.4)", opacity: solSaving ? 0.7 : 1 }}
-            >
-              {solSaving ? "Сохранение..." : editingSol ? "Сохранить" : "Создать"}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Tech Solution Full View Dialog ── */}
-      {viewSolFull && (
-        <Dialog open onOpenChange={(o) => { if (!o) setViewSolFull(null); }}>
-          <DialogContent
-            className="border overflow-hidden flex flex-col"
-            style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxWidth: "72rem", width: "95vw", maxHeight: "92vh", overflowY: "auto" }}
-          >
-            <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-              <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.25)" }}>
-                  <Icon name="Layers" size={22} style={{ color: "#63b0ff" }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>{viewSolFull.solution.id}</span>
-                    {viewSolFull.solution.version && <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewSolFull.solution.version}</span>}
-                    {(() => {
-                      const sm = SOL_STATUS_META[viewSolFull.solution.status] || SOL_STATUS_META["В разработке"];
-                      return (
-                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}40` }}>
-                          <Icon name={sm.icon as "CheckCircle2"} size={11} />{viewSolFull.solution.status}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <DialogTitle className="text-xl font-bold text-white">{viewSolFull.solution.name}</DialogTitle>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="overflow-y-auto flex-1 p-6 space-y-6">
-              {viewSolFullLoading && (
-                <div className="flex justify-center py-10">
-                  <Icon name="Loader2" size={28} className="animate-spin" style={{ color: "#63b0ff" }} />
-                </div>
-              )}
-
-              {!viewSolFullLoading && (
-                <>
-                  {/* Meta info */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {viewSolFull.solution.owner && (
-                      <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                        <div className="text-xs mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Владелец</div>
-                        <div className="text-sm font-medium text-white flex items-center gap-2">
-                          <Icon name="User" size={14} style={{ color: "#63b0ff" }} />
-                          {viewSolFull.solution.owner}
-                        </div>
-                      </div>
-                    )}
-                    <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      <div className="text-xs mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Технологии</div>
-                      <div className="text-sm font-medium text-white flex items-center gap-2">
-                        <Icon name="Link2" size={14} style={{ color: "#34d399" }} />
-                        {viewSolFull.technologies.length} технологий
-                      </div>
-                    </div>
-                    <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      <div className="text-xs mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Требований</div>
-                      <div className="text-sm font-medium text-white flex items-center gap-2">
-                        <Icon name="FileCheck" size={14} style={{ color: "#a78bfa" }} />
-                        {viewSolFull.requirements.length} требований
-                      </div>
-                    </div>
-                    {viewSolFull.solution.created_at && (
-                      <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                        <div className="text-xs mb-1" style={{ color: "rgba(180,200,230,0.4)" }}>Создано</div>
-                        <div className="text-sm font-medium text-white">
-                          {new Date(viewSolFull.solution.created_at).toLocaleDateString("ru-RU")}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  {viewSolFull.solution.description && (
-                    <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      <div className="text-xs mb-2" style={{ color: "rgba(180,200,230,0.4)" }}>Описание</div>
-                      <p className="text-sm leading-relaxed" style={{ color: "rgba(180,200,230,0.75)" }}>{viewSolFull.solution.description}</p>
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {(viewSolFull.solution.tags || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {(viewSolFull.solution.tags || []).map((tag) => (
-                        <span key={tag} className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.45)" }}>#{tag}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Linked Technologies */}
-                  {viewSolFull.technologies.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Icon name="Cpu" size={16} style={{ color: "#34d399" }} />
-                        <span className="text-sm font-semibold text-white">Связанные технологии</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399" }}>{viewSolFull.technologies.length}</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {viewSolFull.technologies.map((t) => {
-                          const tsm = TECH_STATUS_META[t.status as TechStatus] || TECH_STATUS_META["В разработке"];
-                          return (
-                            <div key={t.id} className="rounded-xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.15)" }}>
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,211,153,0.1)" }}>
-                                <Icon name="Cpu" size={14} style={{ color: "#34d399" }} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-white truncate">{t.name}</div>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{t.id}</span>
-                                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: tsm.bg, color: tsm.color }}>{t.status}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Requirements inherited */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Icon name="FileCheck" size={16} style={{ color: "#a78bfa" }} />
-                      <span className="text-sm font-semibold text-white">Унаследованные требования</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa" }}>{viewSolFull.requirements.length}</span>
-                    </div>
-                    {viewSolFull.requirements.length === 0 && (
-                      <div className="rounded-xl p-6 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <Icon name="FileCheck" size={32} className="mx-auto mb-2 opacity-20" />
-                        <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Требования отсутствуют у связанных технологий</p>
-                      </div>
-                    )}
-                    {viewSolFull.requirements.length > 0 && (
-                      <div className="space-y-2">
-                        {viewSolFull.requirements.map((r) => {
-                          const rtm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
-                          const rcm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
-                          const rsm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
-                          const srcTech = viewSolFull.technologies.find((t) => t.id === r.technology_id);
-                          return (
-                            <div key={r.id} className="rounded-xl p-3" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.1)" }}>
-                              <div className="flex items-start gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                                    <span className="text-xs font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{r.id}</span>
-                                    <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rtm.bg, color: rtm.color }}>
-                                      <Icon name={rtm.icon as "Cpu"} size={10} />{r.req_type}
-                                    </span>
-                                    <span className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: rcm.bg, color: rcm.color }}>
-                                      <Icon name={rcm.icon as "AlertOctagon"} size={10} />{r.criticality}
-                                    </span>
-                                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: rsm.bg, color: rsm.color }}>{r.status}</span>
-                                  </div>
-                                  <div className="text-sm font-medium text-white mb-0.5">{r.name}</div>
-                                  {srcTech && (
-                                    <div className="text-xs" style={{ color: "rgba(52,211,153,0.6)" }}>
-                                      ← {srcTech.name}
-                                    </div>
-                                  )}
-                                  {r.description && (
-                                    <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.45)" }}>{r.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-              <button
-                onClick={() => { openEditSol(viewSolFull.solution); setViewSolFull(null); }}
-                className="px-4 py-2 rounded-lg text-sm flex items-center gap-2"
-                style={{ background: "rgba(0,102,255,0.15)", color: "#63b0ff", border: "1px solid rgba(0,102,255,0.3)" }}
-              >
-                <Icon name="Pencil" size={14} />Редактировать
-              </button>
-              <button onClick={() => setViewSolFull(null)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                Закрыть
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* ── Delete Sol Confirm ── */}
-      {deleteSolId && (
-        <Dialog open onOpenChange={(o) => { if (!o) setDeleteSolId(null); }}>
-          <DialogContent className="max-w-sm" style={{ background: "#0b1628", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <DialogHeader>
-              <DialogTitle className="text-white">Удалить решение?</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>
-              Это действие нельзя отменить. Решение будет удалено навсегда.
-            </p>
-            <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setDeleteSolId(null)} className="px-4 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.7)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                Отмена
-              </button>
-              <button
-                onClick={() => handleDeleteSol(deleteSolId)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ background: "rgba(239,68,68,0.8)", border: "1px solid rgba(239,68,68,0.4)" }}
-              >
-                Удалить
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* ── Requirement Create/Edit Dialog ── */}
       <Dialog open={reqDialogOpen} onOpenChange={(o) => { if (!o) setReqDialogOpen(false); }}>
@@ -4103,58 +3385,17 @@ export default function Index() {
         const fileAttachments = (tech.attachments || []).filter((a) => a.type !== "mermaid" && a.type !== "link");
 
         const searchLower = techFullSearch.toLowerCase();
-        const filteredReqs = linkedReqs.filter((r) => {
-          if (techFullFilterType.length > 0 && !techFullFilterType.includes(r.req_type)) return false;
-          if (techFullFilterCrit.length > 0 && !techFullFilterCrit.includes(r.criticality)) return false;
-          if (techFullFilterStatus.length > 0 && !techFullFilterStatus.includes(r.status)) return false;
-          if (techFullFilterEnv.length > 0 && !techFullFilterEnv.some((e) => r.environments.includes(e))) return false;
-          if (techFullFilterStage.length > 0 && !techFullFilterStage.some((s) => r.stages.includes(s))) return false;
-          if (searchLower) {
-            const match =
-              r.id.toLowerCase().includes(searchLower) ||
-              r.name.toLowerCase().includes(searchLower) ||
-              r.description.toLowerCase().includes(searchLower) ||
-              r.req_type.toLowerCase().includes(searchLower) ||
-              r.criticality.toLowerCase().includes(searchLower) ||
-              r.status.toLowerCase().includes(searchLower) ||
-              r.version.toLowerCase().includes(searchLower) ||
-              r.control_metric.toLowerCase().includes(searchLower) ||
-              r.tags.some((t) => t.toLowerCase().includes(searchLower)) ||
-              r.procurement.toLowerCase().includes(searchLower);
-            if (!match) return false;
-          }
-          return true;
-        });
-
-        const exportReqsCSV = () => {
-          const techDomain = (id: string) => domains.find((d) => d.id === id)?.name || id;
-          const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-          const headers = [
-            "Технология ID", "Технология", "Версии технологии", "Статус технологии",
-            "ID требования", "Название", "Версия", "Тип", "Критичность", "Статус",
-            "Домен", "Описание", "Контрольная метрика", "Описание контроля",
-            "Среды", "Стадии", "Балл", "Вес", "Закупка",
-            "Внешнее с ИОД", "Внешнее без ИОД", "Внутреннее с ИОД", "Внутреннее без ИОД",
-            "Теги", "Норм. документ"
-          ];
-          const rows = filteredReqs.map((r) => [
-            esc(tech.id), esc(tech.name), esc((tech.versions || []).join("; ")), esc(tech.status),
-            esc(r.id), esc(r.name), esc(r.version), esc(r.req_type), esc(r.criticality), esc(r.status),
-            esc(techDomain(r.tech_domain_id)), esc(r.description), esc(r.control_metric), esc(r.control_description),
-            esc((r.environments || []).join("; ")), esc((r.stages || []).join("; ")),
-            esc(r.score_value), esc(r.score_weight), esc(r.procurement),
-            esc(r.ext_with_iod), esc(r.ext_without_iod), esc(r.int_with_iod), esc(r.int_without_iod),
-            esc((r.tags || []).join("; ")), esc(r.norm_doc_link)
-          ].join(","));
-          const csv = "\uFEFF" + [headers.map(esc).join(","), ...rows].join("\n");
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = `${tech.id}_requirements.csv`; a.click();
-          URL.revokeObjectURL(url);
-        };
-
-        const hasActiveFilters = techFullFilterType.length > 0 || techFullFilterCrit.length > 0 || techFullFilterStatus.length > 0 || techFullFilterEnv.length > 0 || techFullFilterStage.length > 0;
+        const filteredReqs = linkedReqs.filter((r) =>
+          !searchLower ||
+          r.id.toLowerCase().includes(searchLower) ||
+          r.name.toLowerCase().includes(searchLower) ||
+          r.description.toLowerCase().includes(searchLower) ||
+          r.req_type.toLowerCase().includes(searchLower) ||
+          r.criticality.toLowerCase().includes(searchLower) ||
+          r.status.toLowerCase().includes(searchLower) ||
+          r.version.toLowerCase().includes(searchLower) ||
+          r.control_metric.toLowerCase().includes(searchLower)
+        );
 
         const sortedReqs = [...filteredReqs].sort((a, b) => {
           let va: string | number = "";
@@ -4181,7 +3422,7 @@ export default function Index() {
         };
 
         return (
-          <Dialog open onOpenChange={(o) => { if (!o) { setViewTechFull(null); clearAllFilters(); setTechFullSearch(""); } }}>
+          <Dialog open onOpenChange={(o) => { if (!o) setViewTechFull(null); }}>
             <DialogContent
               className="border overflow-hidden flex flex-col"
               style={{
@@ -4354,132 +3595,25 @@ export default function Index() {
 
                     {/* Requirements table */}
                     <div className="px-6 py-6 flex-1">
-                      {/* Header row: title + search + CSV */}
-                      <div className="flex items-center justify-between mb-3 gap-3">
+                      <div className="flex items-center justify-between mb-4 gap-3">
                         <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-2 flex-shrink-0" style={{ color: "rgba(180,200,230,0.3)" }}>
                           <Icon name="FileCheck" size={13} style={{ color: "#f59e0b" }} />
                           Привязанные требования
                           {linkedReqs.length > 0 && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>{linkedReqs.length}</span>
                           )}
-                          {filteredReqs.length !== linkedReqs.length && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono normal-case" style={{ background: "rgba(99,176,255,0.12)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>показано {filteredReqs.length}</span>
-                          )}
                         </p>
-                        <div className="flex items-center gap-2">
-                          <div className="relative">
-                            <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
-                            <input
-                              value={techFullSearch}
-                              onChange={(e) => setTechFullSearch(e.target.value)}
-                              placeholder="Поиск..."
-                              className="pl-9 pr-3 py-1.5 rounded-lg text-xs outline-none w-44"
-                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
-                            />
-                          </div>
-                          {linkedReqs.length > 0 && (
-                            <button
-                              onClick={exportReqsCSV}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
-                              style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "#34d399" }}
-                              title="Выгрузить в CSV"
-                            >
-                              <Icon name="Download" size={13} />
-                              CSV
-                              {(hasActiveFilters || techFullSearch) && filteredReqs.length !== linkedReqs.length && (
-                                <span className="font-mono" style={{ color: "rgba(52,211,153,0.6)" }}>({filteredReqs.length})</span>
-                              )}
-                            </button>
-                          )}
+                        <div className="relative flex-1 max-w-xs">
+                          <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                          <input
+                            value={techFullSearch}
+                            onChange={(e) => setTechFullSearch(e.target.value)}
+                            placeholder="Поиск по любому полю..."
+                            className="w-full pl-9 pr-3 py-1.5 rounded-lg text-xs outline-none"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(210,225,245,0.9)" }}
+                          />
                         </div>
                       </div>
-
-                      {/* Filter panel */}
-                      {linkedReqs.length > 0 && (
-                        <div className="mb-4 flex flex-col gap-2 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                          {/* Тип */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Тип</span>
-                            {(Object.keys(REQ_TYPE_META) as ReqType[]).map((v) => {
-                              const m = REQ_TYPE_META[v];
-                              const active = techFullFilterType.includes(v);
-                              return (
-                                <button key={v} onClick={() => setTechFullFilterType((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
-                                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all"
-                                  style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.07)"}`, color: active ? m.color : "rgba(180,200,230,0.45)" }}>
-                                  <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {/* Критичность */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Критич.</span>
-                            {(Object.keys(REQ_CRITICALITY_META) as ReqCriticality[]).map((v) => {
-                              const m = REQ_CRITICALITY_META[v];
-                              const active = techFullFilterCrit.includes(v);
-                              return (
-                                <button key={v} onClick={() => setTechFullFilterCrit((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
-                                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-all"
-                                  style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.07)"}`, color: active ? m.color : "rgba(180,200,230,0.45)" }}>
-                                  <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {/* Статус */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Статус</span>
-                            {(Object.keys(REQ_STATUS_META) as ReqStatus[]).map((v) => {
-                              const m = REQ_STATUS_META[v];
-                              const active = techFullFilterStatus.includes(v);
-                              return (
-                                <button key={v} onClick={() => setTechFullFilterStatus((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
-                                  className="px-2 py-0.5 rounded text-[11px] transition-all"
-                                  style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.07)"}`, color: active ? m.color : "rgba(180,200,230,0.45)" }}>
-                                  {v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {/* Среда */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Среда</span>
-                            {REQ_ENVS.map((v) => {
-                              const active = techFullFilterEnv.includes(v);
-                              return (
-                                <button key={v} onClick={() => setTechFullFilterEnv((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
-                                  className="px-2 py-0.5 rounded text-[11px] font-mono transition-all"
-                                  style={{ background: active ? "rgba(99,176,255,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(99,176,255,0.4)" : "rgba(255,255,255,0.07)"}`, color: active ? "#63b0ff" : "rgba(180,200,230,0.45)" }}>
-                                  {v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {/* Стадия */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider w-16 shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>Стадия</span>
-                            {REQ_STAGES.map((v) => {
-                              const active = techFullFilterStage.includes(v);
-                              return (
-                                <button key={v} onClick={() => setTechFullFilterStage((prev) => active ? prev.filter((x) => x !== v) : [...prev, v])}
-                                  className="px-2 py-0.5 rounded text-[11px] transition-all"
-                                  style={{ background: active ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(167,139,250,0.4)" : "rgba(255,255,255,0.07)"}`, color: active ? "#a78bfa" : "rgba(180,200,230,0.45)" }}>
-                                  {v}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {/* Сброс */}
-                          {hasActiveFilters && (
-                            <div className="flex justify-end pt-1">
-                              <button onClick={clearAllFilters} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-all hover:opacity-80" style={{ color: "rgba(180,200,230,0.4)", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                                <Icon name="X" size={10} />Сбросить фильтры
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                       {linkedReqs.length === 0 ? (
                         <div className="py-10 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
@@ -4491,144 +3625,82 @@ export default function Index() {
                           <p className="text-sm" style={{ color: "rgba(180,200,230,0.3)" }}>Ничего не найдено</p>
                         </div>
                       ) : (
-                        <div className="flex flex-col gap-3">
-                          {sortedReqs.map((r) => {
-                            const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
-                            const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
-                            const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
-                            const reqDomain = domains.find((d) => d.id === r.tech_domain_id);
-                            return (
-                              <div
-                                key={r.id}
-                                onClick={() => { setViewTechFull(null); setViewReq(r); }}
-                                className="cursor-pointer rounded-xl p-4 flex flex-col gap-3 transition-colors hover:bg-white/[0.02]"
-                                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}
-                              >
-                                {/* Row 1: ID + name + version + badges + score */}
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                    <span className="font-mono text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap shrink-0" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
-                                    <span className="font-semibold text-sm" style={{ color: "rgba(210,225,245,0.95)" }}>{r.name}</span>
-                                    {r.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
-                                  </div>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <span className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1 whitespace-nowrap" style={{ background: tm.bg, color: tm.color }}>
-                                      <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
-                                    </span>
-                                    <span className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1 whitespace-nowrap" style={{ background: cm.bg, color: cm.color }}>
-                                      <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
-                                    </span>
-                                    <span className="text-[11px] px-2 py-0.5 rounded whitespace-nowrap" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
-                                  </div>
-                                </div>
-
-                                {/* Row 2: description */}
-                                {r.description && (
-                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(180,200,230,0.6)" }}>{r.description}</p>
-                                )}
-
-                                {/* Row 3: control metric + control description */}
-                                {(r.control_metric || r.control_description) && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {r.control_metric && (
-                                      <div className="px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                                        <p className="text-[10px] mb-0.5" style={{ color: "rgba(180,200,230,0.4)" }}>Контрольная метрика</p>
-                                        <p className="text-xs" style={{ color: "rgba(210,225,245,0.8)" }}>{r.control_metric}</p>
+                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                  {[
+                                    { field: "id", label: "ID" },
+                                    { field: "name", label: "Название" },
+                                    { field: "req_type", label: "Тип" },
+                                    { field: "criticality", label: "Критичность" },
+                                    { field: "status", label: "Статус" },
+                                    { field: "score_value", label: "Балл" },
+                                    { field: "score_weight", label: "Вес" },
+                                  ].map(({ field, label }) => (
+                                    <th key={field}
+                                      onClick={() => toggleSort(field)}
+                                      className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-white/5 select-none whitespace-nowrap"
+                                      style={{ color: techFullSortField === field ? "#34d399" : "rgba(180,200,230,0.45)" }}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        {label}
+                                        <SortIcon field={field} />
                                       </div>
-                                    )}
-                                    {r.control_description && (
-                                      <div className="px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                                        <p className="text-[10px] mb-0.5" style={{ color: "rgba(180,200,230,0.4)" }}>Описание контроля</p>
-                                        <p className="text-xs" style={{ color: "rgba(210,225,245,0.8)" }}>{r.control_description}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Row 4: environments + stages + domain */}
-                                <div className="flex items-center flex-wrap gap-3">
-                                  {reqDomain && (
-                                    <div className="flex items-center gap-1.5">
-                                      <Icon name="Link2" size={11} style={{ color: "rgba(180,200,230,0.35)" }} />
-                                      <span className="text-[11px]" style={{ color: "rgba(180,200,230,0.55)" }}>{reqDomain.name}</span>
-                                    </div>
-                                  )}
-                                  {r.environments && r.environments.length > 0 && (
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Среды:</span>
-                                      {r.environments.map((e) => (
-                                        <span key={e} className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>{e}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {r.stages && r.stages.length > 0 && (
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.3)" }}>Стадии:</span>
-                                      {r.stages.map((s) => (
-                                        <span key={s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>{s}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Row 5: interactions grid */}
-                                {(r.ext_with_iod || r.ext_without_iod || r.int_with_iod || r.int_without_iod) && (
-                                  <div className="grid grid-cols-4 gap-2">
-                                    {([
-                                      { key: "ext_with_iod" as const, label: "Внешнее с ИОД" },
-                                      { key: "ext_without_iod" as const, label: "Внешнее без ИОД" },
-                                      { key: "int_with_iod" as const, label: "Внутреннее с ИОД" },
-                                      { key: "int_without_iod" as const, label: "Внутреннее без ИОД" },
-                                    ] as { key: "ext_with_iod" | "ext_without_iod" | "int_with_iod" | "int_without_iod"; label: string }[]).map(({ key, label }) => {
-                                      const val = r[key];
-                                      const m = REQ_INTERACTION_META[val];
-                                      return (
-                                        <div key={key} className="px-2.5 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                                          <p className="text-[9px] uppercase tracking-wide mb-0.5" style={{ color: "rgba(180,200,230,0.35)" }}>{label}</p>
-                                          <p className="text-[11px] font-medium" style={{ color: m?.color || "rgba(180,200,230,0.5)" }}>{val}</p>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-
-                                {/* Row 6: tags + score + procurement + norm_doc_link + open button */}
-                                <div className="flex items-center justify-between gap-2 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {r.tags && r.tags.length > 0 && r.tags.map((tag) => (
-                                      <span key={tag} className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.07)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.12)" }}>{tag}</span>
-                                    ))}
-                                    {r.procurement && (
-                                      <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
-                                        <Icon name="ShoppingCart" size={10} />{r.procurement}
-                                      </span>
-                                    )}
-                                    {r.norm_doc_link && (
-                                      <a
-                                        href={r.norm_doc_link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-[10px] flex items-center gap-1 hover:underline"
-                                        style={{ color: "#63b0ff" }}
-                                      >
-                                        <Icon name="FileText" size={10} />Норм. документ
-                                      </a>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-3 shrink-0">
-                                    <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>
-                                      Балл: <span style={{ color: "#f59e0b" }}>{r.score_value}</span>
-                                    </span>
-                                    <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>
-                                      Вес: <span style={{ color: "#63b0ff" }}>{r.score_weight}</span>
-                                    </span>
-                                    <Icon name="ChevronRight" size={13} style={{ color: "rgba(180,200,230,0.25)" }} />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                                    </th>
+                                  ))}
+                                  <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.45)" }}>
+                                    Описание
+                                  </th>
+                                  <th className="px-3 py-2.5" style={{ color: "rgba(180,200,230,0.45)" }}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sortedReqs.map((r, idx) => {
+                                  const tm = REQ_TYPE_META[r.req_type] || REQ_TYPE_META["Техническое"];
+                                  const cm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                                  const sm2 = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                                  return (
+                                    <tr key={r.id}
+                                      onClick={() => { setViewTechFull(null); setViewReq(r); }}
+                                      className="cursor-pointer transition-colors hover:bg-white/[0.03]"
+                                      style={{ borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined }}
+                                    >
+                                      <td className="px-3 py-2.5">
+                                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.15)" }}>{r.id}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 min-w-[160px]">
+                                        <span className="font-medium" style={{ color: "rgba(210,225,245,0.9)" }}>{r.name}</span>
+                                        {r.version && <span className="ml-1.5 font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{r.version}</span>}
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: tm.bg, color: tm.color }}>
+                                          <Icon name={tm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.req_type}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap w-fit" style={{ background: cm.bg, color: cm.color }}>
+                                          <Icon name={cm.icon as Parameters<typeof Icon>[0]["name"]} size={10} />{r.criticality}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: sm2.bg, color: sm2.color }}>{r.status}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#f59e0b" }}>{r.score_value}</td>
+                                      <td className="px-3 py-2.5 text-center font-mono" style={{ color: "#63b0ff" }}>{r.score_weight}</td>
+                                      <td className="px-3 py-2.5 max-w-[200px]">
+                                        <span className="line-clamp-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.description || "—"}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5">
+                                        <Icon name="ChevronRight" size={13} style={{ color: "rgba(180,200,230,0.3)" }} />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </div>
