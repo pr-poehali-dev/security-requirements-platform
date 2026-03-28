@@ -26,6 +26,22 @@ services:
       timeout: 5s
       retries: 15
 
+  # ─── Frontend (Vite + React) ──────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: securearch_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      # hot-reload: изменения в /src сразу видны без пересборки
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+    depends_on:
+      - api
+
   # ─── Backend API (FastAPI) ─────────────────────────────────────────
   api:
     build:
