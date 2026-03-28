@@ -2707,7 +2707,14 @@ export default function Index() {
                             )}
                             {filteredLinkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
+                                <div className="mb-3">
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>технология</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>требования</span>
+                                  </div>
+                                </div>
                                 <div className="space-y-2">
                                   {filteredLinkedReqs.map((r, num) => {
                                     const rsm = REQ_STATUS_META[r.status];
@@ -2840,7 +2847,16 @@ export default function Index() {
                             )}
                             {filteredLinkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования из связанных технологий <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
+                                <div className="mb-3">
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>техрешение</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>технологии</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>требования</span>
+                                  </div>
+                                </div>
                                 <div className="space-y-2">
                                   {filteredLinkedReqs.map((r, num) => {
                                     const rsm = REQ_STATUS_META[r.status];
@@ -2915,7 +2931,18 @@ export default function Index() {
                             )}
                             {filteredLinkedReqs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>Требования через цепочку архитектура → техрешения → технологии <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
+                                <div className="mb-3">
+                                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Требования <span className="normal-case" style={{ color: "rgba(180,200,230,0.25)" }}>({filteredLinkedReqs.length})</span></p>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(52,211,153,0.07)", color: "rgba(52,211,153,0.6)" }}>архитектура</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>техрешения</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>технологии</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>требования</span>
+                                  </div>
+                                </div>
                                 <div className="space-y-2">
                                   {filteredLinkedReqs.map((r, num) => {
                                     const rsm = REQ_STATUS_META[r.status];
