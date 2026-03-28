@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
 
-type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements";
+type Section = "library" | "analytics" | "domains" | "tech-domains" | "technologies" | "requirements" | "tech-solutions";
 type DbMode = "cloud" | "local";
 type DomainStatus = "Активен" | "Не активен" | "В разработке" | "Архив";
 
@@ -138,6 +138,35 @@ const REQ_INTERACTION_META: Record<ReqInteraction, { color: string }> = {
 };
 const REQ_CRITICALITIES: ReqCriticality[] = ["Критический", "Высокий", "Средний", "Низкий"];
 const REQ_STATUSES: ReqStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+
+// ── Tech Solutions ───────────────────────────────────────────────
+type TechSolutionStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+const TECH_SOLUTION_STATUSES: TechSolutionStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+const TECH_SOLUTION_STATUS_META: Record<TechSolutionStatus, { color: string; bg: string; icon: string }> = {
+  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+};
+
+interface TechSolution {
+  id: string;
+  name: string;
+  description: string;
+  status: TechSolutionStatus;
+  author: string;
+  version: string;
+  tags: string[];
+  technology_ids: string[];
+  tech_domain?: string;
+  approved_ib: boolean;
+  approved_it: boolean;
+  related_solution_ids: string[];
+  attachments: Attachment[];
+  created_at?: string;
+  updated_at?: string;
+}
 
 interface OrgDomain {
   id: string;
@@ -992,6 +1021,143 @@ export default function Index() {
     const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
     return matchSearch && matchType && matchCrit && matchStatus;
   });
+
+  // ── Tech Solutions state ─────────────────────────────────────────
+  const TECH_SOLUTIONS_API = "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2";
+  const [techSolutions, setTechSolutions] = useState<TechSolution[]>([]);
+  const [tsolLoading, setTsolLoading] = useState(false);
+  const [tsolSectionDesc, setTsolSectionDesc] = useState("Реестр технических решений — архитектурные и проектные решения, согласованные с ИБ и ИТ");
+  const [tsolSectionDescEditing, setTsolSectionDescEditing] = useState(false);
+  const [tsolSectionDescDraft, setTsolSectionDescDraft] = useState(tsolSectionDesc);
+  const [tsolDialogOpen, setTsolDialogOpen] = useState(false);
+  const [tsolSaving, setTsolSaving] = useState(false);
+  const [tsolSaveError, setTsolSaveError] = useState("");
+  const [deleteTsolId, setDeleteTsolId] = useState<string | null>(null);
+  const [editingTsol, setEditingTsol] = useState<TechSolution | null>(null);
+  const [viewTsol, setViewTsol] = useState<TechSolution | null>(null);
+  const [tsolSearch, setTsolSearch] = useState("");
+  const [tsolFilterStatus, setTsolFilterStatus] = useState<string>("Все");
+  const [tsolFilterTag, setTsolFilterTag] = useState<string>("");
+  const [tsolTagInput, setTsolTagInput] = useState("");
+  const [tsolAttachTab, setTsolAttachTab] = useState<AttachmentType>("link");
+  const [tsolAttachDraft, setTsolAttachDraft] = useState<Omit<Attachment,"id">>({ type:"link", name:"", content:"" });
+  const [tsolViewAttachment, setTsolViewAttachment] = useState<Attachment | null>(null);
+  const [tsolRelSearch, setTsolRelSearch] = useState("");
+  const [tsolTechSearch, setTsolTechSearch] = useState("");
+
+  const makeEmptyTsolForm = (count: number): TechSolution => ({
+    id: `tsol-${String(count + 1).padStart(3, "0")}`,
+    name: "",
+    description: "",
+    status: "В разработке",
+    author: "",
+    version: "1.0.0",
+    tags: [],
+    technology_ids: [],
+    tech_domain: "",
+    approved_ib: false,
+    approved_it: false,
+    related_solution_ids: [],
+    attachments: [],
+  });
+  const [tsolForm, setTsolForm] = useState<TechSolution>(makeEmptyTsolForm(0));
+
+  const loadTechSolutions = async () => {
+    setTsolLoading(true);
+    try {
+      const res = await fetch(TECH_SOLUTIONS_API);
+      const data = await res.json();
+      setTechSolutions(data.items || []);
+      if (data.section_description) setTsolSectionDesc(data.section_description);
+    } finally {
+      setTsolLoading(false);
+    }
+  };
+
+  const openCreateTsol = () => {
+    setEditingTsol(null);
+    setTsolForm(makeEmptyTsolForm(techSolutions.length));
+    setTsolTagInput(""); setTsolSaveError("");
+    setTsolAttachTab("link"); setTsolAttachDraft({ type:"link", name:"", content:"" });
+    setTsolRelSearch(""); setTsolTechSearch("");
+    setTsolDialogOpen(true);
+  };
+
+  const openEditTsol = (s: TechSolution) => {
+    setEditingTsol(s);
+    setTsolForm({ ...s, tags: s.tags || [], technology_ids: s.technology_ids || [], related_solution_ids: s.related_solution_ids || [], attachments: s.attachments || [] });
+    setTsolTagInput(""); setTsolSaveError("");
+    setTsolAttachTab("link"); setTsolAttachDraft({ type:"link", name:"", content:"" });
+    setTsolRelSearch(""); setTsolTechSearch("");
+    setTsolDialogOpen(true);
+  };
+
+  const addTsolTag = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!tag || tsolForm.tags.includes(tag) || tsolForm.tags.length >= 10) return;
+    setTsolForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setTsolTagInput("");
+  };
+
+  const addTsolAttachment = () => {
+    if (!tsolAttachDraft.name.trim() || !tsolAttachDraft.content.trim()) return;
+    const att: Attachment = { id: `att-${Date.now()}`, ...tsolAttachDraft };
+    setTsolForm((f) => ({ ...f, attachments: [...f.attachments, att] }));
+    setTsolAttachDraft({ type: tsolAttachTab, name: "", content: "" });
+  };
+
+  const handleSaveTsol = async () => {
+    if (!tsolForm.name.trim() || !tsolForm.id.trim()) { setTsolSaveError("Название и ID обязательны"); return; }
+    setTsolSaving(true); setTsolSaveError("");
+    try {
+      const method = editingTsol ? "PUT" : "POST";
+      const res = await fetch(TECH_SOLUTIONS_API, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tsolForm),
+      });
+      const data = await res.json();
+      if (data.error) { setTsolSaveError(data.error); return; }
+      if (editingTsol) {
+        setTechSolutions((prev) => prev.map((s) => s.id === editingTsol.id ? data : s));
+        if (viewTsol?.id === editingTsol.id) setViewTsol(data);
+      } else {
+        setTechSolutions((prev) => [...prev, data]);
+      }
+      setTsolDialogOpen(false);
+    } finally {
+      setTsolSaving(false);
+    }
+  };
+
+  const handleDeleteTsol = async (id: string) => {
+    await fetch(TECH_SOLUTIONS_API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setTechSolutions((prev) => prev.filter((s) => s.id !== id));
+    setDeleteTsolId(null);
+    if (viewTsol?.id === id) setViewTsol(null);
+  };
+
+  const handleSaveTsolSectionDesc = async () => {
+    setTsolSectionDesc(tsolSectionDescDraft);
+    setTsolSectionDescEditing(false);
+    await fetch(`${TECH_SOLUTIONS_API}?mode=settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_description: tsolSectionDescDraft }),
+    });
+  };
+
+  const filteredTsols = techSolutions.filter((s) => {
+    const q = tsolSearch.toLowerCase();
+    const matchQ = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
+    const matchStatus = tsolFilterStatus === "Все" || s.status === tsolFilterStatus;
+    const matchTag = !tsolFilterTag || (s.tags||[]).some((t) => t.toLowerCase().includes(tsolFilterTag.toLowerCase()));
+    return matchQ && matchStatus && matchTag;
+  });
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -1134,6 +1300,12 @@ export default function Index() {
               onClick={() => { setActiveSection("requirements"); loadReqs(); }}
             >
               Требования
+            </button>
+            <button
+              className={`nav-link text-sm font-medium pb-1 ${activeSection === "tech-solutions" ? "active" : ""}`}
+              onClick={() => { setActiveSection("tech-solutions"); loadTechSolutions(); }}
+            >
+              Тех. решения
             </button>
             <button
               className={`nav-link text-sm font-medium pb-1 ${activeSection === "analytics" ? "active" : ""}`}
@@ -2376,7 +2548,550 @@ export default function Index() {
           </div>
         )}
 
+        {/* === TECH SOLUTIONS SECTION === */}
+        {activeSection === "tech-solutions" && (
+          <div className="section-enter">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #a78bfa, #63b0ff)" }} />
+                  <h1 className="text-2xl font-semibold text-white">Технические решения</h1>
+                </div>
+                {tsolSectionDescEditing ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <Input value={tsolSectionDescDraft} onChange={(e) => setTsolSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                    <button onClick={handleSaveTsolSectionDesc} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                    <button onClick={() => setTsolSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 ml-4 group" onClick={() => { setTsolSectionDescDraft(tsolSectionDesc); setTsolSectionDescEditing(true); }}>
+                    <p className="text-sm" style={{ color: "rgba(180,200,230,0.6)" }}>{tsolSectionDesc}</p>
+                    <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.6)" }} />
+                  </button>
+                )}
+              </div>
+              <button onClick={openCreateTsol} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90" style={{ background: "linear-gradient(135deg, #a78bfa 0%, #63b0ff 100%)", color: "white" }}>
+                <Icon name="Plus" size={15} />
+                Добавить решение
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {[
+                { label: "Всего решений", value: techSolutions.length, icon: "Lightbulb", color: "#a78bfa" },
+                { label: "Активных", value: techSolutions.filter((s) => s.status === "Активен").length, icon: "CheckCircle2", color: "#22c55e" },
+                { label: "В разработке", value: techSolutions.filter((s) => s.status === "В разработке").length, icon: "Wrench", color: "#f59e0b" },
+                { label: "Согласовано ИБ+ИТ", value: techSolutions.filter((s) => s.approved_ib && s.approved_it).length, icon: "ShieldCheck", color: "#63b0ff" },
+              ].map((stat) => (
+                <div key={stat.label} className="glass-card rounded-xl px-5 py-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${stat.color}20`, border: `1px solid ${stat.color}30` }}>
+                    <Icon name={stat.icon} size={18} style={{ color: stat.color }} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white">{stat.value}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "rgba(180,200,230,0.5)" }}>{stat.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters */}
+            <div className="glass-card rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-56">
+                <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={tsolSearch} onChange={(e) => setTsolSearch(e.target.value)} placeholder="Поиск по ID, названию, автору, тегам..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              </div>
+              <select value={tsolFilterStatus} onChange={(e) => setTsolFilterStatus(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: tsolFilterStatus === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                <option value="Все">Все статусы</option>
+                {TECH_SOLUTION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Input value={tsolFilterTag} onChange={(e) => setTsolFilterTag(e.target.value)} placeholder="Фильтр по тегу..." className="text-xs w-40 h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              {(tsolSearch || tsolFilterStatus !== "Все" || tsolFilterTag) && (
+                <button onClick={() => { setTsolSearch(""); setTsolFilterStatus("Все"); setTsolFilterTag(""); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                  Сбросить
+                </button>
+              )}
+              <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredTsols.length} / {techSolutions.length}</span>
+            </div>
+
+            {/* Loading */}
+            {tsolLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Icon name="Loader" size={24} className="animate-spin" style={{ color: "#a78bfa" }} />
+              </div>
+            )}
+
+            {/* Empty */}
+            {!tsolLoading && filteredTsols.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.15)" }}>
+                  <Icon name="Lightbulb" size={28} style={{ color: "rgba(167,139,250,0.5)" }} />
+                </div>
+                <p className="text-sm" style={{ color: "rgba(180,200,230,0.4)" }}>
+                  {techSolutions.length === 0 ? "Нет технических решений. Нажмите «Добавить решение»" : "Ничего не найдено"}
+                </p>
+              </div>
+            )}
+
+            {/* Cards */}
+            {!tsolLoading && filteredTsols.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredTsols.map((s) => {
+                  const sm = TECH_SOLUTION_STATUS_META[s.status];
+                  return (
+                    <div
+                      key={s.id}
+                      className="glass-card rounded-xl p-5 flex flex-col gap-3 cursor-pointer transition-all"
+                      onClick={() => setViewTsol(s)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(15,22,41,0.85)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,0.25)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; (e.currentTarget as HTMLElement).style.borderColor = ""; (e.currentTarget as HTMLElement).style.transform = ""; }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{s.id}</span>
+                            <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>v{s.version}</span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-white leading-snug">{s.name}</h3>
+                        </div>
+                        <span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full shrink-0" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                          <Icon name={sm.icon} size={10} />
+                          {s.status}
+                        </span>
+                      </div>
+                      {s.description && (
+                        <p className="text-xs line-clamp-2" style={{ color: "rgba(180,200,230,0.6)" }}>{s.description}</p>
+                      )}
+                      {s.tags && s.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {s.tags.slice(0, 4).map((tag) => (
+                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)", border: "1px solid rgba(99,176,255,0.15)" }}>#{tag}</span>
+                          ))}
+                          {s.tags.length > 4 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{s.tags.length - 4}</span>}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {s.approved_ib && (
+                          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}>
+                            <Icon name="ShieldCheck" size={9} /> ИБ
+                          </span>
+                        )}
+                        {s.approved_it && (
+                          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.2)" }}>
+                            <Icon name="Server" size={9} /> ИТ
+                          </span>
+                        )}
+                        {s.technology_ids && s.technology_ids.length > 0 && (
+                          <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                            <Icon name="Cpu" size={9} /> {s.technology_ids.length} тех.
+                          </span>
+                        )}
+                        {s.related_solution_ids && s.related_solution_ids.length > 0 && (
+                          <span className="text-[10px] flex items-center gap-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                            <Icon name="Link2" size={9} /> {s.related_solution_ids.length} связ.
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mt-auto pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                        <span className="text-xs truncate" style={{ color: "rgba(180,200,230,0.45)" }}>{s.author || "—"}</span>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => setViewTsol(s)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Просмотр">
+                            <Icon name="Eye" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
+                          </button>
+                          <button onClick={() => openEditTsol(s)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Редактировать">
+                            <Icon name="Pencil" size={13} style={{ color: "rgba(180,200,230,0.5)" }} />
+                          </button>
+                          <button onClick={() => setDeleteTsolId(s.id)} className="p-1.5 rounded-lg transition-all hover:bg-red-500/10" title="Удалить">
+                            <Icon name="Trash2" size={13} style={{ color: "rgba(248,113,113,0.5)" }} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
+
+      {/* ── Tech Solution Create/Edit Dialog ── */}
+      <Dialog open={tsolDialogOpen} onOpenChange={(o) => { if (!o) setTsolDialogOpen(false); }}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
+          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
+            <DialogTitle className="text-white flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)" }}>
+                <Icon name="Lightbulb" size={15} style={{ color: "#a78bfa" }} />
+              </div>
+              {editingTsol ? "Редактировать решение" : "Новое техническое решение"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 py-5 space-y-5">
+            {/* ID + Name */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID решения *</Label>
+                <Input value={tsolForm.id} onChange={(e) => setTsolForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
+                <Input value={tsolForm.version} onChange={(e) => setTsolForm((f) => ({ ...f, version: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название *</Label>
+              <Input value={tsolForm.name} onChange={(e) => setTsolForm((f) => ({ ...f, name: e.target.value }))} placeholder="Название технического решения" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
+              <textarea
+                value={tsolForm.description}
+                onChange={(e) => setTsolForm((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+                className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none"
+                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                placeholder="Описание технического решения..."
+              />
+            </div>
+            {/* Status + Author */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
+                <select value={tsolForm.status} onChange={(e) => setTsolForm((f) => ({ ...f, status: e.target.value as TechSolutionStatus }))} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}>
+                  {TECH_SOLUTION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Автор</Label>
+                <Input value={tsolForm.author} onChange={(e) => setTsolForm((f) => ({ ...f, author: e.target.value }))} placeholder="Имя автора" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+              </div>
+            </div>
+            {/* Tags */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
+              <div className="flex gap-2">
+                <Input value={tsolTagInput} onChange={(e) => setTsolTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTsolTag(tsolTagInput); } }} placeholder="Введите тег и нажмите Enter" className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <button type="button" onClick={() => addTsolTag(tsolTagInput)} className="px-3 rounded-lg text-sm" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>+</button>
+              </div>
+              {tsolForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {tsolForm.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.8)", border: "1px solid rgba(99,176,255,0.15)" }}>
+                      #{tag}
+                      <button type="button" onClick={() => setTsolForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} style={{ color: "rgba(99,176,255,0.5)" }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Technologies */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
+                Технологии
+                {tsolForm.technology_ids.length > 0 && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(99,176,255,0.12)", color: "#63b0ff" }}>{tsolForm.technology_ids.length}</span>}
+              </Label>
+              <div className="relative">
+                <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={tsolTechSearch} onChange={(e) => setTsolTechSearch(e.target.value)} placeholder="Поиск технологий..." className="pl-7 text-xs" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              </div>
+              <div className="rounded-lg overflow-hidden max-h-40 overflow-y-auto space-y-px" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                {technologies.filter((t) => !tsolTechSearch || t.name.toLowerCase().includes(tsolTechSearch.toLowerCase()) || t.id.toLowerCase().includes(tsolTechSearch.toLowerCase())).map((t) => {
+                  const linked = tsolForm.technology_ids.includes(t.id);
+                  return (
+                    <button key={t.id} type="button" onClick={() => setTsolForm((f) => ({ ...f, technology_ids: linked ? f.technology_ids.filter((x) => x !== t.id) : [...f.technology_ids, t.id] }))} className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-white/5" style={{ background: linked ? "rgba(99,176,255,0.06)" : "transparent" }}>
+                      <div className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0" style={{ background: linked ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${linked ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                        {linked && <Icon name="Check" size={9} style={{ color: "#63b0ff" }} />}
+                      </div>
+                      <span className="text-xs flex-1 truncate" style={{ color: linked ? "rgba(210,225,245,0.95)" : "rgba(210,225,245,0.7)" }}>{t.name}</span>
+                      <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
+                    </button>
+                  );
+                })}
+                {technologies.length === 0 && <div className="px-3 py-3 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Нет технологий</div>}
+              </div>
+            </div>
+            {/* Related solutions */}
+            <div className="space-y-2">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>
+                Связанные решения
+                {tsolForm.related_solution_ids.length > 0 && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa" }}>{tsolForm.related_solution_ids.length}</span>}
+              </Label>
+              <div className="relative">
+                <Icon name="Search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                <Input value={tsolRelSearch} onChange={(e) => setTsolRelSearch(e.target.value)} placeholder="Поиск решений..." className="pl-7 text-xs" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+              </div>
+              <div className="rounded-lg overflow-hidden max-h-40 overflow-y-auto space-y-px" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                {techSolutions.filter((s) => s.id !== tsolForm.id && (!tsolRelSearch || s.name.toLowerCase().includes(tsolRelSearch.toLowerCase()) || s.id.toLowerCase().includes(tsolRelSearch.toLowerCase()))).map((s) => {
+                  const linked = tsolForm.related_solution_ids.includes(s.id);
+                  const sm = TECH_SOLUTION_STATUS_META[s.status];
+                  return (
+                    <button key={s.id} type="button" onClick={() => setTsolForm((f) => ({ ...f, related_solution_ids: linked ? f.related_solution_ids.filter((x) => x !== s.id) : [...f.related_solution_ids, s.id] }))} className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-white/5" style={{ background: linked ? "rgba(167,139,250,0.06)" : "transparent" }}>
+                      <div className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0" style={{ background: linked ? "rgba(167,139,250,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${linked ? "rgba(167,139,250,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                        {linked && <Icon name="Check" size={9} style={{ color: "#a78bfa" }} />}
+                      </div>
+                      <span className="text-xs flex-1 truncate" style={{ color: linked ? "rgba(210,225,245,0.95)" : "rgba(210,225,245,0.7)" }}>{s.name}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: sm.bg, color: sm.color }}>{s.status}</span>
+                    </button>
+                  );
+                })}
+                {techSolutions.filter((s) => s.id !== tsolForm.id).length === 0 && <div className="px-3 py-3 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Нет других решений</div>}
+              </div>
+            </div>
+            {tsolSaveError && <p className="text-xs" style={{ color: "#f87171" }}>{tsolSaveError}</p>}
+          </div>
+          <div className="px-6 pb-6 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setTsolDialogOpen(false)} style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}>Отмена</Button>
+            <Button className="flex-1 font-medium" onClick={handleSaveTsol} disabled={tsolSaving} style={{ background: "linear-gradient(135deg, #a78bfa 0%, #63b0ff 100%)", color: "white" }}>
+              {tsolSaving ? <><Icon name="Loader" size={14} className="animate-spin mr-2" />Сохранение...</> : editingTsol ? "Сохранить" : "Создать"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Tech Solution Delete Confirm ── */}
+      <Dialog open={!!deleteTsolId} onOpenChange={(o) => { if (!o) setDeleteTsolId(null); }}>
+        <DialogContent className="sm:max-w-sm border" style={{ background: "#0d1528", borderColor: "rgba(255,255,255,0.08)" }}>
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Icon name="AlertTriangle" size={18} style={{ color: "#f87171" }} />
+              Удалить решение?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm px-6 pb-2" style={{ color: "rgba(180,200,230,0.6)" }}>
+            Это действие необратимо. Решение <span className="font-mono text-white">{deleteTsolId}</span> будет удалено.
+          </p>
+          <div className="flex gap-3 px-6 pb-6">
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteTsolId(null)} style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }}>Отмена</Button>
+            <Button className="flex-1" onClick={() => deleteTsolId && handleDeleteTsol(deleteTsolId)} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}>Удалить</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Tech Solution Full View Sheet ── */}
+      <Sheet open={!!viewTsol} onOpenChange={(o) => { if (!o) setViewTsol(null); }}>
+        <SheetContent side="right" className="p-0 border-l flex flex-col" style={{ background: "#080f1e", borderColor: "rgba(255,255,255,0.08)", width: "min(860px, 95vw)", maxWidth: "none" }}>
+          {viewTsol && (() => {
+            const sm = TECH_SOLUTION_STATUS_META[viewTsol.status];
+            const linkedTechs = technologies.filter((t) => (viewTsol.technology_ids || []).includes(t.id));
+            const relatedSolutions = techSolutions.filter((s) => (viewTsol.related_solution_ids || []).includes(s.id));
+            const linkedTechIds = linkedTechs.map((t) => t.id);
+            const linkedReqs = reqs.filter((r) => linkedTechIds.includes(r.technology_id));
+            return (
+              <div className="flex flex-col h-full overflow-hidden">
+                {/* Header */}
+                <SheetHeader className="px-6 pt-6 pb-5 border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>{viewTsol.id}</span>
+                        <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewTsol.version}</span>
+                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                          <Icon name={sm.icon} size={11} />{viewTsol.status}
+                        </span>
+                      </div>
+                      <SheetTitle className="text-xl font-semibold text-white leading-snug">{viewTsol.name}</SheetTitle>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { setViewTsol(null); openEditTsol(viewTsol); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", color: "#a78bfa" }}>
+                        <Icon name="Pencil" size={12} /> Редактировать
+                      </button>
+                      <button onClick={() => { setDeleteTsolId(viewTsol.id); setViewTsol(null); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+                        <Icon name="Trash2" size={12} /> Удалить
+                      </button>
+                    </div>
+                  </div>
+                </SheetHeader>
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                  {/* Meta grid */}
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                    {[
+                      { label: "Автор", value: viewTsol.author || "—" },
+                      { label: "Технический домен", value: viewTsol.tech_domain || "—" },
+                      { label: "Дата создания", value: viewTsol.created_at ? new Date(viewTsol.created_at).toLocaleDateString("ru-RU") : "—" },
+                      { label: "Дата редактирования", value: viewTsol.updated_at ? new Date(viewTsol.updated_at).toLocaleDateString("ru-RU") : "—" },
+                    ].map((item) => (
+                      <div key={item.label}>
+                        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>{item.label}</div>
+                        <div className="text-sm" style={{ color: "rgba(210,225,245,0.85)" }}>{item.value}</div>
+                      </div>
+                    ))}
+                    {/* Согласование */}
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Согласован с ИБ</div>
+                      <span className={`flex items-center gap-1.5 text-xs w-fit px-2 py-0.5 rounded ${viewTsol.approved_ib ? "" : ""}`} style={{ background: viewTsol.approved_ib ? "rgba(34,197,94,0.1)" : "rgba(107,114,128,0.1)", color: viewTsol.approved_ib ? "#22c55e" : "#6b7280", border: `1px solid ${viewTsol.approved_ib ? "rgba(34,197,94,0.25)" : "rgba(107,114,128,0.2)"}` }}>
+                        <Icon name={viewTsol.approved_ib ? "ShieldCheck" : "ShieldOff"} size={11} />
+                        {viewTsol.approved_ib ? "Согласован" : "Не согласован"}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>Согласован с ИТ</div>
+                      <span className="flex items-center gap-1.5 text-xs w-fit px-2 py-0.5 rounded" style={{ background: viewTsol.approved_it ? "rgba(99,176,255,0.1)" : "rgba(107,114,128,0.1)", color: viewTsol.approved_it ? "#63b0ff" : "#6b7280", border: `1px solid ${viewTsol.approved_it ? "rgba(99,176,255,0.25)" : "rgba(107,114,128,0.2)"}` }}>
+                        <Icon name={viewTsol.approved_it ? "Server" : "ServerOff"} size={11} />
+                        {viewTsol.approved_it ? "Согласован" : "Не согласован"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {viewTsol.description && (
+                    <div>
+                      <div className="text-xs font-medium mb-2" style={{ color: "rgba(180,200,230,0.5)" }}>Описание</div>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.75)" }}>{viewTsol.description}</p>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {viewTsol.tags && viewTsol.tags.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium mb-2" style={{ color: "rgba(180,200,230,0.5)" }}>Теги</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {viewTsol.tags.map((tag) => (
+                          <span key={tag} className="text-[11px] px-2 py-0.5 rounded-full font-mono" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)", border: "1px solid rgba(99,176,255,0.15)" }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attachments / Mermaid */}
+                  {viewTsol.attachments && viewTsol.attachments.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Приложения и схемы</div>
+                      <div className="space-y-2">
+                        {viewTsol.attachments.map((att) => (
+                          <div key={att.id}>
+                            {att.type === "mermaid" ? (
+                              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                                <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                  <span className="text-xs font-medium text-white">{att.name}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}>mermaid</span>
+                                </div>
+                                <div className="p-4">
+                                  <MermaidViewer chart={att.content} />
+                                </div>
+                              </div>
+                            ) : att.type === "link" ? (
+                              <a href={att.content} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-white/5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                <Icon name="Link" size={14} style={{ color: "#63b0ff" }} />
+                                <span className="text-sm text-white">{att.name}</span>
+                                <span className="text-xs ml-auto truncate max-w-xs" style={{ color: "rgba(99,176,255,0.6)" }}>{att.content}</span>
+                              </a>
+                            ) : (
+                              <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                <Icon name="Paperclip" size={14} style={{ color: "rgba(180,200,230,0.5)" }} />
+                                <span className="text-sm text-white">{att.name}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add attachments in view */}
+                  <div>
+                    <div className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Добавить схему / ссылку</div>
+                    <div className="rounded-xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex gap-2">
+                        {(["link", "mermaid", "file"] as AttachmentType[]).map((tab) => (
+                          <button key={tab} type="button" onClick={() => { setTsolAttachTab(tab); setTsolAttachDraft({ type: tab, name: "", content: "" }); }} className="text-xs px-3 py-1.5 rounded-lg transition-all" style={{ background: tsolAttachTab === tab ? "rgba(99,176,255,0.12)" : "rgba(255,255,255,0.04)", color: tsolAttachTab === tab ? "#63b0ff" : "rgba(180,200,230,0.5)", border: `1px solid ${tsolAttachTab === tab ? "rgba(99,176,255,0.3)" : "rgba(255,255,255,0.06)"}` }}>
+                            {tab === "link" ? "Ссылка" : tab === "mermaid" ? "Mermaid" : "Файл"}
+                          </button>
+                        ))}
+                      </div>
+                      <Input value={tsolAttachDraft.name} onChange={(e) => setTsolAttachDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Название" className="text-xs" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+                      {tsolAttachTab === "mermaid" ? (
+                        <textarea value={tsolAttachDraft.content} onChange={(e) => setTsolAttachDraft((d) => ({ ...d, content: e.target.value }))} rows={4} className="w-full rounded-lg px-3 py-2 text-xs outline-none resize-none font-mono" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} placeholder="graph TD&#10;  A --> B" />
+                      ) : (
+                        <Input value={tsolAttachDraft.content} onChange={(e) => setTsolAttachDraft((d) => ({ ...d, content: e.target.value }))} placeholder={tsolAttachTab === "link" ? "https://..." : "Содержимое"} className="text-xs" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
+                      )}
+                      <button type="button" onClick={() => { addTsolAttachment(); setViewTsol((prev) => prev ? { ...prev, attachments: [...(prev.attachments||[]), { id: `att-${Date.now()}`, ...tsolAttachDraft }] } : prev); }} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>
+                        Добавить
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Linked Technologies */}
+                  <div>
+                    <div className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Связанные технологии ({linkedTechs.length})</div>
+                    {linkedTechs.length === 0 ? (
+                      <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Технологии не привязаны</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {linkedTechs.map((t) => {
+                          const tsm = TECH_SOLUTION_STATUS_META[t.status as TechSolutionStatus] || TECH_SOLUTION_STATUS_META["В разработке"];
+                          return (
+                            <div key={t.id} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                              <Icon name="Cpu" size={12} style={{ color: "#63b0ff" }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-white truncate">{t.name}</div>
+                                <div className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Related Solutions */}
+                  {relatedSolutions.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Связанные решения ({relatedSolutions.length})</div>
+                      <div className="space-y-2">
+                        {relatedSolutions.map((rs) => {
+                          const rsm = TECH_SOLUTION_STATUS_META[rs.status];
+                          return (
+                            <button key={rs.id} type="button" onClick={() => setViewTsol(rs)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-white/5" style={{ background: "rgba(167,139,250,0.03)", border: "1px solid rgba(167,139,250,0.12)" }}>
+                              <Icon name="Lightbulb" size={13} style={{ color: "#a78bfa" }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-white truncate">{rs.name}</div>
+                                <div className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>{rs.id}</div>
+                              </div>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ background: rsm.bg, color: rsm.color }}>{rs.status}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Requirements from linked technologies */}
+                  <div>
+                    <div className="text-xs font-medium mb-3" style={{ color: "rgba(180,200,230,0.5)" }}>Требования из связанных технологий ({linkedReqs.length})</div>
+                    {linkedReqs.length === 0 ? (
+                      <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Требования не найдены</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {linkedReqs.map((r) => {
+                          const rsm = REQ_STATUS_META[r.status] || REQ_STATUS_META["В разработке"];
+                          const rcm = REQ_CRITICALITY_META[r.criticality] || REQ_CRITICALITY_META["Средний"];
+                          return (
+                            <div key={r.id} className="flex items-start gap-3 px-3 py-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                              <Icon name="FileCheck" size={12} className="mt-0.5 shrink-0" style={{ color: "rgba(245,158,11,0.6)" }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-white truncate">{r.name}</div>
+                                <div className="text-[10px] font-mono mt-0.5" style={{ color: "rgba(180,200,230,0.35)" }}>{r.id}</div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: rsm.bg, color: rsm.color }}>{r.status}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: rcm.bg, color: rcm.color }}>{r.criticality}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
 
       {/* ── Requirement Create/Edit Dialog ── */}
       <Dialog open={reqDialogOpen} onOpenChange={(o) => { if (!o) setReqDialogOpen(false); }}>

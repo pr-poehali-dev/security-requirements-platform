@@ -5,7 +5,16 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"technologies": []},
+      "expectedBody": {"section_description": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "PATCH section_description",
+      "method": "PATCH",
+      "path": "/?mode=settings",
+      "body": {"section_description": "Тест описания"},
+      "expectedStatus": 200,
+      "expectedBody": {"section_description": "Тест описания"},
       "bodyMatcher": "partial"
     }
   ]
