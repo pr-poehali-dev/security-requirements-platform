@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -451,8 +452,8 @@ const complianceData = [
 export default function Index() {
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
-  // cloud = сервисная БД (платформа poehali.dev), local = внешняя PostgreSQL (Docker)
-  const [dbMode, setDbMode] = useState<DbMode>(() => (localStorage.getItem("sa_dbMode") as DbMode) || "cloud");
+  // cloud = сервисная БД (платформа poehali.dev), local = локальный Docker
+  const [dbMode, setDbMode] = useState<DbMode>(() => getApiMode());
   const [dbExternalConnected, setDbExternalConnected] = useState(false);
   const [dbExternalVersion, setDbExternalVersion] = useState("");
   const [dbConfig, setDbConfig] = useState<DbConfig>(() => {
@@ -462,7 +463,9 @@ export default function Index() {
     } catch { /* ignore */ }
     return { host: "localhost", port: "5432", name: "securearch", user: "postgres", password: "" };
   });
-  const [pendingMode, setPendingMode] = useState<DbMode>("cloud");
+  const [localBase, setLocalBaseState] = useState<string>(() => getLocalBase());
+  const [pendingMode, setPendingMode] = useState<DbMode>(() => getApiMode());
+  const [pendingLocalBase, setPendingLocalBase] = useState<string>(() => getLocalBase());
   const [skipCheck, setSkipCheck] = useState(false);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "ok" | "error">("idle");
   const [checkError, setCheckError] = useState("");
@@ -501,7 +504,7 @@ export default function Index() {
   const [libIntWithoutIodFilter, setLibIntWithoutIodFilter] = useState("Все");
 
   // Domains state
-  const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
+  const DOMAINS_API = getApiUrl("domains");
   const [domains, setDomains] = useState<OrgDomain[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [sectionDesc, setSectionDesc] = useState("Реестр организационных доменов безопасности — создание, редактирование и управление статусами");
@@ -627,7 +630,7 @@ export default function Index() {
   );
 
   // ── Tech Domains state ──────────────────────────────────────────
-  const TECH_DOMAINS_API = "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246";
+  const TECH_DOMAINS_API = getApiUrl("tech-domains");
   const [techDomains, setTechDomains] = useState<TechDomain[]>([]);
   const [techOrgRefs, setTechOrgRefs] = useState<OrgDomainRef[]>([]);
   const [techLoading, setTechLoading] = useState(false);
@@ -776,7 +779,7 @@ export default function Index() {
   };
   const TECH_STATUSES: TechStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
 
-  const TECHNOLOGIES_API = "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8";
+  const TECHNOLOGIES_API = getApiUrl("technologies");
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [techDomainRefs, setTechDomainRefs] = useState<TechDomainRef[]>([]);
   const [techSectionDesc2, setTechSectionDesc2] = useState("Реестр технологий ИБ — JWT, OAuth 2.0, шифрование, контейнеризация и другие технические решения");
@@ -993,7 +996,7 @@ export default function Index() {
   );
 
   // ── Requirements state ──────────────────────────────────────────
-  const REQUIREMENTS_API = "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177";
+  const REQUIREMENTS_API = getApiUrl("requirements");
   const [reqs, setReqs] = useState<Req[]>([]);
   const [reqTechRefs, setReqTechRefs] = useState<{ id: string; name: string }[]>([]);
   const [reqTechDomainRefs, setReqTechDomainRefs] = useState<{ id: string; name: string }[]>([]);
@@ -1150,7 +1153,7 @@ export default function Index() {
   });
 
   // ── Tech Solutions state ─────────────────────────────────────────
-  const TECH_SOLUTIONS_API = "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2";
+  const TECH_SOLUTIONS_API = getApiUrl("tech-solutions");
   const [techSolutions, setTechSolutions] = useState<TechSolution[]>([]);
   const [tsolLoading, setTsolLoading] = useState(false);
   const [tsolSectionDesc, setTsolSectionDesc] = useState("Реестр технических решений — архитектурные и проектные решения, согласованные с ИБ и ИТ");
@@ -1297,7 +1300,7 @@ export default function Index() {
   // ─────────────────────────────────────────────────────────────────
 
   // ── Hardening state ──────────────────────────────────────────────
-  const HARDENING_API = "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf";
+  const HARDENING_API = getApiUrl("hardening");
   const [hardenings, setHardenings] = useState<Hardening[]>([]);
   const [hardLoading, setHardLoading] = useState(false);
   const [hardSectionDesc, setHardSectionDesc] = useState("Реестр харденингов технических решений — настройки безопасности развёртывания и функционала");
@@ -1427,7 +1430,7 @@ export default function Index() {
     return matchQ && matchStatus && matchTag && matchTsol;
   });
   // ── ArchTemplates state ───────────────────────────────────────────
-  const ARCH_TEMPLATES_API = "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa";
+  const ARCH_TEMPLATES_API = getApiUrl("arch-templates");
   const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
   const [archLoading, setArchLoading] = useState(false);
   const [archSectionDesc, setArchSectionDesc] = useState("Реестр типовых архитектур безопасности — шаблоны для проектирования защищённых систем");
@@ -1584,7 +1587,7 @@ export default function Index() {
   // ─────────────────────────────────────────────────────────────────
 
   // ── Products state ────────────────────────────────────────────────
-  const PRODUCTS_API = "https://functions.poehali.dev/83496f55-f31c-499a-8d22-618295a6da0f";
+  const PRODUCTS_API = getApiUrl("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [prodLoading, setProdLoading] = useState(false);
   const [prodSectionDesc, setProdSectionDesc] = useState("Реестр бизнес-продуктов — привязка к типовым архитектурам безопасности и требованиям");
@@ -1718,6 +1721,7 @@ export default function Index() {
 
   const handleOpenDialog = () => {
     setPendingMode(dbMode);
+    setPendingLocalBase(localBase);
     setCheckState("idle");
     setCheckError("");
     setSkipCheck(false);
@@ -1728,7 +1732,7 @@ export default function Index() {
     setCheckState("checking");
     setCheckError("");
     try {
-      const res = await fetch("https://functions.poehali.dev/5622928b-26f7-4ee8-b41f-03e43463dcc9", {
+      const res = await fetch(getApiUrl("db-check"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dbConfig),
@@ -1749,8 +1753,10 @@ export default function Index() {
 
   const handleDbSave = () => {
     if (pendingMode === "local" && !skipCheck && checkState !== "ok") return;
+    setApiMode(pendingMode as ApiMode);
+    setLocalBase(pendingLocalBase);
+    setLocalBaseState(pendingLocalBase);
     setDbMode(pendingMode);
-    localStorage.setItem("sa_dbMode", pendingMode);
     localStorage.setItem("sa_dbConfig", JSON.stringify(dbConfig));
     if (pendingMode === "cloud") {
       setDbExternalConnected(false);
@@ -1761,22 +1767,36 @@ export default function Index() {
     setDbDialogOpen(false);
   };
 
-  const API_ENDPOINTS = [
-    { key: "domains",       label: "Орг. домены",       url: "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177" },
-    { key: "tech-domains",  label: "Тех. домены",        url: "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246" },
-    { key: "technologies",  label: "Технологии",         url: "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8" },
-    { key: "requirements",  label: "Требования",         url: "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177" },
-    { key: "tech-solutions",label: "Тех. решения",       url: "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2" },
-    { key: "hardening",     label: "Харденинг",          url: "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf" },
-    { key: "arch-templates",label: "Типовые архитектуры",url: "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa" },
-    { key: "products",      label: "Продукты",           url: "https://functions.poehali.dev/83496f55-f31c-499a-8d22-618295a6da0f" },
-    { key: "db-check",      label: "Проверка БД",        url: "https://functions.poehali.dev/5622928b-26f7-4ee8-b41f-03e43463dcc9" },
-  ];
+  const API_ENDPOINT_LABELS: Record<string, string> = {
+    "domains":        "Орг. домены",
+    "tech-domains":   "Тех. домены",
+    "technologies":   "Технологии",
+    "requirements":   "Требования",
+    "tech-solutions": "Тех. решения",
+    "hardening":      "Харденинг",
+    "arch-templates": "Типовые архитектуры",
+    "products":       "Продукты",
+    "db-check":       "Проверка БД",
+  };
+  const API_ENDPOINT_KEYS = Object.keys(API_ENDPOINT_LABELS) as (keyof typeof API_ENDPOINT_LABELS)[];
+  const getApiEndpoints = useCallback((base?: string) =>
+    API_ENDPOINT_KEYS.map((key) => ({
+      key,
+      label: API_ENDPOINT_LABELS[key],
+      url: base
+        ? `${base.replace(/\/$/, "")}/${key}`
+        : getApiUrl(key as Parameters<typeof getApiUrl>[0]),
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [localBase, dbMode]
+  );
 
   const runDiagnostics = async () => {
     setDiagRunning(true);
     setDiagResults({});
-    for (const ep of API_ENDPOINTS) {
+    const diagBase = pendingMode === "local" ? pendingLocalBase : undefined;
+    const endpoints = getApiEndpoints(diagBase);
+    for (const ep of endpoints) {
       setDiagResults((prev) => ({ ...prev, [ep.key]: { status: "checking" } }));
       const t0 = Date.now();
       try {
@@ -9963,10 +9983,26 @@ export default function Index() {
               </div>
             </div>
 
-            {/* ── Конфиг внешней БД (только для Docker режима) ── */}
+            {/* ── Конфиг локального режима ── */}
             {pendingMode === "local" && (
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(139,92,246,0.7)" }}>Подключение к PostgreSQL</p>
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(139,92,246,0.7)" }}>Базовый URL локального сервера</p>
+                <div>
+                  <label className="block text-[10px] mb-1" style={{ color: "rgba(180,200,230,0.45)" }}>
+                    Адрес, по которому доступны функции (например <span className="font-mono">http://localhost:8000</span>)
+                  </label>
+                  <input
+                    value={pendingLocalBase}
+                    onChange={(e) => setPendingLocalBase(e.target.value)}
+                    placeholder={DEFAULT_LOCAL_BASE}
+                    className="w-full text-xs px-3 py-2 rounded-lg outline-none font-mono"
+                    style={{ background: "rgba(10,17,35,0.9)", border: "1px solid rgba(139,92,246,0.25)", color: "white" }}
+                  />
+                  <p className="mt-1 text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>
+                    Запросы будут идти на: <span className="font-mono">{pendingLocalBase || DEFAULT_LOCAL_BASE}/domains</span>, <span className="font-mono">/products</span>, …
+                  </p>
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-wider pt-1" style={{ color: "rgba(139,92,246,0.7)" }}>Подключение к PostgreSQL</p>
                 <div className="grid grid-cols-2 gap-3">
                   {([
                     { field: "host" as const, label: "Хост", placeholder: "localhost" },
@@ -10040,10 +10076,13 @@ export default function Index() {
                 </button>
               </div>
               <div className="space-y-1.5">
-                {API_ENDPOINTS.map((ep) => {
+                {getApiEndpoints(pendingMode === "local" ? pendingLocalBase : undefined).map((ep) => {
                   const r = diagResults[ep.key];
                   const statusColor = !r ? "rgba(180,200,230,0.2)" : r.status === "ok" ? "#22c55e" : r.status === "error" ? "#ef4444" : "#fbbf24";
                   const statusIcon = !r ? "Minus" : r.status === "ok" ? "CheckCircle2" : r.status === "error" ? "XCircle" : "Loader";
+                  const shortUrl = pendingMode === "local"
+                    ? ep.url.replace(pendingLocalBase || DEFAULT_LOCAL_BASE, "…")
+                    : ep.url.replace("https://functions.poehali.dev/", "…/");
                   return (
                     <div key={ep.key} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
                       <Icon name={statusIcon} size={13} style={{ color: statusColor, flexShrink: 0 }} className={r?.status === "checking" ? "animate-spin" : ""} />
@@ -10055,7 +10094,7 @@ export default function Index() {
                         <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.3)" }}>{r.detail}</span>
                       )}
                       <span className="text-[9px] font-mono truncate max-w-[180px]" style={{ color: "rgba(180,200,230,0.18)" }}>
-                        {ep.url.replace("https://functions.poehali.dev/", "…/")}
+                        {shortUrl}
                       </span>
                     </div>
                   );
