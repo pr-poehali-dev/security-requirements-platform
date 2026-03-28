@@ -45,15 +45,14 @@ services:
       retries: 5
 
   # ─── Frontend (React / Vite → nginx) ─────────────────────────
-  # ВАЖНО: VITE_API_BASE должен быть адресом, доступным из БРАУЗЕРА пользователя.
-  # Браузер на хосте → nginx (порт 80) → /api/* проксируется → backend:8000
-  # Поэтому API-запросы идут через тот же порт 80, на /api/...
+  # VITE_API_BASE — адрес бэкенда, доступный из браузера пользователя на хосте.
+  # Браузер → localhost:8000 (порт проброшен в docker-compose).
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        VITE_API_BASE: ""
+        VITE_API_BASE: http://localhost:8000
     container_name: securearch_frontend
     restart: unless-stopped
     ports:

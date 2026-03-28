@@ -10,9 +10,10 @@ RUN bun install --frozen-lockfile || bun install
 
 COPY . .
 
-# VITE_API_BASE пустая строка → фронтенд использует относительные пути /api/...
-# которые nginx проксирует на backend:8000
-ARG VITE_API_BASE=""
+# VITE_API_BASE встраивается в JS-бандл на этапе сборки.
+# Браузер пользователя обращается на этот адрес напрямую.
+# По умолчанию: http://localhost:8000 (порт бэкенда, проброшен на хост).
+ARG VITE_API_BASE=http://localhost:8000
 ENV VITE_API_BASE=$VITE_API_BASE
 
 RUN bun run build
@@ -22,21 +23,11 @@ FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# SPA-роутинг + прокси /api/* → backend:8000
+# Только SPA-роутинг — без прокси на бэкенд
 RUN printf 'server {\n\
     listen 80;\n\
     root /usr/share/nginx/html;\n\
     index index.html;\n\
-\n\
-    # Проксируем API-запросы на бэкенд\n\
-    location /api/ {\n\
-        proxy_pass http://backend:8000/api/;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
-        proxy_read_timeout 30s;\n\
-    }\n\
-\n\
-    # SPA: все остальные пути отдаём index.html\n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
     }\n\
