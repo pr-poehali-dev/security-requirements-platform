@@ -1454,6 +1454,9 @@ export default function Index() {
   const [viewArchReqSearch, setViewArchReqSearch] = useState("");
   const [viewArchReqFilterLevel, setViewArchReqFilterLevel] = useState("Все");
   const [viewArchReqFilterCat, setViewArchReqFilterCat] = useState("Все");
+  const [viewArchReqFilterStatus, setViewArchReqFilterStatus] = useState("Все");
+  const [viewArchReqFilterEnv, setViewArchReqFilterEnv] = useState("Все");
+  const [viewArchReqFilterStage, setViewArchReqFilterStage] = useState("Все");
 
   const makeEmptyArchForm = (count: number): ArchTemplate => ({
     id: `ArchSec-${String(count + 1).padStart(3, "0")}`,
@@ -9268,9 +9271,32 @@ export default function Index() {
               const matchQ = !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q) || (r.req_type||"").toLowerCase().includes(q) || (r.description||"").toLowerCase().includes(q) || r.tags.some((t) => t.toLowerCase().includes(q));
               const matchLevel = viewArchReqFilterLevel === "Все" || r.criticality === viewArchReqFilterLevel;
               const matchCat = viewArchReqFilterCat === "Все" || r.req_type === viewArchReqFilterCat;
-              return matchQ && matchLevel && matchCat;
+              const matchStatus = viewArchReqFilterStatus === "Все" || r.status === viewArchReqFilterStatus;
+              const matchEnv = viewArchReqFilterEnv === "Все" || (r.environments||[]).includes(viewArchReqFilterEnv as ReqEnv);
+              const matchStage = viewArchReqFilterStage === "Все" || (r.stages||[]).includes(viewArchReqFilterStage as ReqStage);
+              return matchQ && matchLevel && matchCat && matchStatus && matchEnv && matchStage;
             });
             const reqCategories = [...new Set(uniqueReqs.map((r) => r.req_type).filter(Boolean))];
+            const reqStatuses = [...new Set(uniqueReqs.map((r) => r.status).filter(Boolean))];
+            const reqEnvs = [...new Set(uniqueReqs.flatMap((r) => r.environments||[]).filter(Boolean))];
+            const reqStages = [...new Set(uniqueReqs.flatMap((r) => r.stages||[]).filter(Boolean))];
+            const exportReqsCSV = () => {
+              const headers = ["ID","Название","Тип","Критичность","Статус","Описание","Метрика контроля","Описание контроля","Теги","Версия","Окружение","Стадии","Закупка","Внешн. с IOD","Внешн. без IOD","Внутр. с IOD","Внутр. без IOD","Ссылка на НД"];
+              const rows = filteredViewReqs.map((r) => [
+                r.id, r.name, r.req_type||"", r.criticality, r.status,
+                r.description||"", r.control_metric||"", r.control_description||"",
+                (r.tags||[]).join("; "), r.version||"",
+                (r.environments||[]).join("; "), (r.stages||[]).join("; "),
+                r.procurement||"", r.ext_with_iod||"", r.ext_without_iod||"",
+                r.int_with_iod||"", r.int_without_iod||"", r.norm_doc_link||""
+              ].map((v) => `"${String(v).replace(/"/g, '""')}"`));
+              const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+              const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `requirements_${viewArch?.id || "export"}.csv`; a.click();
+              URL.revokeObjectURL(url);
+            };
             return (
               <>
                 {/* Header */}
@@ -9439,17 +9465,48 @@ export default function Index() {
                               {reqCategories.map((c) => <option key={c} value={c}>{c}</option>)}
                             </select>
                           )}
+                          {reqStatuses.length > 0 && (
+                            <select value={viewArchReqFilterStatus} onChange={(e) => setViewArchReqFilterStatus(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterStatus === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                              <option value="Все">Все статусы</option>
+                              {reqStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          {reqEnvs.length > 0 && (
+                            <select value={viewArchReqFilterEnv} onChange={(e) => setViewArchReqFilterEnv(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterEnv === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                              <option value="Все">Все окружения</option>
+                              {reqEnvs.map((e) => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                          )}
+                          {reqStages.length > 0 && (
+                            <select value={viewArchReqFilterStage} onChange={(e) => setViewArchReqFilterStage(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none h-8" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: viewArchReqFilterStage === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                              <option value="Все">Все стадии</option>
+                              {reqStages.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          )}
+                          <button onClick={exportReqsCSV} className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-medium transition-colors" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>
+                            <Icon name="Download" size={12} />
+                            CSV ({filteredViewReqs.length})
+                          </button>
                         </div>
                         {/* Table */}
-                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                          <table className="w-full text-xs">
+                        <div className="rounded-xl overflow-x-auto" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <table className="w-full text-xs" style={{ minWidth: "900px" }}>
                             <thead>
                               <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>ID</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>ID</th>
                                 <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Название</th>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th>
-                                <th className="px-3 py-2.5 text-left font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Тип</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Критичность</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Статус</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Окружение</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Стадии</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Метрика контроля</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Внешн. с IOD</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Внешн. без IOD</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Внутр. с IOD</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Внутр. без IOD</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Версия</th>
+                                <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Теги</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -9460,17 +9517,50 @@ export default function Index() {
                                   "Средний": { color: "#fbbf24", bg: "rgba(245,158,11,0.1)" },
                                   "Низкий": { color: "#34d399", bg: "rgba(52,211,153,0.1)" },
                                 };
+                                const interactionMeta: Record<string, { color: string }> = {
+                                  "Обязательный": { color: "#f87171" },
+                                  "Рекомендуемый": { color: "#fbbf24" },
+                                  "Не требуется": { color: "rgba(180,200,230,0.4)" },
+                                  "Запрещено": { color: "#6b7280" },
+                                };
                                 const cm = critMeta[r.criticality] || { color: "#6b7280", bg: "rgba(107,114,128,0.1)" };
                                 const rsm = REQ_STATUS_META[r.status];
                                 return (
                                   <tr key={r.id} style={{ borderBottom: idx < filteredViewReqs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
-                                    <td className="px-3 py-2 font-mono" style={{ color: "#63b0ff" }}>{r.id}</td>
-                                    <td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)" }}>{r.name}</td>
-                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.55)" }}>{r.req_type || "—"}</td>
-                                    <td className="px-3 py-2">
+                                    <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: "#63b0ff" }}>{r.id}</td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(210,225,245,0.8)", minWidth: "200px" }}>{r.name}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: "rgba(180,200,230,0.55)" }}>{r.req_type || "—"}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">
                                       <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: cm.bg, color: cm.color }}>{r.criticality}</span>
                                     </td>
-                                    <td className="px-3 py-2">{rsm ? <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded w-fit" style={{ background: `${rsm.color}12`, color: rsm.color }}><Icon name={rsm.icon} size={9} />{r.status}</span> : <span style={{ color: "rgba(180,200,230,0.4)" }}>—</span>}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{rsm ? <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded w-fit" style={{ background: `${rsm.color}12`, color: rsm.color }}><Icon name={rsm.icon} size={9} />{r.status}</span> : <span style={{ color: "rgba(180,200,230,0.4)" }}>—</span>}</td>
+                                    <td className="px-3 py-2">
+                                      {(r.environments||[]).length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(r.environments||[]).map((env) => <span key={env} className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(99,176,255,0.08)", color: "rgba(99,176,255,0.7)" }}>{env}</span>)}
+                                        </div>
+                                      ) : <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {(r.stages||[]).length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(r.stages||[]).map((st) => <span key={st} className="px-1 py-0.5 rounded text-[10px] whitespace-nowrap" style={{ background: "rgba(167,139,250,0.08)", color: "rgba(167,139,250,0.7)" }}>{st}</span>)}
+                                        </div>
+                                      ) : <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}
+                                    </td>
+                                    <td className="px-3 py-2" style={{ color: "rgba(180,200,230,0.6)", maxWidth: "160px" }}>{r.control_metric || <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: interactionMeta[r.ext_with_iod]?.color || "rgba(180,200,230,0.3)" }}>{r.ext_with_iod || "—"}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: interactionMeta[r.ext_without_iod]?.color || "rgba(180,200,230,0.3)" }}>{r.ext_without_iod || "—"}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: interactionMeta[r.int_with_iod]?.color || "rgba(180,200,230,0.3)" }}>{r.int_with_iod || "—"}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: interactionMeta[r.int_without_iod]?.color || "rgba(180,200,230,0.3)" }}>{r.int_without_iod || "—"}</td>
+                                    <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: "rgba(180,200,230,0.4)" }}>{r.version || "—"}</td>
+                                    <td className="px-3 py-2">
+                                      {(r.tags||[]).length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(r.tags||[]).map((tag) => <span key={tag} className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(52,211,153,0.07)", color: "rgba(52,211,153,0.6)" }}>{tag}</span>)}
+                                        </div>
+                                      ) : <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}
+                                    </td>
                                   </tr>
                                 );
                               })}
