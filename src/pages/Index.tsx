@@ -729,7 +729,7 @@ export default function Index() {
   };
 
   const loadExistingTechNames = async () => {
-    const res = await fetch(`${TECHNOLOGIES_API}/names`);
+    const res = await fetch(`${TECHNOLOGIES_API}?mode=names`);
     const data = await res.json();
     setExistingTechNames(data.names || []);
   };
