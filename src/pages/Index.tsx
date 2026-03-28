@@ -8825,9 +8825,18 @@ export default function Index() {
 
                   {/* Requirements table from linked tech solutions */}
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
-                      Требования из связанных технических решений
-                      {uniqueReqs.length > 0 && <span className="ml-2 normal-case text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>({uniqueReqs.length} всего)</span>}
+                    <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(180,200,230,0.35)" }}>
+                      Требования
+                      {uniqueReqs.length > 0 && <span className="ml-2 normal-case text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>({uniqueReqs.length})</span>}
+                    </div>
+                    <div className="mb-3 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(52,211,153,0.07)", color: "rgba(52,211,153,0.6)" }}>архитектура</span>
+                      <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>техрешения</span>
+                      <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>технологии</span>
+                      <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>→</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>требования</span>
                     </div>
                     {uniqueReqs.length === 0 ? (
                       <p className="text-xs" style={{ color: "rgba(180,200,230,0.3)" }}>Требования появятся после привязки технических решений с заполненными технологиями</p>
