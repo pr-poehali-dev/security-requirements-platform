@@ -1174,6 +1174,10 @@ export default function Index() {
     }
   };
 
+  const [solSectionDesc, setSolSectionDesc] = useState("Архитектурные паттерны и конфигурации на базе технологий ИБ");
+  const [solSectionDescEditing, setSolSectionDescEditing] = useState(false);
+  const [solSectionDescDraft, setSolSectionDescDraft] = useState(solSectionDesc);
+
   const filteredSolutions = solutions.filter((s) =>
     s.name.toLowerCase().includes(solSearch.toLowerCase()) ||
     s.id.toLowerCase().includes(solSearch.toLowerCase()) ||
@@ -2552,9 +2556,18 @@ export default function Index() {
                     </div>
                     <h1 className="text-2xl font-bold text-white">Технические решения</h1>
                   </div>
-                  <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>
-                    Архитектурные паттерны и конфигурации на базе технологий ИБ
-                  </p>
+                  {solSectionDescEditing ? (
+                    <div className="flex items-center gap-2">
+                      <Input value={solSectionDescDraft} onChange={(e) => setSolSectionDescDraft(e.target.value)} className="text-sm w-96" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                      <button onClick={() => { setSolSectionDesc(solSectionDescDraft); setSolSectionDescEditing(false); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>Сохранить</button>
+                      <button onClick={() => setSolSectionDescEditing(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(180,200,230,0.5)" }}>Отмена</button>
+                    </div>
+                  ) : (
+                    <button className="flex items-center gap-1.5 group" onClick={() => { setSolSectionDescDraft(solSectionDesc); setSolSectionDescEditing(true); }}>
+                      <p className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>{solSectionDesc}</p>
+                      <Icon name="Pencil" size={12} className="opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "rgba(180,200,230,0.5)" }} />
+                    </button>
+                  )}
                 </div>
                 <button
                   onClick={openCreateSol}
