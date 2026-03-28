@@ -3677,7 +3677,7 @@ export default function Index() {
                                   <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}>mermaid</span>
                                 </div>
                                 <div className="p-4">
-                                  <MermaidViewer chart={att.content} />
+                                  <MermaidViewer content={att.content} />
                                 </div>
                               </div>
                             ) : att.type === "link" ? (
@@ -7050,7 +7050,7 @@ export default function Index() {
                   />
                   <div className="px-3 py-2" style={{ background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                     <p className="text-[10px] mb-2" style={{ color: "rgba(180,200,230,0.3)" }}>Предпросмотр:</p>
-                    <MermaidViewer chart={diag.content} />
+                    <MermaidViewer content={diag.content} />
                   </div>
                 </div>
               ))}
@@ -7254,7 +7254,7 @@ export default function Index() {
                           <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>mermaid</span>
                         </div>
                         <div className="p-4">
-                          <MermaidViewer chart={viewArch.diagrams[archActiveDiagramTab]?.content || ""} />
+                          <MermaidViewer content={viewArch.diagrams[archActiveDiagramTab]?.content || ""} />
                         </div>
                       </div>
                     </div>
