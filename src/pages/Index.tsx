@@ -552,7 +552,7 @@ export default function Index() {
   const loadDomains = async () => {
     setDomainsLoading(true);
     try {
-      const res = await fetch(DOMAINS_API);
+      const res = await fetch(getApiUrl("domains"));
       const data = await res.json();
       const normalized = (data.domains || []).map((d: OrgDomain & { created_at?: string }) => ({
         ...d,
@@ -662,7 +662,7 @@ export default function Index() {
   const loadTechDomains = async () => {
     setTechLoading(true);
     try {
-      const res = await fetch(TECH_DOMAINS_API);
+      const res = await fetch(getApiUrl("tech-domains"));
       const data = await res.json();
       setTechDomains(data.tech_domains || []);
       setTechOrgRefs(data.org_domains || []);
@@ -831,7 +831,7 @@ export default function Index() {
   const loadTechnologies = async () => {
     setTechsLoading(true);
     try {
-      const res = await fetch(TECHNOLOGIES_API);
+      const res = await fetch(getApiUrl("technologies"));
       const data = await res.json();
       setTechnologies(data.items || []);
       setTechDomainRefs(data.tech_domains || []);
@@ -842,7 +842,7 @@ export default function Index() {
   };
 
   const loadExistingTechNames = async () => {
-    const res = await fetch(`${TECHNOLOGIES_API}?mode=names`);
+    const res = await fetch(`${getApiUrl("technologies")}?mode=names`);
     const data = await res.json();
     setExistingTechNames(data.names || []);
   };
@@ -1045,7 +1045,7 @@ export default function Index() {
   const loadReqs = async () => {
     setReqsLoading(true);
     try {
-      const res = await fetch(REQUIREMENTS_API);
+      const res = await fetch(getApiUrl("requirements"));
       const data = await res.json();
       setReqs(data.items || []);
       setReqTechRefs(data.technologies || []);
@@ -1196,8 +1196,8 @@ export default function Index() {
     setTsolLoading(true);
     try {
       const [res, techRes] = await Promise.all([
-        fetch(TECH_SOLUTIONS_API),
-        technologies.length === 0 ? fetch(TECHNOLOGIES_API) : Promise.resolve(null),
+        fetch(getApiUrl("tech-solutions")),
+        technologies.length === 0 ? fetch(getApiUrl("technologies")) : Promise.resolve(null),
       ]);
       const data = await res.json();
       setTechSolutions(data.items || []);
@@ -1338,8 +1338,8 @@ export default function Index() {
     setHardLoading(true);
     try {
       const [res, tsolRes] = await Promise.all([
-        fetch(HARDENING_API),
-        techSolutions.length === 0 ? fetch(TECH_SOLUTIONS_API) : Promise.resolve(null),
+        fetch(getApiUrl("hardening")),
+        techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
       setHardenings(data.items || []);
@@ -1475,8 +1475,8 @@ export default function Index() {
     setArchLoading(true);
     try {
       const [res, tsolRes] = await Promise.all([
-        fetch(ARCH_TEMPLATES_API),
-        techSolutions.length === 0 ? fetch(TECH_SOLUTIONS_API) : Promise.resolve(null),
+        fetch(getApiUrl("arch-templates")),
+        techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
       setArchTemplates(data.items || []);
@@ -1627,8 +1627,8 @@ export default function Index() {
     setProdLoading(true);
     try {
       const [res, archRes] = await Promise.all([
-        fetch(PRODUCTS_API),
-        archTemplates.length === 0 ? fetch(ARCH_TEMPLATES_API) : Promise.resolve(null),
+        fetch(getApiUrl("products")),
+        archTemplates.length === 0 ? fetch(getApiUrl("arch-templates")) : Promise.resolve(null),
       ]);
       const data = await res.json();
       setProducts(data.items || []);
@@ -1948,7 +1948,7 @@ export default function Index() {
           <div className="max-w-7xl mx-auto px-6">
             <nav className="flex items-center gap-1 overflow-x-auto">
               {[
-                { key: "library",        label: "Библиотека потребителя", onClick: () => setActiveSection("library") },
+                { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
                 { key: "domains",        label: "Орг. домены",            onClick: () => setActiveSection("domains") },
                 { key: "tech-domains",   label: "Тех. домены",            onClick: () => setActiveSection("tech-domains") },
                 { key: "technologies",   label: "Технологии",             onClick: () => setActiveSection("technologies") },
