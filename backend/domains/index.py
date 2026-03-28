@@ -9,9 +9,8 @@ PATCH /settings — обновить настройки раздела (section_
 import json
 import os
 import psycopg2
-from psycopg2.extras import register_default_jsonb
 
-SCHEMA = "t_p90536134_security_requirement"
+SCHEMA = os.environ.get("DB_SCHEMA", "t_p90536134_security_requirement")
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",

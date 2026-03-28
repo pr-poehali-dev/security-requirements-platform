@@ -30,7 +30,9 @@ services:
     container_name: securearch_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/securearch?options=-csearch_path%3Dt_p90536134_security_requirement
+      # Чистый DATABASE_URL без search_path в URL — search_path задаётся через DB_SCHEMA
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/securearch
+      DB_SCHEMA: t_p90536134_security_requirement
     ports:
       - "8000:8000"
     depends_on:
@@ -43,13 +45,15 @@ services:
       retries: 5
 
   # ─── Frontend (React / Vite → nginx) ─────────────────────────
-  # VITE_API_BASE встраивается в JS-бандл на этапе docker build
+  # ВАЖНО: VITE_API_BASE должен быть адресом, доступным из БРАУЗЕРА пользователя.
+  # Браузер на хосте → nginx (порт 80) → /api/* проксируется → backend:8000
+  # Поэтому API-запросы идут через тот же порт 80, на /api/...
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        VITE_API_BASE: http://localhost:8000
+        VITE_API_BASE: ""
     container_name: securearch_frontend
     restart: unless-stopped
     ports:

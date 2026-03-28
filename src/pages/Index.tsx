@@ -486,9 +486,10 @@ export default function Index() {
   const [libReqFilterStage, setLibReqFilterStage] = useState("Все");
 
   // ── API routing: production (poehali.dev) or local Docker backend ──
-  const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+  // VITE_API_BASE=undefined → облако; VITE_API_BASE="" или "http://..." → локальный бэкенд
+  const API_BASE = import.meta.env.VITE_API_BASE;
   const apiUrl = (prodUrl: string, localPath: string) =>
-    API_BASE ? `${API_BASE}${localPath}` : prodUrl;
+    API_BASE !== undefined ? `${API_BASE}${localPath}` : prodUrl;
 
   // Domains state
   const DOMAINS_API = apiUrl(

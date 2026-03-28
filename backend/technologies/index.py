@@ -13,7 +13,7 @@ import json
 import os
 import psycopg2
 
-SCHEMA = "t_p90536134_security_requirement"
+SCHEMA = os.environ.get("DB_SCHEMA", "t_p90536134_security_requirement")
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
