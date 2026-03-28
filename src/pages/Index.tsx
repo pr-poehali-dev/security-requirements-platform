@@ -470,6 +470,12 @@ export default function Index() {
   const [selectedLevel, setSelectedLevel] = useState<string>("Все");
   const [selectedReq, setSelectedReq] = useState<Requirement | null>(null);
 
+  // Global library search state
+  const [libQuery, setLibQuery] = useState("");
+  const [libSection, setLibSection] = useState<"all" | "reqs" | "technologies" | "techsolutions" | "arch">("all");
+  const [libStatusFilter, setLibStatusFilter] = useState("Все");
+  const [libTypeFilter, setLibTypeFilter] = useState("Все");
+
   // Domains state
   const DOMAINS_API = "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177";
   const [domains, setDomains] = useState<OrgDomain[]>([]);
@@ -1875,204 +1881,332 @@ export default function Index() {
       <main className="max-w-7xl mx-auto px-6 py-8 relative z-10">
 
         {/* === LIBRARY SECTION === */}
-        {activeSection === "library" && (
+        {activeSection === "library" && (() => {
+          // load all data on first visit
+          if (reqs.length === 0 && !reqsLoading) loadReqs();
+          if (technologies.length === 0 && !techsLoading) loadTechnologies();
+          if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
+          if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
+
+          const STATUS_LIST = ["Все", "Активен", "В разработке", "Архив", "Устарел", "Не активен"];
+          const STATUS_META: Record<string, { color: string; icon: string }> = {
+            "Активен":      { color: "#22c55e", icon: "CheckCircle2" },
+            "В разработке": { color: "#f59e0b", icon: "Wrench" },
+            "Архив":        { color: "#8b5cf6", icon: "Archive" },
+            "Устарел":      { color: "#ef4444", icon: "AlertTriangle" },
+            "Не активен":   { color: "#6b7280", icon: "MinusCircle" },
+          };
+
+          // ── build unified search results ──────────────────────────────────
+          const q = libQuery.trim().toLowerCase();
+
+          type LibItem =
+            | { kind: "req"; data: Req }
+            | { kind: "tech"; data: Technology }
+            | { kind: "tsol"; data: TechSolution }
+            | { kind: "arch"; data: ArchTemplate };
+
+          const matchReqs: LibItem[] = reqs
+            .filter((r) => {
+              if (libSection !== "all" && libSection !== "reqs") return false;
+              if (libStatusFilter !== "Все" && r.status !== libStatusFilter) return false;
+              if (libTypeFilter !== "Все" && r.req_type !== libTypeFilter) return false;
+              if (!q) return true;
+              return (
+                r.name.toLowerCase().includes(q) ||
+                (r.description || "").toLowerCase().includes(q) ||
+                (r.req_type || "").toLowerCase().includes(q) ||
+                (r.criticality || "").toLowerCase().includes(q) ||
+                r.tags.some((t) => t.toLowerCase().includes(q))
+              );
+            })
+            .map((r) => ({ kind: "req" as const, data: r }));
+
+          const matchTechs: LibItem[] = technologies
+            .filter((t) => {
+              if (libSection !== "all" && libSection !== "technologies") return false;
+              if (libStatusFilter !== "Все" && t.status !== libStatusFilter) return false;
+              if (libTypeFilter !== "Все") return false;
+              if (!q) return true;
+              return (
+                t.name.toLowerCase().includes(q) ||
+                (t.description || "").toLowerCase().includes(q) ||
+                t.tags.some((tg) => tg.toLowerCase().includes(q))
+              );
+            })
+            .map((t) => ({ kind: "tech" as const, data: t }));
+
+          const matchTsols: LibItem[] = techSolutions
+            .filter((ts) => {
+              if (libSection !== "all" && libSection !== "techsolutions") return false;
+              if (libStatusFilter !== "Все" && ts.status !== libStatusFilter) return false;
+              if (libTypeFilter !== "Все") return false;
+              if (!q) return true;
+              return (
+                ts.name.toLowerCase().includes(q) ||
+                (ts.description || "").toLowerCase().includes(q) ||
+                ts.tags.some((tg) => tg.toLowerCase().includes(q)) ||
+                (ts.author || "").toLowerCase().includes(q)
+              );
+            })
+            .map((ts) => ({ kind: "tsol" as const, data: ts }));
+
+          const matchArchs: LibItem[] = archTemplates
+            .filter((a) => {
+              if (libSection !== "all" && libSection !== "arch") return false;
+              if (libStatusFilter !== "Все" && a.status !== libStatusFilter) return false;
+              if (libTypeFilter !== "Все") return false;
+              if (!q) return true;
+              return (
+                a.name.toLowerCase().includes(q) ||
+                (a.description || "").toLowerCase().includes(q) ||
+                a.tags.some((tg) => tg.toLowerCase().includes(q)) ||
+                (a.author || "").toLowerCase().includes(q)
+              );
+            })
+            .map((a) => ({ kind: "arch" as const, data: a }));
+
+          const allResults: LibItem[] = [...matchReqs, ...matchTechs, ...matchTsols, ...matchArchs];
+
+          // unique req_types for filter
+          const reqTypes = [...new Set(reqs.map((r) => r.req_type).filter(Boolean))];
+
+          // ── per-section status counters ───────────────────────────────────
+          const countByStatus = <T extends { status: string }>(arr: T[]) =>
+            arr.reduce((acc, item) => { acc[item.status] = (acc[item.status] || 0) + 1; return acc; }, {} as Record<string, number>);
+
+          const reqCounters   = countByStatus(reqs);
+          const techCounters  = countByStatus(technologies);
+          const tsolCounters  = countByStatus(techSolutions);
+          const archCounters  = countByStatus(archTemplates);
+
+          const SECTION_DEFS = [
+            { key: "reqs",         label: "Требования",          icon: "ShieldCheck",   color: "#0066ff", counters: reqCounters,  total: reqs.length },
+            { key: "technologies", label: "Технологии",           icon: "Cpu",           color: "#06b6d4", counters: techCounters,  total: technologies.length },
+            { key: "techsolutions",label: "Технические решения",  icon: "Layers",        color: "#8b5cf6", counters: tsolCounters,  total: techSolutions.length },
+            { key: "arch",         label: "Типовые архитектуры",  icon: "LayoutTemplate",color: "#10b981", counters: archCounters,  total: archTemplates.length },
+          ] as const;
+
+          const isLoading = reqsLoading || techsLoading || tsolLoading || archLoading;
+
+          const SECTION_TAB_LABELS: Record<string, string> = {
+            all: "Все", reqs: "Требования", technologies: "Технологии", techsolutions: "Техрешения", arch: "Архитектуры",
+          };
+
+          return (
           <div className="section-enter">
-            <div className="mb-8">
+            {/* Header */}
+            <div className="mb-6">
               <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="w-1 h-8 rounded-full"
-                  style={{ background: "linear-gradient(180deg, #0066ff, #00d4ff)" }}
-                />
-                <h1 className="text-2xl font-semibold text-white">
-                  Библиотека потребителя
-                </h1>
+                <div className="w-1 h-8 rounded-full" style={{ background: "linear-gradient(180deg, #0066ff, #00d4ff)" }} />
+                <h1 className="text-2xl font-semibold text-white">Библиотека потребителя</h1>
               </div>
               <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
-                Реестр требований информационной безопасности и нормативных документов
+                Глобальный поиск по всем объектам портала — требованиям, технологиям, техническим решениям и архитектурам
               </p>
             </div>
 
-            {/* Filters */}
-            <div className="flex items-center gap-3 mb-6 flex-wrap">
-              <div className="relative flex-1 min-w-64 max-w-md">
-                <Icon
-                  name="Search"
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
-                  style={{ color: "rgba(180,200,230,0.4)" }}
-                />
-                <input
-                  type="text"
-                  placeholder="Поиск по коду, названию, категории..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm outline-none transition-all font-sans"
-                  style={{
-                    background: "rgba(15,22,41,0.8)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: "rgba(210,225,245,0.9)",
-                  }}
-                  onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(0,102,255,0.5)")}
-                  onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
-                />
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {["Все", "Критический", "Высокий", "Средний", "Низкий"].map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setSelectedLevel(level)}
-                    className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: selectedLevel === level ? "rgba(0,102,255,0.2)" : "rgba(15,22,41,0.8)",
-                      border: `1px solid ${selectedLevel === level ? "rgba(0,102,255,0.5)" : "rgba(255,255,255,0.08)"}`,
-                      color: selectedLevel === level ? "#63b0ff" : "rgba(180,200,230,0.6)",
-                    }}
-                  >
-                    {level}
+            {/* ── Search bar ─────────────────────────────────────────────── */}
+            <div className="relative mb-5">
+              <Icon name="Search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.4)" }} />
+              <input
+                type="text"
+                placeholder="Поиск по всем объектам портала — требованиям, технологиям, техрешениям, архитектурам..."
+                value={libQuery}
+                onChange={(e) => setLibQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none transition-all font-sans"
+                style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(210,225,245,0.9)", boxShadow: "0 2px 12px rgba(0,0,0,0.25)" }}
+                onFocus={(e) => (e.target.style.borderColor = "rgba(0,102,255,0.5)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+              />
+              {libQuery && (
+                <button onClick={() => setLibQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity">
+                  <Icon name="X" size={14} style={{ color: "rgba(180,200,230,0.7)" }} />
+                </button>
+              )}
+            </div>
+
+            {/* ── Section tabs ────────────────────────────────────────────── */}
+            <div className="flex items-center gap-2 flex-wrap mb-5">
+              {(["all", "reqs", "technologies", "techsolutions", "arch"] as const).map((sec) => {
+                const active = libSection === sec;
+                const counts: Record<string, number> = { all: reqs.length + technologies.length + techSolutions.length + archTemplates.length, reqs: reqs.length, technologies: technologies.length, techsolutions: techSolutions.length, arch: archTemplates.length };
+                const icons: Record<string, string> = { all: "Globe", reqs: "ShieldCheck", technologies: "Cpu", techsolutions: "Layers", arch: "LayoutTemplate" };
+                return (
+                  <button key={sec} onClick={() => { setLibSection(sec); setLibTypeFilter("Все"); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? "rgba(0,102,255,0.18)" : "rgba(255,255,255,0.04)", border: `1px solid ${active ? "rgba(0,102,255,0.45)" : "rgba(255,255,255,0.07)"}`, color: active ? "#63b0ff" : "rgba(180,200,230,0.55)" }}>
+                    <Icon name={icons[sec]} size={12} />
+                    {SECTION_TAB_LABELS[sec]}
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: active ? "rgba(0,102,255,0.2)" : "rgba(255,255,255,0.06)" }}>{counts[sec]}</span>
                   </button>
-                ))}
-              </div>
-              <button className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium ml-auto">
-                <Icon name="Plus" size={15} />
-                Добавить
-              </button>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
-              {[
-                { label: "Всего требований", value: requirements.length, icon: "BookOpen", color: "#0066ff" },
-                { label: "Критических", value: requirements.filter((r) => r.level === "Критический").length, icon: "AlertOctagon", color: "#ef4444" },
-                { label: "Высокий приоритет", value: requirements.filter((r) => r.level === "Высокий").length, icon: "AlertTriangle", color: "#f97316" },
-                { label: "Стандартов", value: new Set(requirements.map((r) => r.standard)).size, icon: "Award", color: "#00d4ff" },
-              ].map((stat) => (
-                <div key={stat.label} className="glass-card rounded-xl px-5 py-4 flex items-center gap-4">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: `${stat.color}20`, border: `1px solid ${stat.color}30` }}
-                  >
-                    <Icon name={stat.icon} size={18} style={{ color: stat.color }} />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-white">{stat.value}</div>
-                    <div className="text-xs mt-0.5" style={{ color: "rgba(180,200,230,0.5)" }}>
-                      {stat.label}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Table */}
-            <div className="glass-card rounded-xl overflow-hidden">
-              <div
-                className="grid text-xs font-medium px-5 py-3 border-b"
-                style={{
-                  gridTemplateColumns: "90px 1fr 180px 120px 140px",
-                  color: "rgba(180,200,230,0.4)",
-                  borderColor: "rgba(255,255,255,0.06)",
-                }}
-              >
-                <span>Код</span>
-                <span>Название</span>
-                <span>Категория</span>
-                <span>Уровень</span>
-                <span>Стандарт</span>
-              </div>
-              <div>
-                {filteredRequirements.map((req, i) => (
-                  <div
-                    key={req.id}
-                    className="grid items-start px-5 py-4 cursor-pointer transition-all"
-                    style={{
-                      gridTemplateColumns: "90px 1fr 180px 120px 140px",
-                      borderBottom:
-                        i < filteredRequirements.length - 1
-                          ? "1px solid rgba(255,255,255,0.04)"
-                          : "none",
-                      background:
-                        selectedReq?.id === req.id
-                          ? "rgba(0,102,255,0.07)"
-                          : "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (selectedReq?.id !== req.id) {
-                        (e.currentTarget as HTMLElement).style.background =
-                          "rgba(255,255,255,0.03)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedReq?.id !== req.id) {
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                      }
-                    }}
-                    onClick={() =>
-                      setSelectedReq(selectedReq?.id === req.id ? null : req)
-                    }
-                  >
-                    <span
-                      className="font-mono text-xs font-medium pt-0.5"
-                      style={{ color: "#63b0ff" }}
-                    >
-                      {req.code}
-                    </span>
-                    <div>
-                      <div className="text-sm text-white font-medium">{req.title}</div>
-                      {selectedReq?.id === req.id && (
-                        <div
-                          className="text-xs mt-2 leading-relaxed"
-                          style={{ color: "rgba(180,200,230,0.6)" }}
-                        >
-                          {req.description}
-                        </div>
-                      )}
-                    </div>
-                    <div className="pt-0.5">
-                      <span
-                        className="text-xs px-2.5 py-1 rounded-full font-medium"
-                        style={{
-                          background:
-                            categoryColors[req.category] || "rgba(255,255,255,0.08)",
-                          color: "rgba(210,225,245,0.85)",
-                        }}
-                      >
-                        {req.category}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: levelColors[req.level] }}
-                      />
-                      <span className="text-xs" style={{ color: levelColors[req.level] }}>
-                        {req.level}
-                      </span>
-                    </div>
-                    <span
-                      className="font-mono text-xs pt-1"
-                      style={{ color: "rgba(180,200,230,0.5)" }}
-                    >
-                      {req.standard}
-                    </span>
-                  </div>
-                ))}
-                {filteredRequirements.length === 0 && (
-                  <div
-                    className="py-16 text-center"
-                    style={{ color: "rgba(180,200,230,0.3)" }}
-                  >
-                    <Icon
-                      name="SearchX"
-                      size={32}
-                      className="mx-auto mb-3 opacity-40"
-                    />
-                    <p className="text-sm">Требования не найдены</p>
-                  </div>
+                );
+              })}
+              <div className="ml-auto flex items-center gap-2">
+                {/* Status filter */}
+                <select value={libStatusFilter} onChange={(e) => setLibStatusFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.08)", color: libStatusFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                  {STATUS_LIST.map((s) => <option key={s} value={s}>{s === "Все" ? "Все статусы" : s}</option>)}
+                </select>
+                {/* Type filter — only for reqs */}
+                {(libSection === "all" || libSection === "reqs") && reqTypes.length > 0 && (
+                  <select value={libTypeFilter} onChange={(e) => setLibTypeFilter(e.target.value)} className="text-xs rounded-lg px-3 py-1.5 outline-none" style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.08)", color: libTypeFilter === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
+                    <option value="Все">Все типы</option>
+                    {reqTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
                 )}
               </div>
             </div>
+
+            {/* ── Status counters per section ─────────────────────────────── */}
+            <div className="grid grid-cols-4 gap-3 mb-6">
+              {SECTION_DEFS.map((sd) => (
+                <button key={sd.key} onClick={() => setLibSection(sd.key)} className="glass-card rounded-xl px-4 py-3 text-left transition-all hover:border-white/10 flex flex-col gap-2" style={{ border: `1px solid ${libSection === sd.key ? sd.color + "40" : "rgba(255,255,255,0.06)"}`, background: libSection === sd.key ? `${sd.color}08` : undefined }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${sd.color}18`, border: `1px solid ${sd.color}30` }}>
+                        <Icon name={sd.icon} size={13} style={{ color: sd.color }} />
+                      </div>
+                      <span className="text-xs font-medium" style={{ color: "rgba(180,200,230,0.7)" }}>{sd.label}</span>
+                    </div>
+                    <span className="text-lg font-bold text-white">{sd.total}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(sd.counters).slice(0, 4).map(([st, cnt]) => {
+                      const sm = STATUS_META[st];
+                      return sm ? (
+                        <span key={st} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${sm.color}12`, color: sm.color }}>
+                          <Icon name={sm.icon} size={9} />{cnt}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Loading state ───────────────────────────────────────────── */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-16 gap-3" style={{ color: "rgba(180,200,230,0.4)" }}>
+                <Icon name="Loader" size={20} className="animate-spin" />
+                <span className="text-sm">Загрузка данных...</span>
+              </div>
+            )}
+
+            {/* ── Results ─────────────────────────────────────────────────── */}
+            {!isLoading && (
+              <div className="space-y-2">
+                {allResults.length === 0 ? (
+                  <div className="py-16 text-center" style={{ color: "rgba(180,200,230,0.3)" }}>
+                    <Icon name="SearchX" size={36} className="mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Ничего не найдено</p>
+                    {q && <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.2)" }}>Попробуйте изменить запрос или сбросить фильтры</p>}
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.35)" }}>
+                      Найдено: {allResults.length} объект{allResults.length === 1 ? "" : allResults.length < 5 ? "а" : "ов"}
+                      {q && <span> по запросу «{libQuery}»</span>}
+                    </div>
+                    {allResults.map((item, idx) => {
+                      if (item.kind === "req") {
+                        const r = item.data;
+                        const sm = REQ_STATUS_META[r.status];
+                        const critColor: Record<string, string> = { "Критический": "#ef4444", "Высокий": "#f97316", "Средний": "#eab308", "Низкий": "#22c55e" };
+                        return (
+                          <div key={r.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("requirements")}>
+                            <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(0,102,255,0.12)", border: "1px solid rgba(0,102,255,0.25)" }}>
+                              <Icon name="ShieldCheck" size={14} style={{ color: "#63b0ff" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(0,102,255,0.1)", color: "#63b0ff" }}>Требование</span>
+                                {r.req_type && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(180,200,230,0.55)" }}>{r.req_type}</span>}
+                                {r.criticality && <span className="text-[10px] font-medium" style={{ color: critColor[r.criticality] || "#fbbf24" }}>● {r.criticality}</span>}
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{r.status}</span>}
+                              </div>
+                              <p className="text-sm font-medium text-white leading-snug">{r.name}</p>
+                              {r.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{r.description}</p>}
+                              {r.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{r.tags.slice(0, 4).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(99,176,255,0.07)", color: "rgba(99,176,255,0.6)" }}>#{t}</span>)}</div>}
+                            </div>
+                            <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
+                          </div>
+                        );
+                      }
+                      if (item.kind === "tech") {
+                        const t = item.data;
+                        const sm = TECH_STATUS_META[t.status];
+                        return (
+                          <div key={t.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("technologies")}>
+                            <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.25)" }}>
+                              <Icon name="Cpu" size={14} style={{ color: "#22d3ee" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>Технология</span>
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{t.status}</span>}
+                              </div>
+                              <p className="text-sm font-medium text-white leading-snug">{t.name}</p>
+                              {t.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{t.description}</p>}
+                              {t.versions.length > 0 && <p className="text-[10px] mt-1 font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>Версии: {t.versions.slice(0,4).join(", ")}</p>}
+                              {t.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{t.tags.slice(0, 4).map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.07)", color: "rgba(6,182,212,0.6)" }}>#{tg}</span>)}</div>}
+                            </div>
+                            <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
+                          </div>
+                        );
+                      }
+                      if (item.kind === "tsol") {
+                        const ts = item.data;
+                        const sm = TECH_SOLUTION_STATUS_META[ts.status];
+                        return (
+                          <div key={ts.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("tech-solutions")}>
+                            <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)" }}>
+                              <Icon name="Layers" size={14} style={{ color: "#a78bfa" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(139,92,246,0.1)", color: "#a78bfa" }}>Техрешение</span>
+                                {ts.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{ts.version}</span>}
+                                {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{ts.status}</span>}
+                                {ts.approved_ib && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                                {ts.approved_it && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                              </div>
+                              <p className="text-sm font-medium text-white leading-snug">{ts.name}</p>
+                              {ts.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{ts.description}</p>}
+                              {ts.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{ts.tags.slice(0, 4).map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(139,92,246,0.07)", color: "rgba(139,92,246,0.6)" }}>#{tg}</span>)}</div>}
+                            </div>
+                            <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
+                          </div>
+                        );
+                      }
+                      // arch
+                      const a = item.data as ArchTemplate;
+                      const sm = ARCH_TEMPLATE_STATUS_META[a.status];
+                      return (
+                        <div key={a.id} className="glass-card rounded-xl px-5 py-4 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all" onClick={() => setActiveSection("arch-templates")}>
+                          <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5" style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)" }}>
+                            <Icon name="LayoutTemplate" size={14} style={{ color: "#34d399" }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide" style={{ background: "rgba(16,185,129,0.1)", color: "#34d399" }}>Архитектура</span>
+                              {a.version && <span className="font-mono text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>v{a.version}</span>}
+                              {sm && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}12`, color: sm.color }}><Icon name={sm.icon} size={9} />{a.status}</span>}
+                              {a.approved_ib && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e" }}><Icon name="ShieldCheck" size={9} />ИБ</span>}
+                              {a.approved_it && <span className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}><Icon name="Server" size={9} />ИТ</span>}
+                            </div>
+                            <p className="text-sm font-medium text-white leading-snug">{a.name}</p>
+                            {a.description && <p className="text-xs mt-1 line-clamp-2" style={{ color: "rgba(180,200,230,0.5)" }}>{a.description}</p>}
+                            {a.tags.length > 0 && <div className="flex gap-1 mt-2 flex-wrap">{a.tags.slice(0, 4).map((tg) => <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(16,185,129,0.07)", color: "rgba(16,185,129,0.6)" }}>#{tg}</span>)}</div>}
+                          </div>
+                          <Icon name="ArrowRight" size={14} className="shrink-0 mt-1 opacity-30" />
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
 
         {/* === DOMAINS SECTION === */}
         {activeSection === "domains" && (() => {
