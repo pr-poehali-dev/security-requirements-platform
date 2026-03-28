@@ -1502,6 +1502,7 @@ export default function Index() {
   // ── Data IO state ─────────────────────────────────────────────────
   const [importResult, setImportResult] = useState<{ ok: string[]; errors: string[] } | null>(null);
   const [importLoading, setImportLoading] = useState(false);
+  const [csvImportEntity, setCsvImportEntity] = useState<string>("tech_solutions");
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -3444,6 +3445,30 @@ export default function Index() {
             { key: "arch_templates",  label: "Типовые архитектуры",    data: archTemplates as unknown as Record<string, unknown>[] },
           ];
 
+          const apiMap: Record<string, string> = {
+            org_domains:    "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177",
+            tech_domains:   "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246",
+            technologies:   "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8",
+            requirements:   "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177",
+            tech_solutions: "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2",
+            hardenings:     "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf",
+            arch_templates: "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa",
+          };
+
+          const importRows = async (entityKey: string, rows: Record<string, unknown>[], label: string, ok: string[], errors: string[]) => {
+            const url = apiMap[entityKey];
+            if (!url) { errors.push(`${label}: неизвестный тип`); return; }
+            let imported = 0; let skipped = 0;
+            for (const row of rows) {
+              try {
+                const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
+                const data = await res.json();
+                if (!data.error) imported++; else skipped++;
+              } catch { skipped++; }
+            }
+            ok.push(`${label}: импортировано ${imported}${skipped > 0 ? `, пропущено ${skipped}` : ""} из ${rows.length}`);
+          };
+
           const handleImportFile = async (file: File) => {
             setImportLoading(true);
             setImportResult(null);
@@ -3459,32 +3484,19 @@ export default function Index() {
                   for (const entity of entities) {
                     const rows = bundle[entity.key];
                     if (!rows || !Array.isArray(rows) || rows.length === 0) continue;
-                    try {
-                      const apiMap: Record<string, string> = {
-                        org_domains:    "https://functions.poehali.dev/4c8bda83-18c3-4fd9-bc7f-0764a3511177",
-                        tech_domains:   "https://functions.poehali.dev/e3873998-84e0-4b31-af68-5128ea37c246",
-                        technologies:   "https://functions.poehali.dev/e6d8d44f-ba31-4ab3-a776-b40bafbcf7e8",
-                        requirements:   "https://functions.poehali.dev/f955567c-3548-4631-a5b8-e590ad2c5177",
-                        tech_solutions: "https://functions.poehali.dev/99caeca9-833c-478d-b201-139ec6d861a2",
-                        hardenings:     "https://functions.poehali.dev/5c18ac6b-dfc4-444c-a0bf-7f9f6d9656cf",
-                        arch_templates: "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa",
-                      };
-                      const url = apiMap[entity.key];
-                      if (!url) continue;
-                      let imported = 0;
-                      for (const row of rows) {
-                        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
-                        const data = await res.json();
-                        if (!data.error) imported++;
-                      }
-                      ok.push(`${entity.label}: импортировано ${imported} из ${rows.length}`);
-                    } catch {
-                      errors.push(`${entity.label}: ошибка импорта`);
-                    }
+                    await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors);
                   }
+                  if (ok.length === 0 && errors.length === 0) errors.push("В файле не найдено ни одной известной сущности");
                 }
               } else {
-                errors.push("CSV импорт поддерживает загрузку одной сущности. Используйте JSON для полного импорта.");
+                // CSV — импорт в выбранную сущность
+                const rows = parseCsv(text);
+                if (rows.length === 0) { errors.push("CSV файл пуст или имеет неверный формат"); }
+                else {
+                  const entity = entities.find((e) => e.key === csvImportEntity);
+                  if (!entity) { errors.push("Выберите тип данных для CSV-импорта"); }
+                  else await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors);
+                }
               }
             } catch {
               errors.push("Ошибка чтения файла");
@@ -3582,6 +3594,24 @@ export default function Index() {
                     </div>
                   </div>
 
+                  {/* CSV entity selector */}
+                  <div className="mb-4 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <p className="text-[11px] font-medium mb-2" style={{ color: "rgba(180,200,230,0.5)" }}>Тип данных для CSV-импорта</p>
+                    <select
+                      value={csvImportEntity}
+                      onChange={(e) => setCsvImportEntity(e.target.value)}
+                      className="w-full rounded-lg px-3 py-2 text-xs outline-none"
+                      style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
+                    >
+                      {entities.map((e) => (
+                        <option key={e.key} value={e.key}>{e.label}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] mt-1.5" style={{ color: "rgba(180,200,230,0.3)" }}>
+                      Выбор применяется только при загрузке .csv файла. JSON-бандл определяет тип автоматически.
+                    </p>
+                  </div>
+
                   {/* Drop zone */}
                   <label
                     className="flex flex-col items-center justify-center gap-3 rounded-xl cursor-pointer transition-all"
@@ -3602,7 +3632,9 @@ export default function Index() {
                         </div>
                         <div className="text-center">
                           <p className="text-sm font-medium text-white">Перетащите файл или нажмите для выбора</p>
-                          <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.4)" }}>Поддерживаются файлы .json (полный бандл) и .csv (отдельный раздел)</p>
+                          <p className="text-xs mt-1" style={{ color: "rgba(180,200,230,0.4)" }}>
+                            <span className="font-mono" style={{ color: "#818cf8" }}>.json</span> — полный бандл &nbsp;·&nbsp; <span className="font-mono" style={{ color: "#34d399" }}>.csv</span> — выбранный раздел
+                          </p>
                         </div>
                       </>
                     )}
@@ -3626,10 +3658,20 @@ export default function Index() {
                   )}
 
                   {/* Info */}
-                  <div className="mt-5 p-3 rounded-xl space-y-1.5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <p className="text-[11px] font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Формат JSON-бандла</p>
-                    <p className="text-[11px]" style={{ color: "rgba(180,200,230,0.35)" }}>Файл должен содержать объект с ключами: <span className="font-mono" style={{ color: "rgba(180,200,230,0.55)" }}>org_domains, tech_domains, technologies, requirements, tech_solutions, hardenings, arch_templates</span></p>
-                    <p className="text-[11px]" style={{ color: "rgba(180,200,230,0.35)" }}>При импорте записи с уже существующим ID будут пропущены (нет перезаписи).</p>
+                  <div className="mt-4 p-3 rounded-xl space-y-2" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Icon name="Info" size={12} style={{ color: "rgba(180,200,230,0.4)" }} />
+                      <p className="text-[11px] font-medium" style={{ color: "rgba(180,200,230,0.5)" }}>Правила импорта</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 mt-0.5" style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8" }}>.json</span>
+                      <p className="text-[11px]" style={{ color: "rgba(180,200,230,0.35)" }}>Полный бандл с ключами: <span className="font-mono" style={{ color: "rgba(180,200,230,0.5)" }}>org_domains, tech_domains, technologies, requirements, tech_solutions, hardenings, arch_templates</span>. Тип определяется автоматически.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 mt-0.5" style={{ background: "rgba(16,185,129,0.12)", color: "#34d399" }}>.csv</span>
+                      <p className="text-[11px]" style={{ color: "rgba(180,200,230,0.35)" }}>Первая строка — заголовки (совпадают с полями сущности). Тип данных выбирается в селекторе выше. Вложенные объекты (diagrams, attachments) в CSV не поддерживаются.</p>
+                    </div>
+                    <p className="text-[11px] pt-1 border-t" style={{ color: "rgba(180,200,230,0.3)", borderColor: "rgba(255,255,255,0.05)" }}>Записи с уже существующим ID пропускаются без перезаписи.</p>
                   </div>
                 </div>
 
