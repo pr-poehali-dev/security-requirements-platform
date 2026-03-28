@@ -457,7 +457,7 @@ export default function Index() {
   const handleSaveSectionDesc = async () => {
     setSectionDesc(sectionDescDraft);
     setSectionDescEditing(false);
-    await fetch(`${DOMAINS_API}/settings`, {
+    await fetch(`${DOMAINS_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: sectionDescDraft }),
@@ -597,7 +597,7 @@ export default function Index() {
   const handleSaveTechSectionDesc = async () => {
     setTechSectionDesc(techSectionDescDraft);
     setTechSectionDescEditing(false);
-    await fetch(`${TECH_DOMAINS_API}/settings`, {
+    await fetch(`${TECH_DOMAINS_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: techSectionDescDraft }),
@@ -675,7 +675,7 @@ export default function Index() {
   };
 
   const loadExistingTechNames = async () => {
-    const res = await fetch(`${TECHNOLOGIES_API}/names`);
+    const res = await fetch(`${TECHNOLOGIES_API}?mode=names`);
     const data = await res.json();
     setExistingTechNames(data.names || []);
   };
@@ -783,7 +783,7 @@ export default function Index() {
   const handleSaveTechSectionDesc2 = async () => {
     setTechSectionDesc2(techSectionDesc2Draft);
     setTechSectionDesc2Editing(false);
-    await fetch(`${TECHNOLOGIES_API}/settings`, {
+    await fetch(`${TECHNOLOGIES_API}?mode=settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_description: techSectionDesc2Draft }),
