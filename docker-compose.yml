@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
 
-  # ─── PostgreSQL ──────────────────────────────────────────────
+  # ─── PostgreSQL ────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     container_name: securearch_db
@@ -11,52 +11,39 @@ services:
       POSTGRES_DB: securearch
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # 1. Создаём схему до применения миграций
+      - ./docker/init-schema.sql:/docker-entrypoint-initdb.d/00-init-schema.sql:ro
+      # 2. Применяем все миграции в алфавитном порядке (V0001…V0018)
+      - ./db_migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ./docker/run-migrations.sh:/docker-entrypoint-initdb.d/01-run-migrations.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d securearch"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
 
-  # ─── Backend (Python / FastAPI) ───────────────────────────────
-  backend:
+  # ─── Backend API (FastAPI) ─────────────────────────────────────────
+  api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: securearch_backend
+    container_name: securearch_api
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/securearch
       APP_ENV: local
-      SECRET_KEY: change_me_in_production
     ports:
       - "8000:8000"
+    volumes:
+      # hot-reload: изменения в /backend сразу видны без пересборки
+      - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-
-  # ─── Frontend (React / Vite) ──────────────────────────────────
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: securearch_frontend
-    restart: unless-stopped
-    environment:
-      VITE_API_URL: http://localhost:8000
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
-    volumes:
-      - .:/app
-      - /app/node_modules
 
 volumes:
-  db_data:
+  pg_data:
