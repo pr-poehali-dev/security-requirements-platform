@@ -1921,7 +1921,6 @@ export default function Index() {
                 if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
                 if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
                 if (reqs.length === 0 && !reqsLoading) loadReqs();
-                if (products.length === 0 && !prodLoading) loadProducts();
               }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
@@ -2023,13 +2022,14 @@ export default function Index() {
 
         {/* === RELATION MAP SECTION === */}
         {activeSection === "relation-map" && (() => {
-          const isLoading = domainsLoading || techsLoading || tsolLoading || archLoading || reqsLoading || prodLoading;
+          const isLoading = domainsLoading || techsLoading || tsolLoading || archLoading || reqsLoading;
 
           // Collect all tech domain ids from technologies
           const allTechDomainIds = [...new Set(technologies.flatMap((t) => t.tech_domain_ids || []))];
           const visibleTechDomains = techDomains.filter((td) => allTechDomainIds.includes(td.id));
 
-          // Build link graph: orgDomain → techDomain → technology → techSolution → archTemplate → product
+          // Build link graph: orgDomain → techDomain → technology → [tsol/arch] → reqs
+          // We show up to 8 items per column to keep it readable
           const MAX_NODES = 12;
 
           type RMNode = { id: string; label: string; sub?: string; col: number; idx: number; color: string; bg: string; icon: string };
@@ -2040,9 +2040,7 @@ export default function Index() {
             { color: "#a78bfa",  bg: "rgba(139,92,246,0.15)",  border: "rgba(139,92,246,0.35)",  icon: "Globe" },
             { color: "#22d3ee",  bg: "rgba(6,182,212,0.15)",   border: "rgba(6,182,212,0.35)",   icon: "Cpu" },
             { color: "#f472b6",  bg: "rgba(236,72,153,0.15)",  border: "rgba(236,72,153,0.35)",  icon: "Layers" },
-            { color: "#fb923c",  bg: "rgba(251,146,60,0.15)",  border: "rgba(251,146,60,0.35)",  icon: "LayoutTemplate" },
-            { color: "#fbbf24",  bg: "rgba(251,191,36,0.15)",  border: "rgba(251,191,36,0.35)",  icon: "Package" },
-            { color: "#f87171",  bg: "rgba(248,113,113,0.15)", border: "rgba(248,113,113,0.35)", icon: "ShieldCheck" },
+            { color: "#fbbf24",  bg: "rgba(251,191,36,0.15)",  border: "rgba(251,191,36,0.35)",  icon: "ShieldCheck" },
           ];
 
           const domNodes: RMNode[] = domains.slice(0, MAX_NODES).map((d, i) => ({
@@ -2060,27 +2058,18 @@ export default function Index() {
             col: 2, idx: i, ...colColors[2],
           }));
 
+          // For col 3: prefer techSolutions, fallback archTemplates
           const tsolNodes: RMNode[] = techSolutions.slice(0, MAX_NODES).map((ts, i) => ({
             id: `tsol-${ts.id}`, label: ts.name, sub: ts.author || undefined,
             col: 3, idx: i, ...colColors[3],
           }));
 
-          const archNodes: RMNode[] = archTemplates.slice(0, MAX_NODES).map((a, i) => ({
-            id: `arch-${a.id}`, label: a.name, sub: a.author || undefined,
+          const reqNodes: RMNode[] = reqs.slice(0, MAX_NODES).map((r, i) => ({
+            id: `req-${r.id}`, label: r.name, sub: r.criticality || undefined,
             col: 4, idx: i, ...colColors[4],
           }));
 
-          const prodNodes: RMNode[] = products.slice(0, MAX_NODES).map((p, i) => ({
-            id: `prod-${p.id}`, label: p.name, sub: p.cmdb_mnemonic || p.author || undefined,
-            col: 5, idx: i, ...colColors[5],
-          }));
-
-          const reqNodes: RMNode[] = reqs.slice(0, MAX_NODES).map((r, i) => ({
-            id: `req-${r.id}`, label: r.name, sub: r.criticality || undefined,
-            col: 6, idx: i, ...colColors[6],
-          }));
-
-          const allNodes: RMNode[] = [...domNodes, ...tdNodes, ...techNodes, ...tsolNodes, ...archNodes, ...prodNodes, ...reqNodes];
+          const allNodes: RMNode[] = [...domNodes, ...tdNodes, ...techNodes, ...tsolNodes, ...reqNodes];
 
           // Edges
           const edges: RMEdge[] = [];
@@ -2109,29 +2098,15 @@ export default function Index() {
             });
           });
 
-          // techSolution → archTemplate (via arch_template.tech_solution_ids)
-          archTemplates.slice(0, MAX_NODES).forEach((a) => {
-            (a.tech_solution_ids || []).forEach((tsId) => {
-              if (tsolNodes.find((n) => n.id === `tsol-${tsId}`))
-                edges.push({ fromId: `tsol-${tsId}`, toId: `arch-${a.id}` });
-            });
-          });
-
-          // archTemplate → product (via product.arch_template_ids)
-          products.slice(0, MAX_NODES).forEach((p) => {
-            (p.arch_template_ids || []).forEach((aId) => {
-              if (archNodes.find((n) => n.id === `arch-${aId}`))
-                edges.push({ fromId: `arch-${aId}`, toId: `prod-${p.id}` });
-            });
-          });
-
-          // technology → req (via req.technology_id)
+          // technology → req (via technology_id)
           reqs.slice(0, MAX_NODES).forEach((r) => {
-            if (r.technology_id && techNodes.find((n) => n.id === `tech-${r.technology_id}`))
+            if (techNodes.find((n) => n.id === `tech-${r.technology_id}`))
+              edges.push({ fromId: `tech-${r.technology_id}`, toId: `req-${r.id}` });
+            if (tsolNodes.length === 0 && techNodes.find((n) => n.id === `tech-${r.technology_id}`))
               edges.push({ fromId: `tech-${r.technology_id}`, toId: `req-${r.id}` });
           });
 
-          // techSolution → req (через общий technology_id)
+          // techSolution → req (through shared technology_id)
           if (tsolNodes.length > 0) {
             reqs.slice(0, MAX_NODES).forEach((r) => {
               const matchTsol = techSolutions.find((ts) => (ts.technology_ids || []).includes(r.technology_id));
@@ -2141,21 +2116,20 @@ export default function Index() {
           }
 
           // Layout constants
-          const COL_W = 190;
+          const COL_W = 220;
           const NODE_H = 56;
           const NODE_GAP = 12;
           const COL_HEADER_H = 36;
-          const COLS = 7;
-          const COL_GAP = 24;
-          const SVG_W = COLS * COL_W + (COLS - 1) * COL_GAP;
+          const COLS = 5;
+          const SVG_W = COLS * COL_W + (COLS - 1) * 32;
 
           const nodeY = (node: RMNode) => COL_HEADER_H + node.idx * (NODE_H + NODE_GAP) + NODE_H / 2;
-          const nodeX = (node: RMNode) => node.col * (COL_W + COL_GAP) + COL_W / 2;
+          const nodeX = (node: RMNode) => node.col * (COL_W + 32) + COL_W / 2;
 
-          const maxRows = Math.max(domNodes.length, tdNodes.length, techNodes.length, tsolNodes.length, archNodes.length, prodNodes.length, reqNodes.length);
+          const maxRows = Math.max(domNodes.length, tdNodes.length, techNodes.length, tsolNodes.length, reqNodes.length);
           const SVG_H = COL_HEADER_H + maxRows * (NODE_H + NODE_GAP) + 24;
 
-          const colLabels = ["Орг. домены", "Тех. домены", "Технологии", "Тех. решения", "Арх. шаблоны", "Продукты", "Требования"];
+          const colLabels = ["Орг. домены", "Тех. домены", "Технологии", "Решения / Арх.", "Требования"];
 
           const highlightedEdges = rmHighlight
             ? edges.filter((e) => e.fromId === rmHighlight || e.toId === rmHighlight)
@@ -2167,38 +2141,6 @@ export default function Index() {
               : []
           );
 
-          const navigateToNode = (nodeId: string) => {
-            if (nodeId.startsWith("dom-")) {
-              const id = nodeId.replace("dom-", "");
-              const item = domains.find((d) => d.id === id);
-              if (item) { setActiveSection("domains"); setTimeout(() => setViewDomain(item), 50); }
-            } else if (nodeId.startsWith("td-")) {
-              const id = nodeId.replace("td-", "");
-              const item = techDomains.find((d) => d.id === id);
-              if (item) { setActiveSection("tech-domains"); setTimeout(() => setViewTech(item), 50); }
-            } else if (nodeId.startsWith("tech-")) {
-              const id = nodeId.replace("tech-", "");
-              const item = technologies.find((t) => t.id === id);
-              if (item) { setActiveSection("technologies"); setTimeout(() => setViewTech2(item), 50); }
-            } else if (nodeId.startsWith("tsol-")) {
-              const id = nodeId.replace("tsol-", "");
-              const item = techSolutions.find((t) => t.id === id);
-              if (item) { setActiveSection("tech-solutions"); setTimeout(() => setViewTsol(item), 50); }
-            } else if (nodeId.startsWith("arch-")) {
-              const id = nodeId.replace("arch-", "");
-              const item = archTemplates.find((a) => a.id === id);
-              if (item) { setActiveSection("arch-templates"); setTimeout(() => setViewArch(item), 50); }
-            } else if (nodeId.startsWith("prod-")) {
-              const id = nodeId.replace("prod-", "");
-              const item = products.find((p) => p.id === id);
-              if (item) { setActiveSection("products"); setTimeout(() => { setViewProd(item); setProdActiveDiagramTab(0); }, 50); }
-            } else if (nodeId.startsWith("req-")) {
-              const id = nodeId.replace("req-", "");
-              const item = reqs.find((r) => r.id === id);
-              if (item) { setActiveSection("requirements"); setTimeout(() => setViewReq(item), 50); }
-            }
-          };
-
           return (
             <div className="section-enter">
               {/* Header */}
@@ -2208,7 +2150,7 @@ export default function Index() {
                   <h1 className="text-2xl font-semibold text-white">Карта связей</h1>
                 </div>
                 <p className="text-sm ml-4" style={{ color: "rgba(180,200,230,0.6)" }}>
-                  Граф зависимостей: орг. домены → тех. домены → технологии → решения → арх. шаблоны → продукты / требования
+                  Граф зависимостей: орг. домены → тех. домены → технологии → решения → требования
                 </p>
               </div>
 
@@ -2220,16 +2162,14 @@ export default function Index() {
               ) : (
                 <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(6,11,26,0.95)", border: "1px solid rgba(255,255,255,0.07)" }}>
                   {/* Stats row */}
-                  <div className="flex items-center gap-5 px-6 py-3 border-b flex-wrap" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <div className="flex items-center gap-6 px-6 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                     {[
-                      { label: "Орг. домены",    count: domains.length,        color: colColors[0].color },
-                      { label: "Тех. домены",    count: techDomains.length,    color: colColors[1].color },
-                      { label: "Технологии",     count: technologies.length,   color: colColors[2].color },
-                      { label: "Решения",        count: techSolutions.length,  color: colColors[3].color },
-                      { label: "Арх. шаблоны",  count: archTemplates.length,  color: colColors[4].color },
-                      { label: "Продукты",       count: products.length,       color: colColors[5].color },
-                      { label: "Требования",     count: reqs.length,           color: colColors[6].color },
-                      { label: "Связей",         count: edges.length,          color: "rgba(180,200,230,0.4)" },
+                      { label: "Орг. домены",    count: domains.length,       color: colColors[0].color },
+                      { label: "Тех. домены",    count: techDomains.length,   color: colColors[1].color },
+                      { label: "Технологии",     count: technologies.length,  color: colColors[2].color },
+                      { label: "Решения",        count: techSolutions.length, color: colColors[3].color },
+                      { label: "Требования",     count: reqs.length,          color: colColors[4].color },
+                      { label: "Связей",         count: edges.length,         color: "rgba(180,200,230,0.4)" },
                     ].map((s) => (
                       <div key={s.label} className="flex items-center gap-2">
                         <span className="text-lg font-bold" style={{ color: s.color }}>{s.count}</span>
@@ -2253,7 +2193,7 @@ export default function Index() {
                           {colColors.map((c, i) => (
                             <linearGradient key={i} id={`rmGrad${i}`} x1="0%" y1="0%" x2="100%" y2="0%">
                               <stop offset="0%" stopColor={colColors[i].color} stopOpacity="0.6" />
-                              <stop offset="100%" stopColor={colColors[Math.min(i + 1, 5)].color} stopOpacity="0.6" />
+                              <stop offset="100%" stopColor={colColors[Math.min(i + 1, 4)].color} stopOpacity="0.6" />
                             </linearGradient>
                           ))}
                         </defs>
@@ -2288,7 +2228,7 @@ export default function Index() {
                           key={ci}
                           style={{
                             position: "absolute",
-                            left: ci * (COL_W + COL_GAP),
+                            left: ci * (COL_W + 32),
                             top: 0,
                             width: COL_W,
                             height: COL_HEADER_H,
@@ -2303,7 +2243,7 @@ export default function Index() {
 
                       {/* Nodes */}
                       {allNodes.map((node) => {
-                        const x = node.col * (COL_W + COL_GAP);
+                        const x = node.col * (COL_W + 32);
                         const y = COL_HEADER_H + node.idx * (NODE_H + NODE_GAP);
                         const isDimmed = rmHighlight && !highlightedNodeIds.has(node.id);
                         const isActive = rmHighlight === node.id;
@@ -2311,8 +2251,6 @@ export default function Index() {
                           <div
                             key={node.id}
                             onClick={() => setRmHighlight(rmHighlight === node.id ? null : node.id)}
-                            onDoubleClick={() => navigateToNode(node.id)}
-                            title="Двойной клик — открыть объект"
                             style={{
                               position: "absolute",
                               left: x,
@@ -2352,9 +2290,7 @@ export default function Index() {
 
                   {/* Legend */}
                   <div className="flex items-center gap-4 px-6 py-3 border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Клик — подсветить связи</span>
-                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>·</span>
-                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Двойной клик — открыть объект</span>
+                    <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Нажмите на узел чтобы подсветить связи</span>
                     <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.2)" }}>·</span>
                     <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>Показано до {MAX_NODES} объектов в каждой колонке</span>
                   </div>
