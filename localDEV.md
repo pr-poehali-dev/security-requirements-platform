@@ -277,6 +277,173 @@ psql -U postgres -d securearch -f db_migrations/V0019__my_change.sql
 
 ---
 
+## Тестирование backend-функций
+
+Каждая функция содержит файл `tests.json` с набором HTTP-тестов. Готового test-runner'а нет — тесты запускаются вручную через `curl` или скриптом ниже.
+
+### Формат tests.json
+
+```json
+{
+  "tests": [
+    {
+      "name": "GET список",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": { "items": [] },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "PATCH настройки",
+      "method": "PATCH",
+      "path": "/?mode=settings",
+      "body": { "section_description": "Тест" },
+      "expectedStatus": 200,
+      "expectedBody": { "section_description": "Тест" },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
+```
+
+| Поле | Описание |
+|---|---|
+| `method` | HTTP-метод: GET, POST, PUT, DELETE, PATCH, OPTIONS |
+| `path` | Путь относительно базового URL функции |
+| `body` | Тело запроса (JSON, только для POST/PUT/PATCH) |
+| `expectedStatus` | Ожидаемый HTTP-статус |
+| `expectedBody` | Ожидаемые поля в ответе |
+| `bodyMatcher` | `partial` — достаточно совпадения части полей; без него — точное совпадение |
+
+### Запуск тестов вручную через curl
+
+Бэкенд должен быть запущен (`docker compose up` или `uvicorn`).
+
+```bash
+BASE="http://localhost:8000"
+
+# GET список технологий
+curl -s "$BASE/technologies" | python3 -m json.tool
+
+# POST создать домен
+curl -s -X POST "$BASE/domains" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"test-001","name":"Тестовый домен","status":"Активен"}' \
+  | python3 -m json.tool
+
+# OPTIONS preflight (CORS)
+curl -s -X OPTIONS "$BASE/domains" -i | head -20
+```
+
+### Скрипт для прогона всех tests.json
+
+Сохраните как `backend/run_tests.sh` и запустите:
+
+```bash
+#!/bin/bash
+# Прогоняет все tests.json против запущенного бэкенда
+# Использование: ./run_tests.sh [BASE_URL]
+# По умолчанию: http://localhost:8000
+
+BASE="${1:-http://localhost:8000}"
+PASS=0
+FAIL=0
+
+for tests_file in backend/*/tests.json; do
+  fn=$(basename $(dirname "$tests_file"))
+  fn_url="$BASE/$fn"
+
+  echo ""
+  echo "═══ $fn ($fn_url) ═══"
+
+  # Читаем количество тестов
+  count=$(python3 -c "import json,sys; d=json.load(open('$tests_file')); print(len(d['tests']))")
+
+  for i in $(seq 0 $((count - 1))); do
+    name=$(python3 -c "import json; d=json.load(open('$tests_file')); print(d['tests'][$i]['name'])")
+    method=$(python3 -c "import json; d=json.load(open('$tests_file')); print(d['tests'][$i]['method'])")
+    path=$(python3 -c "import json; d=json.load(open('$tests_file')); print(d['tests'][$i].get('path','/'))")
+    expected=$(python3 -c "import json; d=json.load(open('$tests_file')); print(d['tests'][$i].get('expectedStatus',200))")
+    body=$(python3 -c "import json; d=json.load(open('$tests_file')); b=d['tests'][$i].get('body'); print(json.dumps(b) if b else '')")
+
+    url="$fn_url$path"
+
+    if [ -n "$body" ]; then
+      actual=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" \
+        -H "Content-Type: application/json" -d "$body")
+    else
+      actual=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url")
+    fi
+
+    if [ "$actual" = "$expected" ]; then
+      echo "  ✓ $name (HTTP $actual)"
+      PASS=$((PASS + 1))
+    else
+      echo "  ✗ $name — ожидался HTTP $expected, получен $actual"
+      FAIL=$((FAIL + 1))
+    fi
+  done
+done
+
+echo ""
+echo "══════════════════════════════"
+echo "Итог: ✓ $PASS пройдено  ✗ $FAIL провалено"
+[ $FAIL -eq 0 ] && exit 0 || exit 1
+```
+
+```bash
+chmod +x backend/run_tests.sh
+./backend/run_tests.sh                          # против localhost:8000
+./backend/run_tests.sh http://localhost:9000    # другой порт
+```
+
+### Тестирование конкретной функции через pytest (опционально)
+
+Если нужен более детальный контроль, можно написать pytest-тесты рядом с функцией:
+
+```bash
+pip install pytest httpx
+
+# backend/products/test_products.py
+```
+
+```python
+import pytest, httpx
+
+BASE = "http://localhost:8000/products"
+
+def test_get_list():
+    r = httpx.get(BASE)
+    assert r.status_code == 200
+    assert "items" in r.json()
+
+def test_options_cors():
+    r = httpx.options(BASE)
+    assert r.status_code == 200
+    assert "access-control-allow-origin" in r.headers
+```
+
+```bash
+pytest backend/products/test_products.py -v
+```
+
+### Текущее покрытие tests.json
+
+| Функция | Тестов | Что проверяется |
+|---|---|---|
+| `domains` | 2 | OPTIONS preflight, GET список |
+| `tech-domains` | 2 | OPTIONS preflight, GET список |
+| `technologies` | 1 | GET список |
+| `requirements` | 1 | GET список |
+| `tech-solutions` | 2 | GET список, PATCH настройки |
+| `hardening` | 2 | GET список, PATCH настройки |
+| `arch-templates` | 2 | GET список, PATCH настройки |
+| `products` | 1 | GET список |
+| `db-check` | 2 | OPTIONS preflight, POST с невалидным хостом |
+
+---
+
 ## Добавление новой backend-функции
 
 1. Создать папку `backend/<название>/`
