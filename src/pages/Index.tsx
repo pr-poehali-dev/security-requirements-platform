@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
@@ -451,7 +450,6 @@ const complianceData = [
 ];
 
 export default function Index() {
-  const { theme, toggleTheme } = useTheme();
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
   // cloud = сервисная БД (платформа poehali.dev), local = локальный Docker
@@ -1916,18 +1914,6 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={toggleTheme}
-              title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
-              className="flex items-center justify-center w-8 h-8 rounded-lg border text-xs font-medium transition-all"
-              style={{
-                background: "var(--btn-inactive-bg)",
-                borderColor: "var(--btn-inactive-border)",
-                color: "var(--btn-inactive-color)",
-              }}
-            >
-              <Icon name={theme === "dark" ? "Sun" : "Moon"} size={14} />
-            </button>
-            <button
               onClick={() => {
                 setActiveSection("relation-map");
                 if (domains.length === 0 && !domainsLoading) loadDomains();
@@ -1938,9 +1924,9 @@ export default function Index() {
               }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
-                background: activeSection === "relation-map" ? "rgba(0,212,255,0.12)" : "var(--btn-inactive-bg)",
-                border: `1px solid ${activeSection === "relation-map" ? "rgba(0,212,255,0.35)" : "var(--btn-inactive-border)"}`,
-                color: activeSection === "relation-map" ? "#00d4ff" : "var(--btn-inactive-color)",
+                background: activeSection === "relation-map" ? "rgba(0,212,255,0.12)" : "rgba(15,22,41,0.8)",
+                border: `1px solid ${activeSection === "relation-map" ? "rgba(0,212,255,0.35)" : "rgba(255,255,255,0.1)"}`,
+                color: activeSection === "relation-map" ? "#00d4ff" : "rgba(180,200,230,0.6)",
               }}
             >
               <Icon name="GitFork" size={13} />
@@ -1950,9 +1936,9 @@ export default function Index() {
               onClick={() => { setActiveSection("data-io"); loadAllForExport(); }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
               style={{
-                background: activeSection === "data-io" ? "rgba(99,102,241,0.15)" : "var(--btn-inactive-bg)",
-                border: `1px solid ${activeSection === "data-io" ? "rgba(99,102,241,0.4)" : "var(--btn-inactive-border)"}`,
-                color: activeSection === "data-io" ? "#818cf8" : "var(--btn-inactive-color)",
+                background: activeSection === "data-io" ? "rgba(99,102,241,0.15)" : "rgba(15,22,41,0.8)",
+                border: `1px solid ${activeSection === "data-io" ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
+                color: activeSection === "data-io" ? "#818cf8" : "rgba(180,200,230,0.6)",
               }}
             >
               <Icon name="ArrowLeftRight" size={13} />
@@ -1962,7 +1948,7 @@ export default function Index() {
               onClick={handleOpenDialog}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all hover:border-blue-500/40"
               style={{
-                background: "var(--btn-inactive-bg)",
+                background: "rgba(15,22,41,0.8)",
                 borderColor: isConnected ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
               }}
             >
