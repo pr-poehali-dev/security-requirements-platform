@@ -10308,6 +10308,7 @@ export default function Index() {
                               <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{s.name}</span>
                               <span className="font-mono text-[10px] flex-shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>{s.id}</span>
                               {s.status && (() => { const m = TECH_SOLUTION_STATUS_META[s.status as TechSolutionStatus]; return m ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: m.color, background: m.bg }}>{s.status}</span> : null; })()}
+                              {(() => { const cnt = reqs.filter((r) => (s.technology_ids||[]).includes(r.technology_id)).length; return cnt > 0 ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 font-mono" style={{ color: "rgba(180,200,230,0.5)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>{cnt} req</span> : null; })()}
                             </button>
                           );
                         })}
