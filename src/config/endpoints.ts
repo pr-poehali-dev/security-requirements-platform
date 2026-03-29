@@ -39,7 +39,7 @@ const LS_BASE_KEY   = "sa_localBase";
 export const DEFAULT_LOCAL_BASE = "http://localhost:8000";
 
 export function getApiMode(): ApiMode {
-  return (localStorage.getItem(LS_MODE_KEY) as ApiMode) || "local";
+  return (localStorage.getItem(LS_MODE_KEY) as ApiMode) || "cloud";
 }
 
 export function getLocalBase(): string {
