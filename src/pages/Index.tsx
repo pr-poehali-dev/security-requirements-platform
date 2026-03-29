@@ -10220,6 +10220,7 @@ export default function Index() {
                               </span>
                               <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{s.name}</span>
                               <span className="font-mono text-[10px] flex-shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>{s.id}</span>
+                              {s.status && (() => { const m = TECH_SOLUTION_STATUS_META[s.status as TechSolutionStatus]; return m ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: m.color, background: m.bg }}>{s.status}</span> : null; })()}
                             </button>
                           );
                         })}
