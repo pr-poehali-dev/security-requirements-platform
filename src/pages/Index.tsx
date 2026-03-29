@@ -1460,6 +1460,7 @@ export default function Index() {
   const ARCH_TEMPLATES_API = getApiUrl("arch-templates");
   const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
   const [archLoading, setArchLoading] = useState(false);
+  const [archFetched, setArchFetched] = useState(false);
   const [archSectionDesc, setArchSectionDesc] = useState("Реестр типовых архитектур безопасности — шаблоны для проектирования защищённых систем");
   const [archSectionDescEditing, setArchSectionDescEditing] = useState(false);
   const [archSectionDescDraft, setArchSectionDescDraft] = useState(archSectionDesc);
@@ -1511,6 +1512,7 @@ export default function Index() {
       ]);
       const data = await res.json();
       setArchTemplates(data.items || []);
+      setArchFetched(true);
       if (data.section_description) setArchSectionDesc(data.section_description);
       if (tsolRes) {
         const td = await tsolRes.json();
@@ -1609,7 +1611,7 @@ export default function Index() {
         reqs.length === 0 ? loadReqs() : Promise.resolve(),
         techSolutions.length === 0 ? loadTechSolutions() : Promise.resolve(),
         hardenings.length === 0 ? loadHardenings() : Promise.resolve(),
-        archTemplates.length === 0 ? loadArchTemplates() : Promise.resolve(),
+        !archFetched ? loadArchTemplates() : Promise.resolve(),
       ]);
     } finally {
       setExportLoading(false);
@@ -1802,6 +1804,7 @@ export default function Index() {
       setTechnologies([]);
       setTechSolutions([]);
       setArchTemplates([]);
+      setArchFetched(false);
       setHardenings([]);
       setDomains([]);
       setProducts([]);
@@ -1922,7 +1925,7 @@ export default function Index() {
                 if (domains.length === 0 && !domainsLoading) loadDomains();
                 if (technologies.length === 0 && !techsLoading) loadTechnologies();
                 if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
-                if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
+                if (!archFetched && !archLoading) loadArchTemplates();
                 if (reqs.length === 0 && !reqsLoading) loadReqs();
               }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
@@ -2309,7 +2312,7 @@ export default function Index() {
           if (reqs.length === 0 && !reqsLoading) loadReqs();
           if (technologies.length === 0 && !techsLoading) loadTechnologies();
           if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
-          if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
+          if (!archFetched && !archLoading) loadArchTemplates();
 
           const STATUS_LIST = ["Все", "Активен", "В разработке", "Архив", "Устарел", "Не активен"];
           const STATUS_META: Record<string, { color: string; icon: string }> = {
@@ -3634,7 +3637,7 @@ export default function Index() {
           if (reqs.length === 0 && !reqsLoading) loadReqs();
           if (technologies.length === 0 && !techsLoading) loadTechnologies();
           if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions();
-          if (archTemplates.length === 0 && !archLoading) loadArchTemplates();
+          if (!archFetched && !archLoading) loadArchTemplates();
 
           const tSTATUS_LIST = ["Все", "Активен", "В разработке", "Архив", "Устарел", "Не активен"];
           const tSTATUS_META: Record<string, { color: string; icon: string }> = {
