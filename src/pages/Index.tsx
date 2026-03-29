@@ -10166,29 +10166,88 @@ export default function Index() {
             {/* Tech solutions link */}
             <div className="space-y-1.5">
               <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Связанные технические решения</Label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {archForm.tech_solution_ids.map((tsId) => {
-                  const ts = techSolutions.find((s) => s.id === tsId);
-                  return (
-                    <span key={tsId} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
-                      {ts ? ts.name : tsId}
-                      <button onClick={() => setArchForm((f) => ({ ...f, tech_solution_ids: f.tech_solution_ids.filter((id) => id !== tsId) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
-                    </span>
-                  );
-                })}
-              </div>
+              {/* Dropdown combobox */}
               <div className="relative">
-                <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
-                <Input value={archTsolSearch} onChange={(e) => setArchTsolSearch(e.target.value)} placeholder="Поиск техрешения для привязки..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <button
+                  type="button"
+                  onClick={() => setArchTsolSearch(archTsolSearch === "\x00open" ? "" : "\x00open")}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: archForm.tech_solution_ids.length ? "rgba(210,225,245,0.9)" : "rgba(180,200,230,0.35)" }}
+                >
+                  <span>{archForm.tech_solution_ids.length ? `Выбрано: ${archForm.tech_solution_ids.length}` : "Выберите технические решения..."}</span>
+                  <Icon name="ChevronsUpDown" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
+                </button>
+                {(archTsolSearch === "\x00open" || (archTsolSearch !== "" && archTsolSearch !== "\x00open")) && (
+                  <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(15,22,41,0.98)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                    <div className="p-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                      <div className="relative">
+                        <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                        <input
+                          autoFocus
+                          value={archTsolSearch === "\x00open" ? "" : archTsolSearch}
+                          onChange={(e) => setArchTsolSearch(e.target.value || "\x00open")}
+                          placeholder="Поиск..."
+                          className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {techSolutions
+                        .filter((s) => {
+                          const q = archTsolSearch === "\x00open" ? "" : archTsolSearch.toLowerCase();
+                          return (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q);
+                        })
+                        .map((s) => {
+                          const selected = archForm.tech_solution_ids.includes(s.id);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setArchForm((f) => ({
+                                  ...f,
+                                  tech_solution_ids: selected
+                                    ? f.tech_solution_ids.filter((id) => id !== s.id)
+                                    : [...f.tech_solution_ids, s.id],
+                                }));
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
+                              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                            >
+                              <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: selected ? "rgba(167,139,250,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${selected ? "rgba(167,139,250,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                                {selected && <Icon name="Check" size={10} style={{ color: "#a78bfa" }} />}
+                              </span>
+                              <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{s.name}</span>
+                              <span className="font-mono text-[10px] flex-shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>{s.id}</span>
+                            </button>
+                          );
+                        })}
+                      {techSolutions.filter((s) => {
+                        const q = archTsolSearch === "\x00open" ? "" : archTsolSearch.toLowerCase();
+                        return (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q);
+                      }).length === 0 && (
+                        <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ничего не найдено</div>
+                      )}
+                    </div>
+                    <div className="px-3 py-2 border-t flex justify-end" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                      <button type="button" onClick={() => setArchTsolSearch("")} className="text-xs px-3 py-1 rounded-md" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>Готово</button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {archTsolSearch && (
-                <div className="rounded-lg overflow-hidden border max-h-40 overflow-y-auto" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                  {techSolutions.filter((s) => !archForm.tech_solution_ids.includes(s.id) && ((s.name||"").toLowerCase().includes(archTsolSearch.toLowerCase()) || (s.id||"").toLowerCase().includes(archTsolSearch.toLowerCase()))).slice(0, 8).map((s) => (
-                    <button key={s.id} onClick={() => { setArchForm((f) => ({ ...f, tech_solution_ids: [...f.tech_solution_ids, s.id] })); setArchTsolSearch(""); }} className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-white/5 transition-all" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <span style={{ color: "rgba(210,225,245,0.8)" }}>{s.name}</span>
-                      <span className="font-mono" style={{ color: "rgba(180,200,230,0.4)" }}>{s.id}</span>
-                    </button>
-                  ))}
+              {/* Selected chips */}
+              {archForm.tech_solution_ids.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {archForm.tech_solution_ids.map((tsId) => {
+                    const ts = techSolutions.find((s) => s.id === tsId);
+                    return (
+                      <span key={tsId} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
+                        {ts ? ts.name : tsId}
+                        <button type="button" onClick={() => setArchForm((f) => ({ ...f, tech_solution_ids: f.tech_solution_ids.filter((id) => id !== tsId) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
