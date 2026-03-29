@@ -1478,6 +1478,7 @@ export default function Index() {
   const [archFilterIt, setArchFilterIt] = useState<string>("Все");
   const [archTagInput, setArchTagInput] = useState("");
   const [archTsolSearch, setArchTsolSearch] = useState("");
+  const [reqTechSearch, setReqTechSearch] = useState("");
   const [archTsolStatusFilter, setArchTsolStatusFilter] = useState<string | null>(null);
   const [archActiveDiagramTab, setArchActiveDiagramTab] = useState(0);
   const [viewArchReqSearch, setViewArchReqSearch] = useState("");
@@ -7018,12 +7019,75 @@ export default function Index() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технология</Label>
-                <select value={reqForm.technology_id} onChange={(e) => setReqForm((f) => ({ ...f, technology_id: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: reqForm.technology_id ? "white" : "rgba(180,200,230,0.4)" }}>
-                  <option value="">— не выбрано —</option>
-                  {reqTechRefs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setReqTechSearch(reqTechSearch === "\x00open" ? "" : "\x00open")}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left"
+                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: reqForm.technology_id ? "rgba(210,225,245,0.9)" : "rgba(180,200,230,0.35)" }}
+                  >
+                    <span className="truncate">{reqForm.technology_id ? (reqTechRefs.find((t) => t.id === reqForm.technology_id)?.name ?? reqForm.technology_id) : "— не выбрано —"}</span>
+                    <Icon name="ChevronsUpDown" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
+                  </button>
+                  {(reqTechSearch === "\x00open" || (reqTechSearch !== "" && reqTechSearch !== "\x00open")) && (
+                    <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(15,22,41,0.98)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                      <div className="p-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                        <div className="relative">
+                          <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                          <input
+                            autoFocus
+                            value={reqTechSearch === "\x00open" ? "" : reqTechSearch}
+                            onChange={(e) => setReqTechSearch(e.target.value || "\x00open")}
+                            placeholder="Поиск..."
+                            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => { setReqForm((f) => ({ ...f, technology_id: "" })); setReqTechSearch(""); }}
+                          className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                        >
+                          <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: !reqForm.technology_id ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${!reqForm.technology_id ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                            {!reqForm.technology_id && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
+                          </span>
+                          <span style={{ color: "rgba(180,200,230,0.5)" }}>— не выбрано —</span>
+                        </button>
+                        {reqTechRefs
+                          .filter((t) => {
+                            const q = reqTechSearch === "\x00open" ? "" : reqTechSearch.toLowerCase();
+                            return (t.name || "").toLowerCase().includes(q) || (t.id || "").toLowerCase().includes(q);
+                          })
+                          .map((t) => {
+                            const selected = reqForm.technology_id === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => { setReqForm((f) => ({ ...f, technology_id: t.id })); setReqTechSearch(""); }}
+                                className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
+                                style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                              >
+                                <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: selected ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${selected ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                                  {selected && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
+                                </span>
+                                <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{t.name}</span>
+                              </button>
+                            );
+                          })}
+                        {reqTechRefs.filter((t) => {
+                          const q = reqTechSearch === "\x00open" ? "" : reqTechSearch.toLowerCase();
+                          return (t.name || "").toLowerCase().includes(q) || (t.id || "").toLowerCase().includes(q);
+                        }).length === 0 && (
+                          <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ничего не найдено</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технический домен</Label>
