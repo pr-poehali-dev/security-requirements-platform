@@ -6646,14 +6646,7 @@ export default function Index() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID решения *</Label>
-                {editingTsol ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a78bfa" }}>
-                    <Icon name="Hash" size={13} style={{ color: "rgba(167,139,250,0.4)" }} />
-                    {tsolForm.id}
-                  </div>
-                ) : (
-                  <Input value={tsolForm.id} onChange={(e) => setTsolForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-                )}
+                <Input value={tsolForm.id} onChange={(e) => setTsolForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
@@ -10855,111 +10848,6 @@ export default function Index() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Arch Template Create/Edit Dialog ── */}
-      <Dialog open={archDialogOpen} onOpenChange={(o) => { if (!o) setArchDialogOpen(false); }}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
-          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
-            <DialogTitle className="text-white flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(99,176,255,0.15)", border: "1px solid rgba(99,176,255,0.3)" }}>
-                <Icon name="LayoutTemplate" size={15} style={{ color: "#63b0ff" }} />
-              </div>
-              {editingArch ? "Редактировать архитектуру" : "Новая типовая архитектура"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="px-6 py-5 space-y-5">
-            {/* ID */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID архитектуры</Label>
-              {editingArch ? (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#63b0ff" }}>
-                  <Icon name="Hash" size={13} style={{ color: "rgba(99,176,255,0.4)" }} />
-                  {archForm.id}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#63b0ff" }}>
-                  <Icon name="Hash" size={13} style={{ color: "rgba(99,176,255,0.4)" }} />
-                  <input value={archForm.id} onChange={(e) => setArchForm((f) => ({ ...f, id: e.target.value }))} className="bg-transparent outline-none flex-1 font-mono" style={{ color: "#63b0ff" }} placeholder="ArchSec-001" />
-                </div>
-              )}
-            </div>
-
-            {/* Name + Version */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название *</Label>
-                <Input value={archForm.name} onChange={(e) => setArchForm((f) => ({ ...f, name: e.target.value }))} placeholder="Название архитектуры" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
-                <Input value={archForm.version} onChange={(e) => setArchForm((f) => ({ ...f, version: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание</Label>
-              <textarea value={archForm.description} onChange={(e) => setArchForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} placeholder="Описание архитектуры..." />
-            </div>
-
-            {/* Status + Author */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
-                <select value={archForm.status} onChange={(e) => setArchForm((f) => ({ ...f, status: e.target.value as ArchTemplateStatus }))} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}>
-                  {ARCH_TEMPLATE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Автор</Label>
-                <Input value={archForm.author} onChange={(e) => setArchForm((f) => ({ ...f, author: e.target.value }))} placeholder="Имя автора" className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-            </div>
-
-            {/* Approvals */}
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={archForm.approved_ib} onChange={(e) => setArchForm((f) => ({ ...f, approved_ib: e.target.checked }))} className="w-4 h-4 rounded" />
-                <span className="text-sm" style={{ color: "rgba(180,200,230,0.8)" }}>Согласовано ИБ</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={archForm.approved_it} onChange={(e) => setArchForm((f) => ({ ...f, approved_it: e.target.checked }))} className="w-4 h-4 rounded" />
-                <span className="text-sm" style={{ color: "rgba(180,200,230,0.8)" }}>Согласовано ИТ</span>
-              </label>
-            </div>
-
-            {/* Tags */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги ({archForm.tags.length}/10)</Label>
-              <div className="flex gap-2">
-                <Input value={archTagInput} onChange={(e) => setArchTagInput(e.target.value)}
-                  onKeyDown={(e) => { if ((e.key === "Enter" || e.key === ",") && archTagInput.trim() && archForm.tags.length < 10) { e.preventDefault(); setArchForm((f) => ({ ...f, tags: [...f.tags, archTagInput.trim()] })); setArchTagInput(""); } }}
-                  placeholder="Добавить тег..." className="text-xs h-8 flex-1" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
-                <button onClick={() => { if (archTagInput.trim() && archForm.tags.length < 10) { setArchForm((f) => ({ ...f, tags: [...f.tags, archTagInput.trim()] })); setArchTagInput(""); } }} className="px-3 rounded-lg text-xs h-8" style={{ background: "rgba(99,176,255,0.1)", border: "1px solid rgba(99,176,255,0.2)", color: "#63b0ff" }}>+</button>
-              </div>
-              {archForm.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {archForm.tags.map((tag) => (
-                    <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ background: "rgba(99,176,255,0.08)", color: "#63b0ff", border: "1px solid rgba(99,176,255,0.15)" }}>
-                      {tag}
-                      <button onClick={() => setArchForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} style={{ color: "rgba(99,176,255,0.5)" }}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {archSaveError && <p className="text-xs py-2 px-3 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>{archSaveError}</p>}
-          </div>
-
-          <div className="px-6 py-4 border-t flex gap-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-            <Button variant="outline" className="flex-1" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setArchDialogOpen(false)}>Отмена</Button>
-            <button onClick={handleSaveArch} disabled={archSaving} className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all hover:opacity-90" style={{ background: archSaving ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, rgba(99,176,255,0.3), rgba(59,130,246,0.3))", border: "1px solid rgba(99,176,255,0.3)", color: archSaving ? "rgba(180,200,230,0.3)" : "#93c5fd" }}>
-              {archSaving ? <><Icon name="Loader" size={14} className="animate-spin" /> Сохранение...</> : <><Icon name="Save" size={14} /> {editingArch ? "Сохранить" : "Создать архитектуру"}</>}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* ── Product Create/Edit Dialog ── */}
       <Dialog open={prodDialogOpen} onOpenChange={(o) => { if (!o) setProdDialogOpen(false); }}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
@@ -10976,14 +10864,7 @@ export default function Index() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID продукта *</Label>
-                {editingProd ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#fbbf24" }}>
-                    <Icon name="Hash" size={13} style={{ color: "rgba(251,191,36,0.4)" }} />
-                    {prodForm.id}
-                  </div>
-                ) : (
-                  <Input value={prodForm.id} onChange={(e) => setProdForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" placeholder="BizProd-001" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-                )}
+                <Input value={prodForm.id} onChange={(e) => setProdForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" placeholder="BizProd-001" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
