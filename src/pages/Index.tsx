@@ -6646,7 +6646,10 @@ export default function Index() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID решения *</Label>
-                <Input value={tsolForm.id} onChange={(e) => setTsolForm((f) => ({ ...f, id: e.target.value }))} className="font-mono text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#a78bfa" }}>
+                  <Icon name="Hash" size={13} style={{ color: "rgba(167,139,250,0.4)" }} />
+                  {tsolForm.id}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
