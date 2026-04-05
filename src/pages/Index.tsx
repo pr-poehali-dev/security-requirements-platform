@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import jsPDF from "jspdf";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
@@ -10571,6 +10572,176 @@ export default function Index() {
               a.href = url; a.download = `requirements_${viewArch?.id || "export"}.csv`; a.click();
               URL.revokeObjectURL(url);
             };
+
+            const exportArchPDF = () => {
+              const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+              const pageW = doc.internal.pageSize.getWidth();
+              const pageH = doc.internal.pageSize.getHeight();
+              const marginL = 15;
+              const marginR = 15;
+              const contentW = pageW - marginL - marginR;
+              let y = 0;
+
+              const addPageIfNeeded = (needed: number) => {
+                if (y + needed > pageH - 15) { doc.addPage(); y = 20; }
+              };
+
+              const drawSectionTitle = (title: string) => {
+                addPageIfNeeded(12);
+                doc.setFillColor(8, 15, 30);
+                doc.rect(marginL, y, contentW, 8, "F");
+                doc.setTextColor(34, 211, 238);
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text(title, marginL + 3, y + 5.5);
+                y += 10;
+              };
+
+              const drawKeyValue = (label: string, value: string, indent = 0) => {
+                addPageIfNeeded(7);
+                doc.setFontSize(8);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(120, 150, 200);
+                doc.text(label + ":", marginL + indent, y);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(220, 230, 255);
+                const lines = doc.splitTextToSize(value || "—", contentW - 35 - indent);
+                doc.text(lines, marginL + 35 + indent, y);
+                y += lines.length * 5 + 2;
+              };
+
+              // ── Header ──
+              doc.setFillColor(8, 15, 30);
+              doc.rect(0, 0, pageW, pageH, "F");
+              doc.setFillColor(6, 182, 212, 0.15);
+              doc.rect(0, 0, pageW, 35, "F");
+              doc.setDrawColor(6, 182, 212);
+              doc.setLineWidth(0.5);
+              doc.line(0, 35, pageW, 35);
+
+              doc.setTextColor(34, 211, 238);
+              doc.setFontSize(8);
+              doc.setFont("helvetica", "normal");
+              doc.text(viewArch.id + "  ·  v" + viewArch.version + "  ·  " + viewArch.status, marginL, 12);
+
+              doc.setTextColor(255, 255, 255);
+              doc.setFontSize(16);
+              doc.setFont("helvetica", "bold");
+              const titleLines = doc.splitTextToSize(viewArch.name, contentW);
+              doc.text(titleLines, marginL, 24);
+              y = 44;
+
+              // ── Основная информация ──
+              drawSectionTitle("ОСНОВНАЯ ИНФОРМАЦИЯ");
+              drawKeyValue("Автор", viewArch.author || "—");
+              drawKeyValue("Статус", viewArch.status);
+              drawKeyValue("Версия", viewArch.version || "—");
+              drawKeyValue("Согл. ИБ", viewArch.approved_ib ? "Да" : "Нет");
+              drawKeyValue("Согл. ИТ", viewArch.approved_it ? "Да" : "Нет");
+              if ((viewArch.tags || []).length > 0) drawKeyValue("Теги", viewArch.tags.join(", "));
+              if (viewArch.created_at) drawKeyValue("Создан", new Date(viewArch.created_at).toLocaleDateString("ru-RU"));
+              if (viewArch.updated_at) drawKeyValue("Обновлён", new Date(viewArch.updated_at).toLocaleDateString("ru-RU"));
+              y += 4;
+
+              // ── Описание ──
+              if (viewArch.description) {
+                drawSectionTitle("ОПИСАНИЕ");
+                addPageIfNeeded(10);
+                doc.setFontSize(8.5);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(210, 220, 245);
+                const descLines = doc.splitTextToSize(viewArch.description, contentW);
+                descLines.forEach((line: string) => {
+                  addPageIfNeeded(6);
+                  doc.text(line, marginL, y);
+                  y += 5;
+                });
+                y += 4;
+              }
+
+              // ── Схемы (текстовое содержимое Mermaid) ──
+              if ((viewArch.diagrams || []).length > 0) {
+                drawSectionTitle("СХЕМЫ АРХИТЕКТУРЫ (" + viewArch.diagrams.length + ")");
+                viewArch.diagrams.forEach((d, idx) => {
+                  addPageIfNeeded(12);
+                  doc.setFontSize(9);
+                  doc.setFont("helvetica", "bold");
+                  doc.setTextColor(167, 139, 250);
+                  doc.text((idx + 1) + ". " + d.name, marginL, y);
+                  y += 6;
+                  doc.setFontSize(7.5);
+                  doc.setFont("courier", "normal");
+                  doc.setTextColor(180, 200, 230);
+                  const codeLines = doc.splitTextToSize(d.content, contentW - 4);
+                  codeLines.forEach((line: string) => {
+                    addPageIfNeeded(5);
+                    doc.text(line, marginL + 2, y);
+                    y += 4.5;
+                  });
+                  y += 4;
+                });
+              }
+
+              // ── Связанные требования ──
+              if (uniqueReqs.length > 0) {
+                drawSectionTitle("СВЯЗАННЫЕ ТРЕБОВАНИЯ (" + uniqueReqs.length + ")");
+
+                // Шапка таблицы
+                const colW = [22, 65, 22, 22, contentW - 131];
+                const cols = ["ID", "Название", "Тип", "Критичность", "Описание"];
+                const rowH = 6.5;
+
+                addPageIfNeeded(rowH + 2);
+                doc.setFillColor(20, 30, 60);
+                doc.rect(marginL, y, contentW, rowH, "F");
+                doc.setTextColor(34, 211, 238);
+                doc.setFontSize(7.5);
+                doc.setFont("helvetica", "bold");
+                let cx = marginL + 2;
+                cols.forEach((c, i) => { doc.text(c, cx, y + 4.5); cx += colW[i]; });
+                y += rowH;
+
+                uniqueReqs.forEach((r, rIdx) => {
+                  const descText = doc.splitTextToSize(r.description || "—", colW[4] - 4);
+                  const rH = Math.max(rowH, descText.length * 4.5 + 2);
+                  addPageIfNeeded(rH);
+                  doc.setFillColor(rIdx % 2 === 0 ? 12 : 16, rIdx % 2 === 0 ? 20 : 25, rIdx % 2 === 0 ? 40 : 50);
+                  doc.rect(marginL, y, contentW, rH, "F");
+                  doc.setTextColor(200, 210, 240);
+                  doc.setFontSize(7);
+                  doc.setFont("helvetica", "normal");
+                  cx = marginL + 2;
+                  const cells = [r.id, r.name, r.req_type||"—", r.criticality, ""];
+                  cells.forEach((cell, i) => {
+                    if (i < 4) {
+                      const wrapped = doc.splitTextToSize(cell, colW[i] - 4);
+                      doc.text(wrapped, cx, y + 4.5);
+                    } else {
+                      doc.text(descText, cx, y + 4.5);
+                    }
+                    cx += colW[i];
+                  });
+                  y += rH;
+                });
+                y += 6;
+              }
+
+              // ── Footer ──
+              const totalPages = (doc.internal as { getNumberOfPages?: () => number }).getNumberOfPages?.() ?? 1;
+              for (let p = 1; p <= totalPages; p++) {
+                doc.setPage(p);
+                doc.setDrawColor(34, 211, 238, 0.3);
+                doc.setLineWidth(0.3);
+                doc.line(marginL, pageH - 10, pageW - marginR, pageH - 10);
+                doc.setFontSize(7);
+                doc.setTextColor(100, 130, 180);
+                doc.setFont("helvetica", "normal");
+                doc.text("Типовая архитектура безопасности · " + viewArch.id, marginL, pageH - 6);
+                doc.text("Стр. " + p + " / " + totalPages, pageW - marginR, pageH - 6, { align: "right" });
+              }
+
+              doc.save(`arch_${viewArch.id}_${viewArch.version}.pdf`);
+            };
             return (
               <>
                 {/* Header */}
@@ -10587,6 +10758,9 @@ export default function Index() {
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={exportArchPDF} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa" }}>
+                        <Icon name="FileDown" size={12} /> Выгрузить PDF
+                      </button>
                       <button onClick={() => { setViewArch(null); openEditArch(viewArch); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
                         <Icon name="Pencil" size={12} /> Редактировать
                       </button>
