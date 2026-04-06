@@ -205,7 +205,7 @@ interface OrgDomain {
   created_at?: string;
 }
 
-type ArchTemplateStatus = "Активен" | "Не активен" | "В разработке" | "Архив" | "Устарел";
+type ArchTemplateStatus = "Активен" | "Не активен" | "В разработке" | "Релиз-кандидат" | "Архив" | "Устарел";
 
 interface MermaidDiagram {
   id: string;
@@ -259,14 +259,15 @@ interface ArchTemplate {
   updated_at?: string;
 }
 
-const ARCH_TEMPLATE_STATUSES: ArchTemplateStatus[] = ["Активен", "Не активен", "В разработке", "Архив", "Устарел"];
+const ARCH_TEMPLATE_STATUSES: ArchTemplateStatus[] = ["Активен", "Не активен", "В разработке", "Релиз-кандидат", "Архив", "Устарел"];
 
 const ARCH_TEMPLATE_STATUS_META: Record<ArchTemplateStatus, { color: string; bg: string; icon: string }> = {
-  "Активен":      { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
-  "Не активен":   { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
-  "В разработке": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
-  "Архив":        { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
-  "Устарел":      { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
+  "Активен":          { color: "#22c55e", bg: "rgba(34,197,94,0.12)",    icon: "CheckCircle2" },
+  "Не активен":       { color: "#6b7280", bg: "rgba(107,114,128,0.12)",  icon: "MinusCircle" },
+  "В разработке":     { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",   icon: "Wrench" },
+  "Релиз-кандидат":   { color: "#38bdf8", bg: "rgba(56,189,248,0.12)",   icon: "Rocket" },
+  "Архив":            { color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   icon: "Archive" },
+  "Устарел":          { color: "#ef4444", bg: "rgba(239,68,68,0.12)",    icon: "AlertTriangle" },
 };
 
 const HARDENING_STATUS_META: Record<HardeningStatus, { color: string; bg: string; icon: string }> = {
