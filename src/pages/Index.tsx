@@ -10612,6 +10612,139 @@ export default function Index() {
               URL.revokeObjectURL(url);
             };
 
+            const exportArchHTML = () => {
+              const statusColor: Record<string, string> = {
+                "Активен": "#22c55e", "В разработке": "#f59e0b", "Архивен": "#6b7280"
+              };
+              const sColor = statusColor[viewArch.status] ?? "#6b7280";
+              const createdAt = viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—";
+              const updatedAt = viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—";
+              const diagrams = (viewArch.diagrams || []);
+              const diagramsHtml = diagrams.map((d, idx) => `
+                <div class="diagram-block" id="diagram-${idx}">
+                  <div class="diagram-header" onclick="toggleDiagram(${idx})">
+                    <span class="diagram-num">${idx + 1}</span>
+                    <span class="diagram-name">${d.name}</span>
+                    <span class="diagram-chevron" id="chev-${idx}">▼</span>
+                  </div>
+                  <div class="diagram-body" id="diag-body-${idx}">
+                    <div class="diagram-toolbar">
+                      <button onclick="zoomIn(${idx})" title="Увеличить">＋</button>
+                      <button onclick="zoomOut(${idx})" title="Уменьшить">－</button>
+                      <button onclick="resetZoom(${idx})" title="Сбросить масштаб">⊙</button>
+                      <button onclick="panReset(${idx})" title="Центрировать">⌖</button>
+                    </div>
+                    <div class="mermaid-wrap" id="wrap-${idx}">
+                      <div class="mermaid-pan" id="pan-${idx}" style="transform-origin:0 0;transform:scale(1) translate(0px,0px);">
+                        <pre class="mermaid">${d.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>`).join("\n");
+              const tsolsHtml = linkedTsols.length > 0
+                ? linkedTsols.map(ts => `<div class="tsol-chip"><span class="tsol-name">${ts.name}</span><span class="tsol-id">${ts.id}</span></div>`).join("")
+                : '<span style="color:#6b7280">—</span>';
+              const SC = "script";
+              const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${viewArch.name}</title>
+<${SC} src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></${SC}>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#080f1e;color:#c8daf0;min-height:100vh;padding:32px 16px}
+.container{max-width:960px;margin:0 auto}
+.header{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 32px;margin-bottom:24px}
+.id-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.badge-id{font-family:monospace;font-size:12px;padding:3px 10px;border-radius:6px;background:rgba(6,182,212,0.12);color:#22d3ee;border:1px solid rgba(6,182,212,0.25)}
+.badge-ver{font-family:monospace;font-size:12px;color:rgba(180,200,230,0.45)}
+.badge-status{font-size:12px;padding:3px 12px;border-radius:20px;border:1px solid;font-weight:500}
+.title{font-size:24px;font-weight:700;color:#fff;line-height:1.3;margin-bottom:4px}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px 32px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)}
+.meta-item label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(180,200,230,0.35);display:block;margin-bottom:4px}
+.meta-item span{font-size:14px;color:rgba(210,225,245,0.85)}
+.section{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:22px 24px;margin-bottom:16px}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(180,200,230,0.4);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:"";flex:1;height:1px;background:rgba(255,255,255,0.06)}
+.desc-text{font-size:14px;line-height:1.7;color:rgba(210,225,245,0.8);white-space:pre-wrap}
+.tsol-list{display:flex;flex-wrap:wrap;gap:8px}
+.tsol-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25)}
+.tsol-name{font-size:13px;color:#a5b4fc}
+.tsol-id{font-family:monospace;font-size:11px;color:rgba(165,180,252,0.55)}
+.req-counter{font-size:28px;font-weight:700;color:#22d3ee;line-height:1}
+.req-label{font-size:12px;color:rgba(180,200,230,0.4);margin-top:4px}
+.diagram-block{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.diagram-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;transition:background .15s}
+.diagram-header:hover{background:rgba(255,255,255,0.04)}
+.diagram-num{font-family:monospace;font-size:11px;min-width:22px;text-align:center;padding:2px 6px;border-radius:4px;background:rgba(6,182,212,0.12);color:#22d3ee}
+.diagram-name{flex:1;font-size:14px;color:#e2eaf8;font-weight:500}
+.diagram-chevron{font-size:11px;color:rgba(180,200,230,0.4);transition:transform .2s}
+.diagram-body{display:block}
+.diagram-toolbar{display:flex;gap:6px;padding:8px 14px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.05)}
+.diagram-toolbar button{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:#c8daf0;border-radius:6px;width:30px;height:28px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.diagram-toolbar button:hover{background:rgba(255,255,255,0.14)}
+.mermaid-wrap{overflow:hidden;background:#0d1628;min-height:200px;cursor:grab;position:relative;padding:16px}
+.mermaid-wrap:active{cursor:grabbing}
+.mermaid-pan{display:inline-block}
+.mermaid pre{background:transparent!important}
+svg{max-width:none!important}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="id-row">
+      <span class="badge-id">${viewArch.id}</span>
+      <span class="badge-ver">v${viewArch.version}</span>
+      <span class="badge-status" style="color:${sColor};border-color:${sColor}40;background:${sColor}18">${viewArch.status}</span>
+    </div>
+    <div class="title">${viewArch.name}</div>
+    <div class="meta-grid">
+      <div class="meta-item"><label>Автор</label><span>${viewArch.author || "—"}</span></div>
+      <div class="meta-item"><label>Дата создания</label><span>${createdAt}</span></div>
+      <div class="meta-item"><label>Дата изменения</label><span>${updatedAt}</span></div>
+      <div class="meta-item"><label>Согласован с ИБ</label><span style="color:${viewArch.approved_ib ? "#22c55e" : "#f87171"}">${viewArch.approved_ib ? "✓ Согласован" : "✗ Не согласован"}</span></div>
+      <div class="meta-item"><label>Согласован с ИТ</label><span style="color:${viewArch.approved_it ? "#22c55e" : "#f87171"}">${viewArch.approved_it ? "✓ Согласован" : "✗ Не согласован"}</span></div>
+    </div>
+  </div>
+  ${viewArch.description ? `<div class="section"><div class="section-title">Описание</div><div class="desc-text">${viewArch.description.replace(/</g,"&lt;")}</div></div>` : ""}
+  <div class="section"><div class="section-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
+  <div class="section" style="display:flex;align-items:center;gap:20px">
+    <div>
+      <div class="req-counter">${uniqueReqs.length}</div>
+      <div class="req-label">связанных требований</div>
+    </div>
+  </div>
+  ${diagrams.length > 0 ? `<div class="section-title" style="margin-bottom:12px">Диаграммы архитектуры</div>${diagramsHtml}` : ""}
+</div>
+<script>
+mermaid.initialize({startOnLoad:true,theme:"dark",themeVariables:{background:"#0d1628",primaryColor:"#1e3a5f",primaryTextColor:"#c8daf0",lineColor:"#4a7fa5",edgeLabelBackground:"#0d1628"}});
+var scales={},pans={},dragging={},dragStart={};
+function getState(i){if(!scales[i])scales[i]=1;if(!pans[i])pans[i]={x:0,y:0};return{s:scales[i],p:pans[i]}}
+function applyTransform(i){var st=getState(i);var el=document.getElementById("pan-"+i);if(el)el.style.transform="scale("+st.s+") translate("+st.p.x+"px,"+st.p.y+"px)"}
+function zoomIn(i){var st=getState(i);scales[i]=Math.min(st.s+0.2,5);applyTransform(i)}
+function zoomOut(i){var st=getState(i);scales[i]=Math.max(st.s-0.2,0.2);applyTransform(i)}
+function resetZoom(i){scales[i]=1;applyTransform(i)}
+function panReset(i){pans[i]={x:0,y:0};applyTransform(i)}
+function toggleDiagram(i){var b=document.getElementById("diag-body-"+i);var c=document.getElementById("chev-"+i);if(b.style.display==="none"){b.style.display="block";if(c)c.style.transform=""}else{b.style.display="none";if(c)c.style.transform="rotate(-90deg)"}}
+document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
+  wrap.addEventListener("wheel",function(e){e.preventDefault();var delta=e.deltaY>0?-0.1:0.1;var st=getState(i);scales[i]=Math.max(0.2,Math.min(5,st.s+delta));applyTransform(i)},{passive:false});
+  wrap.addEventListener("mousedown",function(e){dragging[i]=true;var st=getState(i);dragStart[i]={mx:e.clientX,my:e.clientY,px:st.p.x,py:st.p.y}});
+  document.addEventListener("mousemove",function(e){if(!dragging[i])return;var ds=dragStart[i];var st=getState(i);pans[i]={x:ds.px+(e.clientX-ds.mx)/st.s,y:ds.py+(e.clientY-ds.my)/st.s};applyTransform(i)});
+  document.addEventListener("mouseup",function(){dragging[i]=false});
+});
+</${SC}>
+</body>
+</html>`;
+              const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `${viewArch.id}_v${viewArch.version}.html`; a.click();
+              URL.revokeObjectURL(url);
+            };
+
             const exportReqsCSV = () => {
               const headers = ["ID","Название","Тип","Критичность","Статус","Описание","Метрика контроля","Описание контроля","Теги","Версия","Окружение","Стадии","Закупка","Внешн. с IOD","Внешн. без IOD","Внутр. с IOD","Внутр. без IOD","Ссылка на НД"];
               const rows = filteredViewReqs.map((r) => [
@@ -10645,6 +10778,9 @@ export default function Index() {
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={exportArchHTML} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
+                        <Icon name="Globe" size={12} /> Выгрузить .HTML
+                      </button>
                       <button onClick={exportArchMD} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}>
                         <Icon name="FileDown" size={12} /> Выгрузить .MD
                       </button>
