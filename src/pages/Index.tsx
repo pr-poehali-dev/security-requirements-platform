@@ -10745,6 +10745,268 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
               URL.revokeObjectURL(url);
             };
 
+            const exportArchHTMLAll = () => {
+              const statusColor: Record<string, string> = { "Активен": "#22c55e", "В разработке": "#f59e0b", "Архивен": "#6b7280" };
+              const sColor = statusColor[viewArch.status] ?? "#6b7280";
+              const createdAt = viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—";
+              const updatedAt = viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—";
+              const diagrams = (viewArch.diagrams || []);
+              const diagramsHtml = diagrams.map((d, idx) => `
+<div class="diagram-block" id="diagram-${idx}">
+  <div class="diagram-header" onclick="toggleDiagram(${idx})">
+    <span class="diagram-num">${idx + 1}</span>
+    <span class="diagram-name">${d.name}</span>
+    <span class="diagram-chevron" id="chev-${idx}">▼</span>
+  </div>
+  <div class="diagram-body" id="diag-body-${idx}">
+    <div class="diagram-toolbar">
+      <button onclick="zoomIn(${idx})">＋</button>
+      <button onclick="zoomOut(${idx})">－</button>
+      <button onclick="resetZoom(${idx})">⊙</button>
+      <button onclick="panReset(${idx})">⌖</button>
+    </div>
+    <div class="mermaid-wrap" id="wrap-${idx}">
+      <div class="mermaid-pan" id="pan-${idx}" style="transform-origin:0 0;transform:scale(1) translate(0px,0px);">
+        <pre class="mermaid">${d.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
+      </div>
+    </div>
+  </div>
+</div>`).join("\n");
+              const tsolsHtml = linkedTsols.length > 0
+                ? linkedTsols.map(ts => `<div class="tsol-chip"><span class="tsol-name">${ts.name}</span><span class="tsol-id">${ts.id}</span></div>`).join("")
+                : '<span style="color:#6b7280">—</span>';
+              const reqsJson = JSON.stringify(uniqueReqs.map(r => ({
+                id: r.id, name: r.name, req_type: r.req_type||"", criticality: r.criticality||"",
+                status: r.status||"", environments: (r.environments||[]).join(", "), stages: (r.stages||[]).join(", "),
+                control_metric: r.control_metric||"", ext_with_iod: r.ext_with_iod||"", ext_without_iod: r.ext_without_iod||"",
+                int_with_iod: r.int_with_iod||"", int_without_iod: r.int_without_iod||"", version: r.version||"",
+                tags: (r.tags||[]).join(", "), score_value: r.score_value ?? "", score_weight: r.score_weight ?? ""
+              })));
+              const SC = "script";
+              const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${viewArch.name}</title>
+<${SC} src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></${SC}>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#080f1e;color:#c8daf0;min-height:100vh;padding:32px 16px}
+.container{max-width:1200px;margin:0 auto}
+.header{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 32px;margin-bottom:20px}
+.id-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.badge-id{font-family:monospace;font-size:12px;padding:3px 10px;border-radius:6px;background:rgba(6,182,212,0.12);color:#22d3ee;border:1px solid rgba(6,182,212,0.25)}
+.badge-ver{font-family:monospace;font-size:12px;color:rgba(180,200,230,0.45)}
+.badge-status{font-size:12px;padding:3px 12px;border-radius:20px;border:1px solid;font-weight:500}
+.title{font-size:22px;font-weight:700;color:#fff;line-height:1.3}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px 28px;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.06)}
+.meta-item label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(180,200,230,0.35);display:block;margin-bottom:3px}
+.meta-item span{font-size:13px;color:rgba(210,225,245,0.85)}
+.section{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:20px 22px;margin-bottom:16px}
+.sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(180,200,230,0.4);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec-title::after{content:"";flex:1;height:1px;background:rgba(255,255,255,0.06)}
+.desc-text{font-size:13px;line-height:1.7;color:rgba(210,225,245,0.8);white-space:pre-wrap}
+.tsol-list{display:flex;flex-wrap:wrap;gap:8px}
+.tsol-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:7px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25)}
+.tsol-name{font-size:12px;color:#a5b4fc}
+.tsol-id{font-family:monospace;font-size:10px;color:rgba(165,180,252,0.5)}
+.req-counter{font-size:26px;font-weight:700;color:#22d3ee;line-height:1}
+.req-label{font-size:11px;color:rgba(180,200,230,0.4);margin-top:3px}
+.diagram-block{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.diagram-header{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;user-select:none;transition:background .15s}
+.diagram-header:hover{background:rgba(255,255,255,0.04)}
+.diagram-num{font-family:monospace;font-size:10px;min-width:20px;text-align:center;padding:2px 5px;border-radius:4px;background:rgba(6,182,212,0.12);color:#22d3ee}
+.diagram-name{flex:1;font-size:13px;color:#e2eaf8;font-weight:500}
+.diagram-chevron{font-size:10px;color:rgba(180,200,230,0.4);transition:transform .2s}
+.diagram-body{display:block}
+.diagram-toolbar{display:flex;gap:5px;padding:7px 12px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.05)}
+.diagram-toolbar button{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:#c8daf0;border-radius:5px;width:28px;height:26px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.diagram-toolbar button:hover{background:rgba(255,255,255,0.14)}
+.mermaid-wrap{overflow:hidden;background:#0d1628;min-height:180px;cursor:grab;position:relative;padding:14px}
+.mermaid-wrap:active{cursor:grabbing}
+.mermaid-pan{display:inline-block}
+.mermaid pre{background:transparent!important}
+svg{max-width:none!important}
+.req-controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.req-search{flex:1;min-width:200px;background:rgba(15,22,41,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#c8daf0;font-size:12px;outline:none}
+.req-search::placeholder{color:rgba(180,200,230,0.35)}
+.req-filter{background:rgba(15,22,41,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 10px;color:#c8daf0;font-size:12px;outline:none;cursor:pointer}
+.req-stats{font-size:11px;color:rgba(180,200,230,0.4);padding:4px 0}
+.req-table-wrap{overflow-x:auto;border-radius:8px;border:1px solid rgba(255,255,255,0.07)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead tr{background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08)}
+th{padding:8px 10px;text-align:left;white-space:nowrap;font-weight:500;color:rgba(180,200,230,0.5);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+th.center,td.center{text-align:center}
+tbody tr{border-bottom:1px solid rgba(255,255,255,0.04);transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,0.03)}
+tbody tr:last-child{border-bottom:none}
+td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
+.td-id{font-family:monospace;color:#63b0ff;white-space:nowrap}
+.td-name{min-width:180px;color:rgba(220,235,255,0.9)}
+.pill{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:500;white-space:nowrap}
+.pill-crit{background:rgba(239,68,68,0.12);color:#f87171}
+.pill-high{background:rgba(249,115,22,0.12);color:#fb923c}
+.pill-med{background:rgba(245,158,11,0.12);color:#fbbf24}
+.pill-low{background:rgba(52,211,153,0.12);color:#34d399}
+.pill-act{background:rgba(34,197,94,0.1);color:#4ade80}
+.pill-dev{background:rgba(245,158,11,0.1);color:#fbbf24}
+.pill-other{background:rgba(107,114,128,0.12);color:#9ca3af}
+.tag{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;background:rgba(52,211,153,0.07);color:rgba(52,211,153,0.7);margin:1px}
+.env{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;background:rgba(99,176,255,0.08);color:rgba(99,176,255,0.7);margin:1px}
+.score-ball{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(245,158,11,0.12);color:#fbbf24}
+.score-weight{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(99,176,255,0.1);color:#63b0ff}
+.iod-req{color:#f87171}.iod-rec{color:#fbbf24}.iod-no{color:rgba(180,200,230,0.35)}.iod-ban{color:#6b7280}
+.no-results{text-align:center;padding:24px;color:rgba(180,200,230,0.35);font-size:12px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="id-row">
+      <span class="badge-id">${viewArch.id}</span>
+      <span class="badge-ver">v${viewArch.version}</span>
+      <span class="badge-status" style="color:${sColor};border-color:${sColor}40;background:${sColor}18">${viewArch.status}</span>
+    </div>
+    <div class="title">${viewArch.name}</div>
+    <div class="meta-grid">
+      <div class="meta-item"><label>Автор</label><span>${viewArch.author || "—"}</span></div>
+      <div class="meta-item"><label>Дата создания</label><span>${createdAt}</span></div>
+      <div class="meta-item"><label>Дата изменения</label><span>${updatedAt}</span></div>
+      <div class="meta-item"><label>Согласован с ИБ</label><span style="color:${viewArch.approved_ib ? "#22c55e" : "#f87171"}">${viewArch.approved_ib ? "✓ Согласован" : "✗ Не согласован"}</span></div>
+      <div class="meta-item"><label>Согласован с ИТ</label><span style="color:${viewArch.approved_it ? "#22c55e" : "#f87171"}">${viewArch.approved_it ? "✓ Согласован" : "✗ Не согласован"}</span></div>
+    </div>
+  </div>
+  ${viewArch.description ? `<div class="section"><div class="sec-title">Описание</div><div class="desc-text">${viewArch.description.replace(/</g,"&lt;")}</div></div>` : ""}
+  <div class="section"><div class="sec-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
+  <div class="section" style="display:flex;align-items:center;gap:20px;padding:16px 22px">
+    <div><div class="req-counter">${uniqueReqs.length}</div><div class="req-label">связанных требований</div></div>
+  </div>
+  ${diagrams.length > 0 ? `<div class="sec-title" style="margin-bottom:10px;margin-left:2px">Диаграммы архитектуры</div>${diagramsHtml}` : ""}
+  <div class="section" style="margin-top:8px">
+    <div class="sec-title">Требования <span id="req-shown" style="color:#22d3ee;margin-left:6px;font-size:11px"></span></div>
+    <div class="req-controls">
+      <input class="req-search" id="s-text" placeholder="🔍  Поиск по ID, названию, тегам..." oninput="filterReqs()"/>
+      <select class="req-filter" id="s-crit" onchange="filterReqs()">
+        <option value="">Все критичности</option>
+        <option value="Критический">Критический</option>
+        <option value="Высокий">Высокий</option>
+        <option value="Средний">Средний</option>
+        <option value="Низкий">Низкий</option>
+      </select>
+      <select class="req-filter" id="s-type" onchange="filterReqs()">
+        <option value="">Все типы</option>
+        <option value="Организационное">Организационное</option>
+        <option value="Безопасность">Безопасность</option>
+        <option value="Техническое">Техническое</option>
+        <option value="Функциональное">Функциональное</option>
+      </select>
+      <select class="req-filter" id="s-status" onchange="filterReqs()">
+        <option value="">Все статусы</option>
+        <option value="Активен">Активен</option>
+        <option value="В разработке">В разработке</option>
+      </select>
+      <select class="req-filter" id="s-env" onchange="filterReqs()">
+        <option value="">Все окружения</option>
+        <option value="Prod">Prod</option>
+        <option value="ProdLike">ProdLike</option>
+        <option value="Stage">Stage</option>
+        <option value="Test">Test</option>
+      </select>
+    </div>
+    <div class="req-table-wrap">
+      <table id="req-table">
+        <thead><tr>
+          <th>ID</th><th>Название</th><th>Тип</th><th>Критичность</th><th>Статус</th>
+          <th>Окружение</th><th>Стадии</th><th>Метрика контроля</th>
+          <th>Внешн.+IOD</th><th>Внешн.-IOD</th><th>Внутр.+IOD</th><th>Внутр.-IOD</th>
+          <th>Версия</th><th>Теги</th><th class="center">Балл</th><th class="center">Вес</th>
+        </tr></thead>
+        <tbody id="req-tbody"></tbody>
+      </table>
+      <div class="no-results" id="req-empty" style="display:none">Требований не найдено</div>
+    </div>
+  </div>
+</div>
+<${SC}>
+var REQS=${reqsJson};
+mermaid.initialize({startOnLoad:true,theme:"dark",themeVariables:{background:"#0d1628",primaryColor:"#1e3a5f",primaryTextColor:"#c8daf0",lineColor:"#4a7fa5",edgeLabelBackground:"#0d1628"}});
+var scales={},pans={},dragging={},dragStart={};
+function getState(i){if(!scales[i])scales[i]=1;if(!pans[i])pans[i]={x:0,y:0};return{s:scales[i],p:pans[i]}}
+function applyTransform(i){var st=getState(i);var el=document.getElementById("pan-"+i);if(el)el.style.transform="scale("+st.s+") translate("+st.p.x+"px,"+st.p.y+"px)"}
+function zoomIn(i){var st=getState(i);scales[i]=Math.min(st.s+0.2,5);applyTransform(i)}
+function zoomOut(i){var st=getState(i);scales[i]=Math.max(st.s-0.2,0.2);applyTransform(i)}
+function resetZoom(i){scales[i]=1;applyTransform(i)}
+function panReset(i){pans[i]={x:0,y:0};applyTransform(i)}
+function toggleDiagram(i){var b=document.getElementById("diag-body-"+i);var c=document.getElementById("chev-"+i);if(b.style.display==="none"){b.style.display="block";if(c)c.style.transform=""}else{b.style.display="none";if(c)c.style.transform="rotate(-90deg)"}}
+document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
+  wrap.addEventListener("wheel",function(e){e.preventDefault();var delta=e.deltaY>0?-0.1:0.1;var st=getState(i);scales[i]=Math.max(0.2,Math.min(5,st.s+delta));applyTransform(i)},{passive:false});
+  wrap.addEventListener("mousedown",function(e){dragging[i]=true;var st=getState(i);dragStart[i]={mx:e.clientX,my:e.clientY,px:st.p.x,py:st.p.y}});
+  document.addEventListener("mousemove",function(e){if(!dragging[i])return;var ds=dragStart[i];var st=getState(i);pans[i]={x:ds.px+(e.clientX-ds.mx)/st.s,y:ds.py+(e.clientY-ds.my)/st.s};applyTransform(i)});
+  document.addEventListener("mouseup",function(){dragging[i]=false});
+});
+function iodClass(v){if(v==="Обязательный"||v==="Обязательный")return "iod-req";if(v==="Рекомендуемый"||v==="Рекомендуется")return "iod-rec";if(v==="Запрещено")return "iod-ban";return "iod-no";}
+function critClass(v){if(v==="Критический")return "pill pill-crit";if(v==="Высокий")return "pill pill-high";if(v==="Средний")return "pill pill-med";return "pill pill-low";}
+function statusClass(v){if(v==="Активен")return "pill pill-act";if(v==="В разработке")return "pill pill-dev";return "pill pill-other";}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function renderReqs(list){
+  var tb=document.getElementById("req-tbody");
+  var em=document.getElementById("req-empty");
+  var sh=document.getElementById("req-shown");
+  if(!list.length){tb.innerHTML="";em.style.display="block";sh.textContent="(0 из "+REQS.length+")";return;}
+  em.style.display="none";
+  sh.textContent="("+list.length+" из "+REQS.length+")";
+  tb.innerHTML=list.map(function(r){
+    var envs=r.environments?r.environments.split(", ").filter(Boolean).map(function(e){return '<span class="env">'+esc(e)+'</span>';}).join(""):"—";
+    var tags=r.tags?r.tags.split(", ").filter(Boolean).map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join(""):"—";
+    var stages=esc(r.stages)||"—";
+    return '<tr>'
+      +'<td class="td-id">'+esc(r.id)+'</td>'
+      +'<td class="td-name">'+esc(r.name)+'</td>'
+      +'<td style="color:rgba(180,200,230,0.55);white-space:nowrap">'+esc(r.req_type)+'</td>'
+      +'<td><span class="'+critClass(r.criticality)+'">'+esc(r.criticality)+'</span></td>'
+      +'<td><span class="'+statusClass(r.status)+'">'+esc(r.status)+'</span></td>'
+      +'<td>'+envs+'</td>'
+      +'<td style="font-size:10px;color:rgba(167,139,250,0.7)">'+stages+'</td>'
+      +'<td style="max-width:140px;color:rgba(180,200,230,0.6)">'+esc(r.control_metric||"—")+'</td>'
+      +'<td class="'+iodClass(r.ext_with_iod)+'">'+esc(r.ext_with_iod||"—")+'</td>'
+      +'<td class="'+iodClass(r.ext_without_iod)+'">'+esc(r.ext_without_iod||"—")+'</td>'
+      +'<td class="'+iodClass(r.int_with_iod)+'">'+esc(r.int_with_iod||"—")+'</td>'
+      +'<td class="'+iodClass(r.int_without_iod)+'">'+esc(r.int_without_iod||"—")+'</td>'
+      +'<td style="font-family:monospace;color:rgba(180,200,230,0.4)">'+esc(r.version||"—")+'</td>'
+      +'<td>'+tags+'</td>'
+      +'<td class="center">'+(r.score_value!==""?'<span class="score-ball">'+esc(r.score_value)+'</span>':"—")+'</td>'
+      +'<td class="center">'+(r.score_weight!==""?'<span class="score-weight">'+esc(r.score_weight)+'</span>':"—")+'</td>'
+      +'</tr>';
+  }).join("");
+}
+function filterReqs(){
+  var txt=(document.getElementById("s-text").value||"").toLowerCase();
+  var crit=document.getElementById("s-crit").value;
+  var type=document.getElementById("s-type").value;
+  var stat=document.getElementById("s-status").value;
+  var env=document.getElementById("s-env").value;
+  var res=REQS.filter(function(r){
+    if(txt&&!(r.id+r.name+r.tags+r.control_metric).toLowerCase().includes(txt))return false;
+    if(crit&&r.criticality!==crit)return false;
+    if(type&&r.req_type!==type)return false;
+    if(stat&&r.status!==stat)return false;
+    if(env&&!r.environments.includes(env))return false;
+    return true;
+  });
+  renderReqs(res);
+}
+renderReqs(REQS);
+</${SC}>
+</body>
+</html>`;
+              const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `${viewArch.id}_v${viewArch.version}_full.html`; a.click();
+              URL.revokeObjectURL(url);
+            };
+
             const exportReqsCSV = () => {
               const headers = ["ID","Название","Тип","Критичность","Статус","Описание","Метрика контроля","Описание контроля","Теги","Версия","Окружение","Стадии","Закупка","Внешн. с IOD","Внешн. без IOD","Внутр. с IOD","Внутр. без IOD","Ссылка на НД","Скор.Балл","Скор.Вес"];
               const rows = filteredViewReqs.map((r) => [
@@ -10779,6 +11041,9 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={exportArchHTMLAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>
+                        <Icon name="FileCode2" size={12} /> .HTML_ALL
+                      </button>
                       <button onClick={exportArchHTML} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
                         <Icon name="Globe" size={12} /> Выгрузить .HTML
                       </button>
