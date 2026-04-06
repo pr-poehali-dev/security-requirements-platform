@@ -10746,14 +10746,15 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
             };
 
             const exportReqsCSV = () => {
-              const headers = ["ID","Название","Тип","Критичность","Статус","Описание","Метрика контроля","Описание контроля","Теги","Версия","Окружение","Стадии","Закупка","Внешн. с IOD","Внешн. без IOD","Внутр. с IOD","Внутр. без IOD","Ссылка на НД"];
+              const headers = ["ID","Название","Тип","Критичность","Статус","Описание","Метрика контроля","Описание контроля","Теги","Версия","Окружение","Стадии","Закупка","Внешн. с IOD","Внешн. без IOD","Внутр. с IOD","Внутр. без IOD","Ссылка на НД","Скор.Балл","Скор.Вес"];
               const rows = filteredViewReqs.map((r) => [
                 r.id, r.name, r.req_type||"", r.criticality, r.status,
                 r.description||"", r.control_metric||"", r.control_description||"",
                 (r.tags||[]).join("; "), r.version||"",
                 (r.environments||[]).join("; "), (r.stages||[]).join("; "),
                 r.procurement||"", r.ext_with_iod||"", r.ext_without_iod||"",
-                r.int_with_iod||"", r.int_without_iod||"", r.norm_doc_link||""
+                r.int_with_iod||"", r.int_without_iod||"", r.norm_doc_link||"",
+                r.score_value ?? "", r.score_weight ?? ""
               ].map((v) => `"${String(v).replace(/"/g, '""')}"`));
               const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
               const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -10978,6 +10979,8 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
                                 <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Внутр. без IOD</th>
                                 <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Версия</th>
                                 <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: "rgba(180,200,230,0.5)" }}>Теги</th>
+                                <th className="px-3 py-2.5 text-center font-medium whitespace-nowrap" style={{ color: "rgba(245,158,11,0.7)" }}>Скор.Балл</th>
+                                <th className="px-3 py-2.5 text-center font-medium whitespace-nowrap" style={{ color: "rgba(99,176,255,0.7)" }}>Скор.Вес</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -11031,6 +11034,12 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
                                           {(r.tags||[]).map((tag) => <span key={tag} className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(52,211,153,0.07)", color: "rgba(52,211,153,0.6)" }}>{tag}</span>)}
                                         </div>
                                       ) : <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}
+                                    </td>
+                                    <td className="px-3 py-2 text-center font-mono whitespace-nowrap">
+                                      {r.score_value != null ? <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold" style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24" }}>{r.score_value}</span> : <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}
+                                    </td>
+                                    <td className="px-3 py-2 text-center font-mono whitespace-nowrap">
+                                      {r.score_weight != null ? <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold" style={{ background: "rgba(99,176,255,0.1)", color: "#63b0ff" }}>{r.score_weight}</span> : <span style={{ color: "rgba(180,200,230,0.3)" }}>—</span>}
                                     </td>
                                   </tr>
                                 );
