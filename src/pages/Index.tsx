@@ -6011,10 +6011,11 @@ export default function Index() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-5 gap-4 mb-6">
               {[
                 { label: "Всего архитектур", value: archTemplates.length, icon: "LayoutTemplate", color: "#06b6d4" },
                 { label: "Активных", value: archTemplates.filter((a) => a.status === "Активен").length, icon: "CheckCircle2", color: "#22c55e" },
+                { label: "Релиз-кандидат", value: archTemplates.filter((a) => a.status === "Релиз-кандидат").length, icon: "Rocket", color: "#38bdf8" },
                 { label: "В разработке", value: archTemplates.filter((a) => a.status === "В разработке").length, icon: "Wrench", color: "#f59e0b" },
                 { label: "Согласовано ИБ+ИТ", value: archTemplates.filter((a) => a.approved_ib && a.approved_it).length, icon: "ShieldCheck", color: "#63b0ff" },
               ].map((stat) => (
