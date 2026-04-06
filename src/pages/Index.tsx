@@ -1917,6 +1917,9 @@ export default function Index() {
               >
                 MVP
               </Badge>
+              <span className="text-[10px] font-mono" style={{ color: "rgba(180,200,230,0.35)" }}>
+                v0.1.0-{String(new Date().getFullYear()).slice(-2)}{String(new Date().getMonth()+1).padStart(2,'0')}{String(new Date().getDate()).padStart(2,'0')} · {new Date().getFullYear()} · {new Date().toLocaleDateString('ru-RU')} {new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           </div>
 
