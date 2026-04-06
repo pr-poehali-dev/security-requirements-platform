@@ -1472,7 +1472,7 @@ export default function Index() {
   const [editingArch, setEditingArch] = useState<ArchTemplate | null>(null);
   const [viewArch, setViewArch] = useState<ArchTemplate | null>(null);
   const [archSearch, setArchSearch] = useState("");
-  const [archFilterStatus, setArchFilterStatus] = useState<string>("Все");
+  const [archFilterStatuses, setArchFilterStatuses] = useState<string[]>([]);
   const [archFilterTag, setArchFilterTag] = useState<string>("");
   const [archFilterTsol, setArchFilterTsol] = useState<string>("");
   const [archFilterIb, setArchFilterIb] = useState<string>("Все");
@@ -1590,7 +1590,7 @@ export default function Index() {
       (a.author||"").toLowerCase().includes(q) ||
       (a.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
       (a.tech_solution_ids||[]).some((id) => id.toLowerCase().includes(q));
-    const matchStatus = archFilterStatus === "Все" || a.status === archFilterStatus;
+    const matchStatus = archFilterStatuses.length === 0 || archFilterStatuses.includes(a.status);
     const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
     const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
     const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
@@ -6036,10 +6036,17 @@ export default function Index() {
                 <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
                 <Input value={archSearch} onChange={(e) => setArchSearch(e.target.value)} placeholder="Поиск по ID, названию, автору, тегам, описанию..." className="pl-9 text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
               </div>
-              <select value={archFilterStatus} onChange={(e) => setArchFilterStatus(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: archFilterStatus === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
-                <option value="Все">Все статусы</option>
-                {ARCH_TEMPLATE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {ARCH_TEMPLATE_STATUSES.map((s) => {
+                  const m = ARCH_TEMPLATE_STATUS_META[s as ArchTemplateStatus];
+                  const active = archFilterStatuses.includes(s);
+                  return (
+                    <button key={s} onClick={() => setArchFilterStatuses((prev) => active ? prev.filter((x) => x !== s) : [...prev, s])} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all" style={{ background: active ? `${m.color}22` : "rgba(15,22,41,0.8)", border: `1px solid ${active ? m.color + "55" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
+                      <Icon name={m.icon} size={10} />{s}
+                    </button>
+                  );
+                })}
+              </div>
               <Input value={archFilterTag} onChange={(e) => setArchFilterTag(e.target.value)} placeholder="Фильтр по тегу..." className="text-xs w-36 h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }} />
               <select value={archFilterIb} onChange={(e) => setArchFilterIb(e.target.value)} className="text-xs rounded-lg px-3 py-2 outline-none h-10" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)", color: archFilterIb === "Все" ? "rgba(180,200,230,0.5)" : "white" }}>
                 <option value="Все">ИБ: все</option>
@@ -6058,8 +6065,8 @@ export default function Index() {
                   <button onClick={() => setArchFilterTsol("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
                 </span>
               )}
-              {(archSearch || archFilterStatus !== "Все" || archFilterTag || archFilterTsol || archFilterIb !== "Все" || archFilterIt !== "Все") && (
-                <button onClick={() => { setArchSearch(""); setArchFilterStatus("Все"); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+              {(archSearch || archFilterStatuses.length > 0 || archFilterTag || archFilterTsol || archFilterIb !== "Все" || archFilterIt !== "Все") && (
+                <button onClick={() => { setArchSearch(""); setArchFilterStatuses([]); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
                   Сбросить
                 </button>
               )}
