@@ -10554,6 +10554,64 @@ export default function Index() {
             const reqStatuses = [...new Set(uniqueReqs.map((r) => r.status).filter(Boolean))];
             const reqEnvs = [...new Set(uniqueReqs.flatMap((r) => r.environments||[]).filter(Boolean))];
             const reqStages = [...new Set(uniqueReqs.flatMap((r) => r.stages||[]).filter(Boolean))];
+            const exportArchMD = () => {
+              const lines: string[] = [];
+              lines.push(`# ${viewArch.name}`);
+              lines.push("");
+              lines.push("## Общая информация");
+              lines.push("");
+              lines.push(`| Поле | Значение |`);
+              lines.push(`|------|----------|`);
+              lines.push(`| **ID** | \`${viewArch.id}\` |`);
+              lines.push(`| **Версия** | ${viewArch.version} |`);
+              lines.push(`| **Статус** | ${viewArch.status} |`);
+              lines.push(`| **Автор** | ${viewArch.author || "—"} |`);
+              lines.push(`| **Согласован с ИБ** | ${viewArch.approved_ib ? "✅ Согласован" : "❌ Не согласован"} |`);
+              lines.push(`| **Согласован с ИТ** | ${viewArch.approved_it ? "✅ Согласован" : "❌ Не согласован"} |`);
+              lines.push(`| **Дата создания** | ${viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—"} |`);
+              lines.push(`| **Дата изменения** | ${viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—"} |`);
+              if ((viewArch.tags || []).length > 0) {
+                lines.push(`| **Теги** | ${viewArch.tags.join(", ")} |`);
+              }
+              lines.push("");
+              if (viewArch.description) {
+                lines.push("## Описание");
+                lines.push("");
+                lines.push(viewArch.description);
+                lines.push("");
+              }
+              if (linkedTsols.length > 0) {
+                lines.push("## Связанные технические решения");
+                lines.push("");
+                linkedTsols.forEach((ts) => {
+                  lines.push(`- **${ts.name}** (\`${ts.id}\`)`);
+                });
+                lines.push("");
+              }
+              lines.push("## Требования");
+              lines.push("");
+              lines.push(`Количество связанных требований: **${uniqueReqs.length}**`);
+              lines.push("");
+              if ((viewArch.diagrams || []).length > 0) {
+                lines.push("## Диаграммы архитектуры");
+                lines.push("");
+                viewArch.diagrams.forEach((d, idx) => {
+                  lines.push(`### ${idx + 1}. ${d.name}`);
+                  lines.push("");
+                  lines.push("```mermaid");
+                  lines.push(d.content);
+                  lines.push("```");
+                  lines.push("");
+                });
+              }
+              const md = lines.join("\n");
+              const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `${viewArch.id}_v${viewArch.version}.md`; a.click();
+              URL.revokeObjectURL(url);
+            };
+
             const exportReqsCSV = () => {
               const headers = ["ID","Название","Тип","Критичность","Статус","Описание","Метрика контроля","Описание контроля","Теги","Версия","Окружение","Стадии","Закупка","Внешн. с IOD","Внешн. без IOD","Внутр. с IOD","Внутр. без IOD","Ссылка на НД"];
               const rows = filteredViewReqs.map((r) => [
@@ -10587,6 +10645,9 @@ export default function Index() {
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={exportArchMD} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}>
+                        <Icon name="FileDown" size={12} /> Выгрузить .MD
+                      </button>
                       <button onClick={() => { setViewArch(null); openEditArch(viewArch); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
                         <Icon name="Pencil" size={12} /> Редактировать
                       </button>
