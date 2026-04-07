@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
+import { getCached, setCache, invalidateCache, invalidateAll } from "@/utils/apiCache";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -577,10 +578,18 @@ export default function Index() {
   };
 
   const loadDomains = async () => {
+    const cached = getCached("domains");
+    if (cached) {
+      const data = cached as { domains?: OrgDomain[]; section_description?: string };
+      setDomains((data.domains || []).map((d: OrgDomain & { created_at?: string }) => ({ ...d, createdAt: d.createdAt || d.created_at || new Date().toISOString() })));
+      if (data.section_description) setSectionDesc(data.section_description);
+      return;
+    }
     setDomainsLoading(true);
     try {
       const res = await fetch(getApiUrl("domains"));
       const data = await res.json();
+      setCache("domains", data);
       const normalized = (data.domains || []).map((d: OrgDomain & { created_at?: string }) => ({
         ...d,
         createdAt: d.createdAt || d.created_at || new Date().toISOString(),
@@ -611,6 +620,7 @@ export default function Index() {
   const handleSaveDomain = async () => {
     if (!domainForm.name.trim() || !domainForm.id.trim()) return;
     setDomainSaving(true);
+    invalidateCache("domains");
     try {
       const method = editingDomain ? "PUT" : "POST";
       const res = await fetch(DOMAINS_API, {
@@ -631,6 +641,7 @@ export default function Index() {
   };
 
   const handleDeleteDomain = async (id: string) => {
+    invalidateCache("domains");
     await fetch(DOMAINS_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -687,10 +698,19 @@ export default function Index() {
   const [techForm, setTechForm] = useState<TechDomain>(makeEmptyTechForm(0));
 
   const loadTechDomains = async () => {
+    const cached = getCached("tech-domains");
+    if (cached) {
+      const data = cached as { tech_domains?: TechDomain[]; org_domains?: OrgDomainRef[]; section_description?: string };
+      setTechDomains(data.tech_domains || []);
+      setTechOrgRefs(data.org_domains || []);
+      if (data.section_description) setTechSectionDesc(data.section_description);
+      return;
+    }
     setTechLoading(true);
     try {
       const res = await fetch(getApiUrl("tech-domains"));
       const data = await res.json();
+      setCache("tech-domains", data);
       setTechDomains(data.tech_domains || []);
       setTechOrgRefs(data.org_domains || []);
       if (data.section_description) setTechSectionDesc(data.section_description);
@@ -749,6 +769,7 @@ export default function Index() {
     if (nameErr || !techForm.id.trim()) { setTechNameError(nameErr); return; }
     setTechSaving(true);
     setTechSaveError("");
+    invalidateCache("tech-domains");
     try {
       const method = editingTech ? "PUT" : "POST";
       const res = await fetch(TECH_DOMAINS_API, {
@@ -770,6 +791,7 @@ export default function Index() {
   };
 
   const handleDeleteTech = async (id: string) => {
+    invalidateCache("tech-domains");
     await fetch(TECH_DOMAINS_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -856,10 +878,19 @@ export default function Index() {
   const [techForm2, setTechForm2] = useState<Technology>(makeEmptyTechForm2(0));
 
   const loadTechnologies = async () => {
+    const cached = getCached("technologies");
+    if (cached) {
+      const data = cached as { items?: Technology[]; tech_domains?: TechDomainRef[]; section_description?: string };
+      setTechnologies(data.items || []);
+      setTechDomainRefs(data.tech_domains || []);
+      if (data.section_description) setTechSectionDesc2(data.section_description);
+      return;
+    }
     setTechsLoading(true);
     try {
       const res = await fetch(getApiUrl("technologies"));
       const data = await res.json();
+      setCache("technologies", data);
       setTechnologies(data.items || []);
       setTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setTechSectionDesc2(data.section_description);
@@ -947,6 +978,7 @@ export default function Index() {
     const nameErr = validateTechName2(techForm2.name);
     if (nameErr || !techForm2.id.trim()) { setTechNameError2(nameErr); return; }
     setTechSaving2(true); setTechSaveError2("");
+    invalidateCache("technologies");
     try {
       const method = editingTech2 ? "PUT" : "POST";
       const res = await fetch(TECHNOLOGIES_API, {
@@ -996,6 +1028,7 @@ export default function Index() {
   };
 
   const handleDeleteTech2 = async (id: string) => {
+    invalidateCache("technologies");
     await fetch(TECHNOLOGIES_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -1070,10 +1103,20 @@ export default function Index() {
   const [reqForm, setReqForm] = useState<Req>(makeEmptyReqForm(0));
 
   const loadReqs = async () => {
+    const cached = getCached("requirements");
+    if (cached) {
+      const data = cached as { items?: Req[]; technologies?: unknown[]; tech_domains?: unknown[]; section_description?: string };
+      setReqs(data.items || []);
+      setReqTechRefs((data.technologies || []) as Parameters<typeof setReqTechRefs>[0]);
+      setReqTechDomainRefs((data.tech_domains || []) as Parameters<typeof setReqTechDomainRefs>[0]);
+      if (data.section_description) setReqSectionDesc(data.section_description);
+      return;
+    }
     setReqsLoading(true);
     try {
       const res = await fetch(getApiUrl("requirements"));
       const data = await res.json();
+      setCache("requirements", data);
       setReqs(data.items || []);
       setReqTechRefs(data.technologies || []);
       setReqTechDomainRefs(data.tech_domains || []);
@@ -1123,6 +1166,7 @@ export default function Index() {
   const handleSaveReq = async () => {
     if (!reqForm.name.trim() || !reqForm.id.trim()) { setReqSaveError("Название и ID обязательны"); return; }
     setReqSaving(true); setReqSaveError("");
+    invalidateCache("requirements");
     try {
       const method = editingReq ? "PUT" : "POST";
       const res = await fetch(REQUIREMENTS_API, {
@@ -1144,6 +1188,7 @@ export default function Index() {
   };
 
   const handleDeleteReq = async (id: string) => {
+    invalidateCache("requirements");
     await fetch(REQUIREMENTS_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -1220,6 +1265,14 @@ export default function Index() {
   const [tsolForm, setTsolForm] = useState<TechSolution>(makeEmptyTsolForm(0));
 
   const loadTechSolutions = async () => {
+    const cached = getCached("tech-solutions");
+    if (cached) {
+      const data = cached as { items?: TechSolution[]; section_description?: string };
+      setTechSolutions(data.items || []);
+      if (data.section_description) setTsolSectionDesc(data.section_description);
+      if (technologies.length === 0) loadTechnologies();
+      return;
+    }
     setTsolLoading(true);
     try {
       const [res, techRes] = await Promise.all([
@@ -1227,6 +1280,7 @@ export default function Index() {
         technologies.length === 0 ? fetch(getApiUrl("technologies")) : Promise.resolve(null),
       ]);
       const data = await res.json();
+      setCache("tech-solutions", data);
       setTechSolutions(data.items || []);
       if (data.section_description) setTsolSectionDesc(data.section_description);
       if (techRes) {
@@ -1275,6 +1329,7 @@ export default function Index() {
   const handleSaveTsol = async () => {
     if (!tsolForm.name.trim() || !tsolForm.id.trim()) { setTsolSaveError("Название и ID обязательны"); return; }
     setTsolSaving(true); setTsolSaveError("");
+    invalidateCache("tech-solutions");
     try {
       const method = editingTsol ? "PUT" : "POST";
       const res = await fetch(TECH_SOLUTIONS_API, {
@@ -1297,6 +1352,7 @@ export default function Index() {
   };
 
   const handleDeleteTsol = async (id: string) => {
+    invalidateCache("tech-solutions");
     await fetch(TECH_SOLUTIONS_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -1363,6 +1419,14 @@ export default function Index() {
   const [hardForm, setHardForm] = useState<Hardening>(makeEmptyHardForm(0));
 
   const loadHardenings = async () => {
+    const cached = getCached("hardening");
+    if (cached) {
+      const data = cached as { items?: Hardening[]; section_description?: string };
+      setHardenings(data.items || []);
+      if (data.section_description) setHardSectionDesc(data.section_description);
+      if (techSolutions.length === 0) loadTechSolutions();
+      return;
+    }
     setHardLoading(true);
     try {
       const [res, tsolRes] = await Promise.all([
@@ -1370,6 +1434,7 @@ export default function Index() {
         techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
+      setCache("hardening", data);
       setHardenings(data.items || []);
       if (data.section_description) setHardSectionDesc(data.section_description);
       if (tsolRes) {
@@ -1407,6 +1472,7 @@ export default function Index() {
   const handleSaveHard = async () => {
     if (!hardForm.name.trim() || !hardForm.id.trim()) { setHardSaveError("Название и ID обязательны"); return; }
     setHardSaving(true); setHardSaveError("");
+    invalidateCache("hardening");
     try {
       const method = editingHard ? "PUT" : "POST";
       const res = await fetch(HARDENING_API, {
@@ -1429,6 +1495,7 @@ export default function Index() {
   };
 
   const handleDeleteHard = async (id: string) => {
+    invalidateCache("hardening");
     await fetch(HARDENING_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -1506,6 +1573,15 @@ export default function Index() {
   const [archForm, setArchForm] = useState<ArchTemplate>(makeEmptyArchForm(0));
 
   const loadArchTemplates = async () => {
+    const cached = getCached("arch-templates");
+    if (cached) {
+      const data = cached as { items?: ArchTemplate[]; section_description?: string };
+      setArchTemplates(data.items || []);
+      setArchFetched(true);
+      if (data.section_description) setArchSectionDesc(data.section_description);
+      if (techSolutions.length === 0) loadTechSolutions();
+      return;
+    }
     setArchLoading(true);
     try {
       const [res, tsolRes] = await Promise.all([
@@ -1513,6 +1589,7 @@ export default function Index() {
         techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
+      setCache("arch-templates", data);
       setArchTemplates(data.items || []);
       setArchFetched(true);
       if (data.section_description) setArchSectionDesc(data.section_description);
@@ -1554,6 +1631,7 @@ export default function Index() {
   const handleSaveArch = async () => {
     if (!archForm.name.trim() || !archForm.id.trim()) { setArchSaveError("Название и ID обязательны"); return; }
     setArchSaving(true); setArchSaveError("");
+    invalidateCache("arch-templates");
     try {
       const method = editingArch ? "PUT" : "POST";
       const res = await fetch(ARCH_TEMPLATES_API, {
@@ -1576,6 +1654,7 @@ export default function Index() {
   };
 
   const handleDeleteArch = async (id: string) => {
+    invalidateCache("arch-templates");
     await fetch(`${ARCH_TEMPLATES_API}?id=${id}`, { method: "DELETE" });
     setArchTemplates((prev) => prev.filter((a) => a.id !== id));
     setDeleteArchId(null);
@@ -1660,6 +1739,14 @@ export default function Index() {
   const [prodForm, setProdForm] = useState<Product>(makeEmptyProdForm(0));
 
   const loadProducts = async () => {
+    const cached = getCached("products");
+    if (cached) {
+      const data = cached as { items?: Product[]; section_description?: string };
+      setProducts(data.items || []);
+      if (data.section_description) setProdSectionDesc(data.section_description);
+      if (archTemplates.length === 0) loadArchTemplates();
+      return;
+    }
     setProdLoading(true);
     try {
       const [res, archRes] = await Promise.all([
@@ -1667,6 +1754,7 @@ export default function Index() {
         archTemplates.length === 0 ? fetch(getApiUrl("arch-templates")) : Promise.resolve(null),
       ]);
       const data = await res.json();
+      setCache("products", data);
       setProducts(data.items || []);
       if (data.section_description) setProdSectionDesc(data.section_description);
       if (archRes) { const d = await archRes.json(); setArchTemplates(d.items || []); }
@@ -1701,6 +1789,7 @@ export default function Index() {
   const handleSaveProd = async () => {
     if (!prodForm.name.trim() || !prodForm.id.trim()) { setProdSaveError("Название и ID обязательны"); return; }
     setProdSaving(true); setProdSaveError("");
+    invalidateCache("products");
     try {
       const method = editingProd ? "PUT" : "POST";
       const res = await fetch(PRODUCTS_API, {
@@ -1720,6 +1809,7 @@ export default function Index() {
   };
 
   const handleDeleteProd = async (id: string) => {
+    invalidateCache("products");
     await fetch(`${PRODUCTS_API}?id=${id}`, { method: "DELETE" });
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setDeleteProdId(null);
@@ -1802,6 +1892,7 @@ export default function Index() {
       setDbExternalConnected(true);
     }
     if (modeChanged) {
+      invalidateAll();
       setReqs([]);
       setTechnologies([]);
       setTechSolutions([]);
