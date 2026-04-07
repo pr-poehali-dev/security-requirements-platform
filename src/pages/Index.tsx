@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
-import { getCached, setCache, invalidateCache, invalidateAll } from "@/utils/apiCache";
+import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin } from "@/utils/apiCache";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -471,6 +471,8 @@ export default function Index() {
   const [skipCheck, setSkipCheck] = useState(false);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "ok" | "error">("idle");
   const [checkError, setCheckError] = useState("");
+  const [cacheTtlMin, setCacheTtlMinState] = useState<number>(() => getCacheTtlMin());
+  const [cacheTtlInput, setCacheTtlInput] = useState<string>(() => String(getCacheTtlMin()));
   const [diagRunning, setDiagRunning] = useState(false);
   const [diagResults, setDiagResults] = useState<Record<string, { status: "idle"|"ok"|"error"|"checking"; ms?: number; detail?: string }>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -12114,6 +12116,69 @@ renderReqs(REQS);
                 Пинг идёт напрямую из браузера. Зелёный ≤300ms · Жёлтый ≤1000ms · Красный — недоступен или таймаут 5s
               </p>
             </div>
+
+            {/* ── Кэширование ── */}
+            <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="Timer" size={14} style={{ color: "#00d4ff" }} />
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(180,200,230,0.4)" }}>Кэширование данных</p>
+              </div>
+              <p className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.45)" }}>
+                Данные хранятся в памяти браузера и не запрашиваются повторно до истечения TTL. При переключении режима кэш сбрасывается автоматически.
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={cacheTtlInput}
+                    onChange={(e) => setCacheTtlInput(e.target.value)}
+                    className="w-20 px-3 py-1.5 rounded-lg text-sm font-mono text-white outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  />
+                  <span className="text-sm" style={{ color: "rgba(180,200,230,0.5)" }}>минут</span>
+                  <span className="text-xs ml-1" style={{ color: "rgba(180,200,230,0.3)" }}>
+                    {cacheTtlInput === "0" ? "(кэш отключён)" : `(сейчас: ${cacheTtlMin} мин)`}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    const val = Math.max(0, Math.min(60, parseInt(cacheTtlInput, 10) || 0));
+                    setCacheTtlMin(val);
+                    setCacheTtlMinState(val);
+                    setCacheTtlInput(String(val));
+                    invalidateAll();
+                  }}
+                  className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", color: "#00d4ff" }}
+                >
+                  Применить TTL
+                </button>
+              </div>
+              <div className="flex gap-2 mt-3 flex-wrap">
+                {[0, 1, 5, 15, 30].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      setCacheTtlMin(v);
+                      setCacheTtlMinState(v);
+                      setCacheTtlInput(String(v));
+                      invalidateAll();
+                    }}
+                    className="px-3 py-1 rounded-lg text-[11px] font-mono transition-all"
+                    style={{
+                      background: cacheTtlMin === v ? "rgba(0,212,255,0.15)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${cacheTtlMin === v ? "rgba(0,212,255,0.4)" : "rgba(255,255,255,0.07)"}`,
+                      color: cacheTtlMin === v ? "#00d4ff" : "rgba(180,200,230,0.4)",
+                    }}
+                  >
+                    {v === 0 ? "Откл" : `${v} мин`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
           </div>
 
           {/* Footer */}
