@@ -548,6 +548,7 @@ export default function Index() {
   const [editingDomain, setEditingDomain] = useState<OrgDomain | null>(null);
   const [viewDomain, setViewDomain] = useState<OrgDomain | null>(null);
   const [domainSearch, setDomainSearch] = useState("");
+  const [domainSortBy, setDomainSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
 
   const makeEmptyForm = (count: number): OrgDomain => ({
     id: `org-dom-${String(count + 1).padStart(3, "0")}`,
@@ -666,11 +667,18 @@ export default function Index() {
     });
   };
 
-  const filteredDomains = domains.filter((d) =>
-    d.name.toLowerCase().includes(domainSearch.toLowerCase()) ||
-    d.id.toLowerCase().includes(domainSearch.toLowerCase()) ||
-    d.owner.toLowerCase().includes(domainSearch.toLowerCase())
-  );
+  const filteredDomains = (() => {
+    const STATUS_ORDER: DomainStatus[] = ["Активен", "В разработке", "Не активен", "Архив"];
+    const filtered = domains.filter((d) =>
+      d.name.toLowerCase().includes(domainSearch.toLowerCase()) ||
+      d.id.toLowerCase().includes(domainSearch.toLowerCase()) ||
+      d.owner.toLowerCase().includes(domainSearch.toLowerCase())
+    );
+    if (domainSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    if (domainSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+    if (domainSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
 
   // ── Tech Domains state ──────────────────────────────────────────
   const TECH_DOMAINS_API = getApiUrl("tech-domains");
@@ -688,6 +696,7 @@ export default function Index() {
   const [editingTech, setEditingTech] = useState<TechDomain | null>(null);
   const [viewTech, setViewTech] = useState<TechDomain | null>(null);
   const [techSearch, setTechSearch] = useState("");
+  const [techSortBy, setTechSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [techTagInput, setTechTagInput] = useState("");
   const [techNameError, setTechNameError] = useState("");
 
@@ -819,11 +828,18 @@ export default function Index() {
     });
   };
 
-  const filteredTechDomains = techDomains.filter((d) =>
-    d.name.toLowerCase().includes(techSearch.toLowerCase()) ||
-    d.id.toLowerCase().includes(techSearch.toLowerCase()) ||
-    d.owner.toLowerCase().includes(techSearch.toLowerCase())
-  );
+  const filteredTechDomains = (() => {
+    const STATUS_ORDER: DomainStatus[] = ["Активен", "В разработке", "Не активен", "Архив"];
+    const filtered = techDomains.filter((d) =>
+      d.name.toLowerCase().includes(techSearch.toLowerCase()) ||
+      d.id.toLowerCase().includes(techSearch.toLowerCase()) ||
+      d.owner.toLowerCase().includes(techSearch.toLowerCase())
+    );
+    if (techSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    if (techSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+    if (techSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
 
   // ── Technologies state ──────────────────────────────────────────
   const TECH_STATUS_META: Record<TechStatus, { color: string; bg: string; icon: string }> = {
@@ -850,6 +866,7 @@ export default function Index() {
   const [editingTech2, setEditingTech2] = useState<Technology | null>(null);
   const [viewTech2, setViewTech2] = useState<Technology | null>(null);
   const [techSearch2, setTechSearch2] = useState("");
+  const [techSortBy2, setTechSortBy2] = useState<"id-asc"|"id-desc">("id-asc");
   const [techTagInput2, setTechTagInput2] = useState("");
   const [techNameError2, setTechNameError2] = useState("");
   const [techVersionInput, setTechVersionInput] = useState("");
@@ -1058,11 +1075,18 @@ export default function Index() {
     });
   };
 
-  const filteredTechnologies = technologies.filter((t) =>
-    t.name.toLowerCase().includes(techSearch2.toLowerCase()) ||
-    t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
-    (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
-  );
+  const filteredTechnologies = (() => {
+    const STATUS_ORDER: TechStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
+    const filtered = technologies.filter((t) =>
+      t.name.toLowerCase().includes(techSearch2.toLowerCase()) ||
+      t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
+      (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
+    );
+    if (techSortBy2 === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    if (techSortBy2 === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+    if (techSortBy2 === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
 
   // ── Requirements state ──────────────────────────────────────────
   const REQUIREMENTS_API = getApiUrl("requirements");
@@ -1081,6 +1105,7 @@ export default function Index() {
   const [editingReq, setEditingReq] = useState<Req | null>(null);
   const [viewReq, setViewReq] = useState<Req | null>(null);
   const [reqSearch, setReqSearch] = useState("");
+  const [reqSortBy, setReqSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [reqFilterType, setReqFilterType] = useState<string>("Все");
   const [reqFilterCrit, setReqFilterCrit] = useState<string>("Все");
   const [reqFilterStatus, setReqFilterStatus] = useState<string>("Все");
@@ -1220,20 +1245,27 @@ export default function Index() {
     });
   };
 
-  const filteredReqs = reqs.filter((r) => {
-    const q = reqSearch.toLowerCase();
-    const matchSearch = !q ||
-      r.name.toLowerCase().includes(q) ||
-      r.id.toLowerCase().includes(q) ||
-      r.description.toLowerCase().includes(q) ||
-      r.control_metric.toLowerCase().includes(q) ||
-      (r.tags || []).some((t) => t.toLowerCase().includes(q)) ||
-      (r.norm_doc_link || "").toLowerCase().includes(q);
-    const matchType = reqFilterType === "Все" || r.req_type === reqFilterType;
-    const matchCrit = reqFilterCrit === "Все" || r.criticality === reqFilterCrit;
-    const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
-    return matchSearch && matchType && matchCrit && matchStatus;
-  });
+  const filteredReqs = (() => {
+    const STATUS_ORDER: ReqStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
+    const filtered = reqs.filter((r) => {
+      const q = reqSearch.toLowerCase();
+      const matchSearch = !q ||
+        r.name.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        r.control_metric.toLowerCase().includes(q) ||
+        (r.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+        (r.norm_doc_link || "").toLowerCase().includes(q);
+      const matchType = reqFilterType === "Все" || r.req_type === reqFilterType;
+      const matchCrit = reqFilterCrit === "Все" || r.criticality === reqFilterCrit;
+      const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
+      return matchSearch && matchType && matchCrit && matchStatus;
+    });
+    if (reqSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    if (reqSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+    if (reqSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
 
   // ── Tech Solutions state ─────────────────────────────────────────
   const TECH_SOLUTIONS_API = getApiUrl("tech-solutions");
@@ -1250,6 +1282,7 @@ export default function Index() {
   const [editingTsol, setEditingTsol] = useState<TechSolution | null>(null);
   const [viewTsol, setViewTsol] = useState<TechSolution | null>(null);
   const [tsolSearch, setTsolSearch] = useState("");
+  const [tsolSortBy, setTsolSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [tsolFilterStatus, setTsolFilterStatus] = useState<string>("Все");
   const [tsolFilterTag, setTsolFilterTag] = useState<string>("");
   const [tsolTagInput, setTsolTagInput] = useState("");
@@ -1386,13 +1419,20 @@ export default function Index() {
     });
   };
 
-  const filteredTsols = techSolutions.filter((s) => {
-    const q = tsolSearch.toLowerCase();
-    const matchQ = !q || (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q) || (s.description||"").toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
-    const matchStatus = tsolFilterStatus === "Все" || s.status === tsolFilterStatus;
-    const matchTag = !tsolFilterTag || (s.tags||[]).some((t) => t.toLowerCase().includes(tsolFilterTag.toLowerCase()));
-    return matchQ && matchStatus && matchTag;
-  });
+  const filteredTsols = (() => {
+    const STATUS_ORDER: TechSolutionStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
+    const filtered = techSolutions.filter((s) => {
+      const q = tsolSearch.toLowerCase();
+      const matchQ = !q || (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q) || (s.description||"").toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
+      const matchStatus = tsolFilterStatus === "Все" || s.status === tsolFilterStatus;
+      const matchTag = !tsolFilterTag || (s.tags||[]).some((t) => t.toLowerCase().includes(tsolFilterTag.toLowerCase()));
+      return matchQ && matchStatus && matchTag;
+    });
+    if (tsolSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
+    if (tsolSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
+    if (tsolSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
   // ─────────────────────────────────────────────────────────────────
 
   // ── Hardening state ──────────────────────────────────────────────
@@ -1410,6 +1450,7 @@ export default function Index() {
   const [editingHard, setEditingHard] = useState<Hardening | null>(null);
   const [viewHard, setViewHard] = useState<Hardening | null>(null);
   const [hardSearch, setHardSearch] = useState("");
+  const [hardSortBy, setHardSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [hardFilterStatus, setHardFilterStatus] = useState<string>("Все");
   const [hardFilterTag, setHardFilterTag] = useState<string>("");
   const [hardFilterTsol, setHardFilterTsol] = useState<string>("");
@@ -1531,14 +1572,21 @@ export default function Index() {
     });
   };
 
-  const filteredHardenings = hardenings.filter((h) => {
-    const q = hardSearch.toLowerCase();
-    const matchQ = !q || (h.id||"").toLowerCase().includes(q) || (h.name||"").toLowerCase().includes(q) || (h.author||"").toLowerCase().includes(q) || (h.tech_solution_id||"").toLowerCase().includes(q) || (h.deploy_hardening||"").toLowerCase().includes(q) || (h.functional_hardening||"").toLowerCase().includes(q) || (h.tags||[]).some((t) => t.toLowerCase().includes(q));
-    const matchStatus = hardFilterStatus === "Все" || h.status === hardFilterStatus;
-    const matchTag = !hardFilterTag || (h.tags||[]).some((t) => t.toLowerCase().includes(hardFilterTag.toLowerCase()));
-    const matchTsol = !hardFilterTsol || (h.tech_solution_id||"") === hardFilterTsol;
-    return matchQ && matchStatus && matchTag && matchTsol;
-  });
+  const filteredHardenings = (() => {
+    const STATUS_ORDER: HardeningStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
+    const filtered = hardenings.filter((h) => {
+      const q = hardSearch.toLowerCase();
+      const matchQ = !q || (h.id||"").toLowerCase().includes(q) || (h.name||"").toLowerCase().includes(q) || (h.author||"").toLowerCase().includes(q) || (h.tech_solution_id||"").toLowerCase().includes(q) || (h.deploy_hardening||"").toLowerCase().includes(q) || (h.functional_hardening||"").toLowerCase().includes(q) || (h.tags||[]).some((t) => t.toLowerCase().includes(q));
+      const matchStatus = hardFilterStatus === "Все" || h.status === hardFilterStatus;
+      const matchTag = !hardFilterTag || (h.tags||[]).some((t) => t.toLowerCase().includes(hardFilterTag.toLowerCase()));
+      const matchTsol = !hardFilterTsol || (h.tech_solution_id||"") === hardFilterTsol;
+      return matchQ && matchStatus && matchTag && matchTsol;
+    });
+    if (hardSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
+    if (hardSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
+    if (hardSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
   // ── ArchTemplates state ───────────────────────────────────────────
   const ARCH_TEMPLATES_API = getApiUrl("arch-templates");
   const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
@@ -1740,6 +1788,7 @@ export default function Index() {
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [viewProd, setViewProd] = useState<Product | null>(null);
   const [prodSearch, setProdSearch] = useState("");
+  const [prodSortBy, setProdSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [prodFilterStatus, setProdFilterStatus] = useState<string>("Все");
   const [prodFilterTag, setProdFilterTag] = useState<string>("");
   const [prodFilterArch, setProdFilterArch] = useState<string>("");
@@ -1842,23 +1891,30 @@ export default function Index() {
     setDeleteProdId(null);
   };
 
-  const filteredProducts = products.filter((p) => {
-    const q = prodSearch.toLowerCase();
-    const matchQ = !q ||
-      (p.id||"").toLowerCase().includes(q) ||
-      (p.name||"").toLowerCase().includes(q) ||
-      (p.description||"").toLowerCase().includes(q) ||
-      (p.author||"").toLowerCase().includes(q) ||
-      (p.cmdb_mnemonic||"").toLowerCase().includes(q) ||
-      (p.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
-      (p.arch_template_ids||[]).some((id) => id.toLowerCase().includes(q));
-    const matchStatus = prodFilterStatus === "Все" || p.status === prodFilterStatus;
-    const matchTag = !prodFilterTag || (p.tags||[]).some((t) => t.toLowerCase().includes(prodFilterTag.toLowerCase()));
-    const matchArch = !prodFilterArch || (p.arch_template_ids||[]).includes(prodFilterArch);
-    const matchIb = prodFilterIb === "Все" || (prodFilterIb === "Да" ? p.approved_ib : !p.approved_ib);
-    const matchIt = prodFilterIt === "Все" || (prodFilterIt === "Да" ? p.approved_it : !p.approved_it);
-    return matchQ && matchStatus && matchTag && matchArch && matchIb && matchIt;
-  });
+  const filteredProducts = (() => {
+    const STATUS_ORDER: ProductStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
+    const filtered = products.filter((p) => {
+      const q = prodSearch.toLowerCase();
+      const matchQ = !q ||
+        (p.id||"").toLowerCase().includes(q) ||
+        (p.name||"").toLowerCase().includes(q) ||
+        (p.description||"").toLowerCase().includes(q) ||
+        (p.author||"").toLowerCase().includes(q) ||
+        (p.cmdb_mnemonic||"").toLowerCase().includes(q) ||
+        (p.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
+        (p.arch_template_ids||[]).some((id) => id.toLowerCase().includes(q));
+      const matchStatus = prodFilterStatus === "Все" || p.status === prodFilterStatus;
+      const matchTag = !prodFilterTag || (p.tags||[]).some((t) => t.toLowerCase().includes(prodFilterTag.toLowerCase()));
+      const matchArch = !prodFilterArch || (p.arch_template_ids||[]).includes(prodFilterArch);
+      const matchIb = prodFilterIb === "Все" || (prodFilterIb === "Да" ? p.approved_ib : !p.approved_ib);
+      const matchIt = prodFilterIt === "Все" || (prodFilterIt === "Да" ? p.approved_it : !p.approved_it);
+      return matchQ && matchStatus && matchTag && matchArch && matchIb && matchIt;
+    });
+    if (prodSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
+    if (prodSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
+    if (prodSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
+    return filtered;
+  })();
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -4825,6 +4881,11 @@ export default function Index() {
                   onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
                 />
               </div>
+              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setDomainSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: domainSortBy === opt.value ? "rgba(0,102,255,0.18)" : "transparent", color: domainSortBy === opt.value ? "#6ea8ff" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                ))}
+              </div>
               {/* Stats badges */}
               <div className="flex items-center gap-2 ml-auto">
                 {DOMAIN_STATUSES.map((s) => {
@@ -4993,6 +5054,11 @@ export default function Index() {
                   onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.5)")}
                   onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
                 />
+              </div>
+              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setTechSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: techSortBy === opt.value ? "rgba(139,92,246,0.18)" : "transparent", color: techSortBy === opt.value ? "#a78bfa" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                ))}
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 {DOMAIN_STATUSES.map((s) => {
@@ -5168,6 +5234,11 @@ export default function Index() {
                   className="pl-9 text-sm"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
                 />
+              </div>
+              <div className="flex items-center gap-1 h-9 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setTechSortBy2(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: techSortBy2 === opt.value ? "rgba(16,185,129,0.18)" : "transparent", color: techSortBy2 === opt.value ? "#34d399" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                ))}
               </div>
               <span className="text-sm font-mono px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#34d399" }}>
                 {filteredTechnologies.length} / {technologies.length}
@@ -5642,6 +5713,14 @@ export default function Index() {
                   );
                 })}
               </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Сортировка:</span>
+                <div className="flex items-center gap-1 h-8 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                    <button key={opt.value} onClick={() => setReqSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: reqSortBy === opt.value ? "rgba(245,158,11,0.18)" : "transparent", color: reqSortBy === opt.value ? "#fbbf24" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Loading */}
@@ -5819,6 +5898,11 @@ export default function Index() {
                   Сбросить
                 </button>
               )}
+              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setTsolSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: tsolSortBy === opt.value ? "rgba(167,139,250,0.18)" : "transparent", color: tsolSortBy === opt.value ? "#a78bfa" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                ))}
+              </div>
               <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredTsols.length} / {techSolutions.length}</span>
             </div>
 
@@ -6009,6 +6093,11 @@ export default function Index() {
                   Сбросить
                 </button>
               )}
+              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setHardSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: hardSortBy === opt.value ? "rgba(239,68,68,0.18)" : "transparent", color: hardSortBy === opt.value ? "#f87171" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                ))}
+              </div>
               <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredHardenings.length} / {hardenings.length}</span>
             </div>
 
@@ -6678,6 +6767,11 @@ export default function Index() {
               {(prodSearch || prodFilterStatus !== "Все" || prodFilterTag || prodFilterArch || prodFilterIb !== "Все" || prodFilterIt !== "Все") && (
                 <button onClick={() => { setProdSearch(""); setProdFilterStatus("Все"); setProdFilterTag(""); setProdFilterArch(""); setProdFilterIb("Все"); setProdFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>Сбросить</button>
               )}
+              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setProdSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: prodSortBy === opt.value ? "rgba(245,158,11,0.18)" : "transparent", color: prodSortBy === opt.value ? "#fbbf24" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
+                ))}
+              </div>
               <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredProducts.length} / {products.length}</span>
             </div>
 
