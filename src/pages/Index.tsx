@@ -1560,6 +1560,7 @@ export default function Index() {
   const [archFilterTsol, setArchFilterTsol] = useState<string>("");
   const [archFilterIb, setArchFilterIb] = useState<string>("Все");
   const [archFilterIt, setArchFilterIt] = useState<string>("Все");
+  const [archSortBy, setArchSortBy] = useState<"id-asc" | "id-desc" | "status">("id-asc");
   const [archTagInput, setArchTagInput] = useState("");
   const [archTsolSearch, setArchTsolSearch] = useState("");
   const [reqTechSearch, setReqTechSearch] = useState("");
@@ -1677,22 +1678,29 @@ export default function Index() {
     setDeleteArchId(null);
   };
 
-  const filteredArchTemplates = archTemplates.filter((a) => {
-    const q = archSearch.toLowerCase();
-    const matchQ = !q ||
-      (a.id||"").toLowerCase().includes(q) ||
-      (a.name||"").toLowerCase().includes(q) ||
-      (a.description||"").toLowerCase().includes(q) ||
-      (a.author||"").toLowerCase().includes(q) ||
-      (a.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
-      (a.tech_solution_ids||[]).some((id) => id.toLowerCase().includes(q));
-    const matchStatus = archFilterStatuses.length === 0 || archFilterStatuses.includes(a.status);
-    const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
-    const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
-    const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
-    const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
-    return matchQ && matchStatus && matchTag && matchTsol && matchIb && matchIt;
-  });
+  const filteredArchTemplates = (() => {
+    const STATUS_ORDER: ArchTemplateStatus[] = ["Активен", "Релиз-кандидат", "В разработке", "Не активен", "Архив", "Устарел"];
+    const filtered = archTemplates.filter((a) => {
+      const q = archSearch.toLowerCase();
+      const matchQ = !q ||
+        (a.id||"").toLowerCase().includes(q) ||
+        (a.name||"").toLowerCase().includes(q) ||
+        (a.description||"").toLowerCase().includes(q) ||
+        (a.author||"").toLowerCase().includes(q) ||
+        (a.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
+        (a.tech_solution_ids||[]).some((id) => id.toLowerCase().includes(q));
+      const matchStatus = archFilterStatuses.length === 0 || archFilterStatuses.includes(a.status);
+      const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
+      const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
+      const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
+      const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
+      return matchQ && matchStatus && matchTag && matchTsol && matchIb && matchIt;
+    });
+    if (archSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
+    if (archSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
+    if (archSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status as ArchTemplateStatus) - STATUS_ORDER.indexOf(b.status as ArchTemplateStatus));
+    return filtered;
+  })();
   // ── Data IO state ─────────────────────────────────────────────────
   const [importResult, setImportResult] = useState<{ ok: string[]; errors: string[] } | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -6190,6 +6198,23 @@ export default function Index() {
                 <option value="Да">ИТ: согласован</option>
                 <option value="Нет">ИТ: не согласован</option>
               </select>
+              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {([
+                  { value: "id-asc",  label: "ID ↑" },
+                  { value: "id-desc", label: "ID ↓" },
+                  { value: "status",  label: "Статус" },
+                ] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setArchSortBy(opt.value)}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all"
+                    style={{
+                      background: archSortBy === opt.value ? "rgba(6,182,212,0.18)" : "transparent",
+                      color: archSortBy === opt.value ? "#22d3ee" : "rgba(180,200,230,0.45)",
+                    }}
+                  >{opt.label}</button>
+                ))}
+              </div>
               {archFilterTsol && (
                 <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
                   <Icon name="Link2" size={11} />
