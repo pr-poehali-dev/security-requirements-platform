@@ -6354,6 +6354,7 @@ export default function Index() {
                 {filteredArchTemplates.map((a) => {
                   const sm = ARCH_TEMPLATE_STATUS_META[a.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
                   const linkedTsols = techSolutions.filter((ts) => (a.tech_solution_ids||[]).includes(ts.id));
+                  const linkedTechs = technologies.filter((t) => (a.technology_ids||[]).includes(t.id));
                   return (
                     <div
                       key={a.id}
@@ -6391,6 +6392,18 @@ export default function Index() {
                             </span>
                           ))}
                           {linkedTsols.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{linkedTsols.length - 3}</span>}
+                        </div>
+                      )}
+
+                      {/* Linked technologies */}
+                      {linkedTechs.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {linkedTechs.slice(0, 3).map((t) => (
+                            <span key={t.id} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(52,211,153,0.08)", color: "rgba(52,211,153,0.7)", border: "1px solid rgba(52,211,153,0.15)" }}>
+                              <Icon name="Cpu" size={8} className="inline mr-1" />{t.id}
+                            </span>
+                          ))}
+                          {linkedTechs.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{linkedTechs.length - 3}</span>}
                         </div>
                       )}
 
@@ -10908,6 +10921,7 @@ export default function Index() {
           {viewArch && (() => {
             const sm = ARCH_TEMPLATE_STATUS_META[viewArch.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
             const linkedTsols = techSolutions.filter((ts) => (viewArch.tech_solution_ids||[]).includes(ts.id));
+            const linkedTechs = technologies.filter((t) => (viewArch.technology_ids||[]).includes(t.id));
             const linkedReqs = linkedTsols.flatMap((ts) => reqs.filter((r) => ts.technology_ids?.includes(r.technology_id)));
             const uniqueReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
             const filteredViewReqs = uniqueReqs.filter((r) => {
@@ -11498,6 +11512,26 @@ renderReqs(REQS);
                             <span className="font-mono text-[10px]" style={{ color: "rgba(167,139,250,0.5)" }}>{ts.id}</span>
                           </span>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Linked technologies */}
+                  {linkedTechs.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Связанные технологии</div>
+                      <div className="flex flex-wrap gap-2">
+                        {linkedTechs.map((t) => {
+                          const m = TECH_STATUS_META[t.status];
+                          return (
+                            <span key={t.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(52,211,153,0.08)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                              <Icon name="Cpu" size={11} />
+                              {t.name}
+                              <span className="font-mono text-[10px]" style={{ color: "rgba(52,211,153,0.5)" }}>{t.id}</span>
+                              {m && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: m.color, background: m.bg }}>{t.status}</span>}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
