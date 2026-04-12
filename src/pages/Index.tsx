@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
-import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin } from "@/utils/apiCache";
+import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin, getCacheStats } from "@/utils/apiCache";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -473,6 +473,7 @@ export default function Index() {
   const [checkError, setCheckError] = useState("");
   const [cacheTtlMin, setCacheTtlMinState] = useState<number>(() => getCacheTtlMin());
   const [cacheTtlInput, setCacheTtlInput] = useState<string>(() => String(getCacheTtlMin()));
+  const [cacheStats, setCacheStats] = useState<{ count: number; keys: string[] }>(() => getCacheStats());
   const [diagRunning, setDiagRunning] = useState(false);
   const [diagResults, setDiagResults] = useState<Record<string, { status: "idle"|"ok"|"error"|"checking"; ms?: number; detail?: string }>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -591,7 +592,7 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("domains"));
       const data = await res.json();
-      setCache("domains", data);
+      setCache("domains", data); setCacheStats(getCacheStats());
       const normalized = (data.domains || []).map((d: OrgDomain & { created_at?: string }) => ({
         ...d,
         createdAt: d.createdAt || d.created_at || new Date().toISOString(),
@@ -712,7 +713,7 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("tech-domains"));
       const data = await res.json();
-      setCache("tech-domains", data);
+      setCache("tech-domains", data); setCacheStats(getCacheStats());
       setTechDomains(data.tech_domains || []);
       setTechOrgRefs(data.org_domains || []);
       if (data.section_description) setTechSectionDesc(data.section_description);
@@ -892,7 +893,7 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("technologies"));
       const data = await res.json();
-      setCache("technologies", data);
+      setCache("technologies", data); setCacheStats(getCacheStats());
       setTechnologies(data.items || []);
       setTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setTechSectionDesc2(data.section_description);
@@ -1118,7 +1119,7 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("requirements"));
       const data = await res.json();
-      setCache("requirements", data);
+      setCache("requirements", data); setCacheStats(getCacheStats());
       setReqs(data.items || []);
       setReqTechRefs(data.technologies || []);
       setReqTechDomainRefs(data.tech_domains || []);
@@ -1282,7 +1283,7 @@ export default function Index() {
         technologies.length === 0 ? fetch(getApiUrl("technologies")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("tech-solutions", data);
+      setCache("tech-solutions", data); setCacheStats(getCacheStats());
       setTechSolutions(data.items || []);
       if (data.section_description) setTsolSectionDesc(data.section_description);
       if (techRes) {
@@ -1436,7 +1437,7 @@ export default function Index() {
         techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("hardening", data);
+      setCache("hardening", data); setCacheStats(getCacheStats());
       setHardenings(data.items || []);
       if (data.section_description) setHardSectionDesc(data.section_description);
       if (tsolRes) {
@@ -1591,7 +1592,7 @@ export default function Index() {
         techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("arch-templates", data);
+      setCache("arch-templates", data); setCacheStats(getCacheStats());
       setArchTemplates(data.items || []);
       setArchFetched(true);
       if (data.section_description) setArchSectionDesc(data.section_description);
@@ -1756,7 +1757,7 @@ export default function Index() {
         archTemplates.length === 0 ? fetch(getApiUrl("arch-templates")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("products", data);
+      setCache("products", data); setCacheStats(getCacheStats());
       setProducts(data.items || []);
       if (data.section_description) setProdSectionDesc(data.section_description);
       if (archRes) { const d = await archRes.json(); setArchTemplates(d.items || []); }
@@ -1853,6 +1854,7 @@ export default function Index() {
     setCheckState("idle");
     setCheckError("");
     setSkipCheck(false);
+    setCacheStats(getCacheStats());
     setDbDialogOpen(true);
   };
 
@@ -1894,7 +1896,7 @@ export default function Index() {
       setDbExternalConnected(true);
     }
     if (modeChanged) {
-      invalidateAll();
+      invalidateAll(); setCacheStats(getCacheStats());
       setReqs([]);
       setTechnologies([]);
       setTechSolutions([]);
@@ -2082,6 +2084,15 @@ export default function Index() {
               >
                 {dbMode === "cloud" ? "cloud" : "local"}
               </span>
+              {cacheStats.count > 0 && (
+                <span
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                  style={{ background: "rgba(0,212,255,0.1)", color: "rgba(0,212,255,0.7)", border: "1px solid rgba(0,212,255,0.2)" }}
+                  title={`Закэшировано: ${cacheStats.keys.join(", ")}`}
+                >
+                  ⚡{cacheStats.count}
+                </span>
+              )}
               <Icon name="Settings2" size={14} className="text-slate-400" />
             </button>
           </div>
@@ -12126,6 +12137,16 @@ renderReqs(REQS);
               <p className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.45)" }}>
                 Данные хранятся в памяти браузера и не запрашиваются повторно до истечения TTL. При переключении режима кэш сбрасывается автоматически.
               </p>
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg" style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.12)" }}>
+                <span className="text-[11px] font-mono" style={{ color: "#00d4ff" }}>⚡ Закэшировано: {cacheStats.count} / 8</span>
+                {cacheStats.count > 0 ? (
+                  <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>
+                    — {cacheStats.keys.join(", ")}
+                  </span>
+                ) : (
+                  <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>— кэш пуст</span>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 flex-1">
                   <input
@@ -12148,7 +12169,7 @@ renderReqs(REQS);
                     setCacheTtlMin(val);
                     setCacheTtlMinState(val);
                     setCacheTtlInput(String(val));
-                    invalidateAll();
+                    invalidateAll(); setCacheStats(getCacheStats());
                   }}
                   className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{ background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", color: "#00d4ff" }}
@@ -12164,7 +12185,7 @@ renderReqs(REQS);
                       setCacheTtlMin(v);
                       setCacheTtlMinState(v);
                       setCacheTtlInput(String(v));
-                      invalidateAll();
+                      invalidateAll(); setCacheStats(getCacheStats());
                     }}
                     className="px-3 py-1 rounded-lg text-[11px] font-mono transition-all"
                     style={{
