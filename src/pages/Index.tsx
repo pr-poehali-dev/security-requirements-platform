@@ -11171,6 +11171,9 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
               const tsolsHtml = linkedTsols.length > 0
                 ? linkedTsols.map(ts => `<div class="tsol-chip"><span class="tsol-name">${ts.name}</span><span class="tsol-id">${ts.id}</span></div>`).join("")
                 : '<span style="color:#6b7280">—</span>';
+              const techsHtml = linkedTechs.length > 0
+                ? linkedTechs.map(t => `<div class="tsol-chip"><span class="tsol-name">${t.name}</span><span class="tsol-id">${t.id}</span></div>`).join("")
+                : '<span style="color:#6b7280">—</span>';
               const reqsJson = JSON.stringify(uniqueReqs.map(r => ({
                 id: r.id, name: r.name, req_type: r.req_type||"", criticality: r.criticality||"",
                 status: r.status||"", environments: (r.environments||[]).join(", "), stages: (r.stages||[]).join(", "),
@@ -11275,6 +11278,7 @@ td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
   </div>
   ${viewArch.description ? `<div class="section"><div class="sec-title">Описание</div><div class="desc-text">${viewArch.description.replace(/</g,"&lt;")}</div></div>` : ""}
   <div class="section"><div class="sec-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
+  <div class="section"><div class="sec-title">Связанные технологии</div><div class="tsol-list">${techsHtml}</div></div>
   <div class="section" style="display:flex;align-items:center;gap:20px;padding:16px 22px">
     <div><div class="req-counter">${uniqueReqs.length}</div><div class="req-label">связанных требований</div></div>
   </div>
