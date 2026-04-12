@@ -538,6 +538,7 @@ export default function Index() {
   const DOMAINS_API = getApiUrl("domains");
   const [domains, setDomains] = useState<OrgDomain[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainsFailed, setDomainsFailed] = useState(false);
   const [sectionDesc, setSectionDesc] = useState("Реестр организационных доменов безопасности — создание, редактирование и управление статусами");
   const [sectionDescEditing, setSectionDescEditing] = useState(false);
   const [sectionDescDraft, setSectionDescDraft] = useState(sectionDesc);
@@ -581,6 +582,7 @@ export default function Index() {
   };
 
   const loadDomains = async () => {
+    if (domainsFailed) return;
     const cached = getCached("domains");
     if (cached) {
       const data = cached as { domains?: OrgDomain[]; section_description?: string };
@@ -599,7 +601,7 @@ export default function Index() {
       }));
       setDomains(normalized);
       if (data.section_description) setSectionDesc(data.section_description);
-    } finally {
+    } catch { setDomainsFailed(true); } finally {
       setDomainsLoading(false);
     }
   };
@@ -675,6 +677,7 @@ export default function Index() {
   const [techDomains, setTechDomains] = useState<TechDomain[]>([]);
   const [techOrgRefs, setTechOrgRefs] = useState<OrgDomainRef[]>([]);
   const [techLoading, setTechLoading] = useState(false);
+  const [techFailed, setTechFailed] = useState(false);
   const [techSectionDesc, setTechSectionDesc] = useState("Реестр технических доменов безопасности — создание, редактирование и управление архитектурными компонентами");
   const [techSectionDescEditing, setTechSectionDescEditing] = useState(false);
   const [techSectionDescDraft, setTechSectionDescDraft] = useState(techSectionDesc);
@@ -701,6 +704,7 @@ export default function Index() {
   const [techForm, setTechForm] = useState<TechDomain>(makeEmptyTechForm(0));
 
   const loadTechDomains = async () => {
+    if (techFailed) return;
     const cached = getCached("tech-domains");
     if (cached) {
       const data = cached as { tech_domains?: TechDomain[]; org_domains?: OrgDomainRef[]; section_description?: string };
@@ -717,7 +721,7 @@ export default function Index() {
       setTechDomains(data.tech_domains || []);
       setTechOrgRefs(data.org_domains || []);
       if (data.section_description) setTechSectionDesc(data.section_description);
-    } finally {
+    } catch { setTechFailed(true); } finally {
       setTechLoading(false);
     }
   };
@@ -838,6 +842,7 @@ export default function Index() {
   const [techSectionDesc2Editing, setTechSectionDesc2Editing] = useState(false);
   const [techSectionDesc2Draft, setTechSectionDesc2Draft] = useState(techSectionDesc2);
   const [techsLoading, setTechsLoading] = useState(false);
+  const [techsFailed, setTechsFailed] = useState(false);
   const [techDialogOpen2, setTechDialogOpen2] = useState(false);
   const [techSaving2, setTechSaving2] = useState(false);
   const [techSaveError2, setTechSaveError2] = useState("");
@@ -881,6 +886,7 @@ export default function Index() {
   const [techForm2, setTechForm2] = useState<Technology>(makeEmptyTechForm2(0));
 
   const loadTechnologies = async () => {
+    if (techsFailed) return;
     const cached = getCached("technologies");
     if (cached) {
       const data = cached as { items?: Technology[]; tech_domains?: TechDomainRef[]; section_description?: string };
@@ -897,7 +903,7 @@ export default function Index() {
       setTechnologies(data.items || []);
       setTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setTechSectionDesc2(data.section_description);
-    } finally {
+    } catch { setTechsFailed(true); } finally {
       setTechsLoading(false);
     }
   };
@@ -1064,6 +1070,7 @@ export default function Index() {
   const [reqTechRefs, setReqTechRefs] = useState<{ id: string; name: string }[]>([]);
   const [reqTechDomainRefs, setReqTechDomainRefs] = useState<{ id: string; name: string }[]>([]);
   const [reqsLoading, setReqsLoading] = useState(false);
+  const [reqsFailed, setReqsFailed] = useState(false);
   const [reqSectionDesc, setReqSectionDesc] = useState("Реестр требований безопасности — организационные, функциональные и технические требования");
   const [reqSectionDescEditing, setReqSectionDescEditing] = useState(false);
   const [reqSectionDescDraft, setReqSectionDescDraft] = useState(reqSectionDesc);
@@ -1106,6 +1113,7 @@ export default function Index() {
   const [reqForm, setReqForm] = useState<Req>(makeEmptyReqForm(0));
 
   const loadReqs = async () => {
+    if (reqsFailed) return;
     const cached = getCached("requirements");
     if (cached) {
       const data = cached as { items?: Req[]; technologies?: unknown[]; tech_domains?: unknown[]; section_description?: string };
@@ -1124,7 +1132,7 @@ export default function Index() {
       setReqTechRefs(data.technologies || []);
       setReqTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setReqSectionDesc(data.section_description);
-    } finally {
+    } catch { setReqsFailed(true); } finally {
       setReqsLoading(false);
     }
   };
@@ -1231,6 +1239,7 @@ export default function Index() {
   const TECH_SOLUTIONS_API = getApiUrl("tech-solutions");
   const [techSolutions, setTechSolutions] = useState<TechSolution[]>([]);
   const [tsolLoading, setTsolLoading] = useState(false);
+  const [tsolFailed, setTsolFailed] = useState(false);
   const [tsolSectionDesc, setTsolSectionDesc] = useState("Реестр технических решений — архитектурные и проектные решения, согласованные с ИБ и ИТ");
   const [tsolSectionDescEditing, setTsolSectionDescEditing] = useState(false);
   const [tsolSectionDescDraft, setTsolSectionDescDraft] = useState(tsolSectionDesc);
@@ -1268,6 +1277,7 @@ export default function Index() {
   const [tsolForm, setTsolForm] = useState<TechSolution>(makeEmptyTsolForm(0));
 
   const loadTechSolutions = async () => {
+    if (tsolFailed) return;
     const cached = getCached("tech-solutions");
     if (cached) {
       const data = cached as { items?: TechSolution[]; section_description?: string };
@@ -1290,7 +1300,7 @@ export default function Index() {
         const techData = await techRes.json();
         setTechnologies(techData.items || []);
       }
-    } finally {
+    } catch { setTsolFailed(true); } finally {
       setTsolLoading(false);
     }
   };
@@ -1389,6 +1399,7 @@ export default function Index() {
   const HARDENING_API = getApiUrl("hardening");
   const [hardenings, setHardenings] = useState<Hardening[]>([]);
   const [hardLoading, setHardLoading] = useState(false);
+  const [hardFailed, setHardFailed] = useState(false);
   const [hardSectionDesc, setHardSectionDesc] = useState("Реестр харденингов технических решений — настройки безопасности развёртывания и функционала");
   const [hardSectionDescEditing, setHardSectionDescEditing] = useState(false);
   const [hardSectionDescDraft, setHardSectionDescDraft] = useState(hardSectionDesc);
@@ -1422,6 +1433,7 @@ export default function Index() {
   const [hardForm, setHardForm] = useState<Hardening>(makeEmptyHardForm(0));
 
   const loadHardenings = async () => {
+    if (hardFailed) return;
     const cached = getCached("hardening");
     if (cached) {
       const data = cached as { items?: Hardening[]; section_description?: string };
@@ -1444,7 +1456,7 @@ export default function Index() {
         const td = await tsolRes.json();
         setTechSolutions(td.items || []);
       }
-    } finally {
+    } catch { setHardFailed(true); } finally {
       setHardLoading(false);
     }
   };
@@ -1532,6 +1544,7 @@ export default function Index() {
   const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
   const [archLoading, setArchLoading] = useState(false);
   const [archFetched, setArchFetched] = useState(false);
+  const [archFailed, setArchFailed] = useState(false);
   const [archSectionDesc, setArchSectionDesc] = useState("Реестр типовых архитектур безопасности — шаблоны для проектирования защищённых систем");
   const [archSectionDescEditing, setArchSectionDescEditing] = useState(false);
   const [archSectionDescDraft, setArchSectionDescDraft] = useState(archSectionDesc);
@@ -1576,6 +1589,7 @@ export default function Index() {
   const [archForm, setArchForm] = useState<ArchTemplate>(makeEmptyArchForm(0));
 
   const loadArchTemplates = async () => {
+    if (archFailed) return;
     const cached = getCached("arch-templates");
     if (cached) {
       const data = cached as { items?: ArchTemplate[]; section_description?: string };
@@ -1600,7 +1614,7 @@ export default function Index() {
         const td = await tsolRes.json();
         setTechSolutions(td.items || []);
       }
-    } finally {
+    } catch { setArchFailed(true); } finally {
       setArchLoading(false);
     }
   };
@@ -1707,6 +1721,7 @@ export default function Index() {
   const PRODUCTS_API = getApiUrl("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [prodLoading, setProdLoading] = useState(false);
+  const [prodFailed, setProdFailed] = useState(false);
   const [prodSectionDesc, setProdSectionDesc] = useState("Реестр бизнес-продуктов — привязка к типовым архитектурам безопасности и требованиям");
   const [prodSectionDescEditing, setProdSectionDescEditing] = useState(false);
   const [prodSectionDescDraft, setProdSectionDescDraft] = useState("");
@@ -1742,6 +1757,7 @@ export default function Index() {
   const [prodForm, setProdForm] = useState<Product>(makeEmptyProdForm(0));
 
   const loadProducts = async () => {
+    if (prodFailed) return;
     const cached = getCached("products");
     if (cached) {
       const data = cached as { items?: Product[]; section_description?: string };
@@ -1761,7 +1777,7 @@ export default function Index() {
       setProducts(data.items || []);
       if (data.section_description) setProdSectionDesc(data.section_description);
       if (archRes) { const d = await archRes.json(); setArchTemplates(d.items || []); }
-    } finally { setProdLoading(false); }
+    } catch { setProdFailed(true); } finally { setProdLoading(false); }
   };
 
   const handleSaveProdSectionDesc = async () => {
@@ -1906,6 +1922,14 @@ export default function Index() {
       setDomains([]);
       setProducts([]);
       setTechDomains([]);
+      setReqsFailed(false);
+      setTechsFailed(false);
+      setTsolFailed(false);
+      setArchFailed(false);
+      setHardFailed(false);
+      setDomainsFailed(false);
+      setProdFailed(false);
+      setTechFailed(false);
     }
     setDbDialogOpen(false);
   };
@@ -2103,8 +2127,8 @@ export default function Index() {
           <div className="max-w-7xl mx-auto px-6">
             <nav className="flex items-center gap-1 overflow-x-auto">
               {[
-                { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
-                { key: "test-library",   label: "Тест",                   onClick: () => { setActiveSection("test-library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
+                { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading && !reqsFailed) loadReqs(); if (technologies.length === 0 && !techsLoading && !techsFailed) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading && !tsolFailed) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading && !archFailed) loadArchTemplates(); } },
+                { key: "test-library",   label: "Тест",                   onClick: () => { setActiveSection("test-library"); if (reqs.length === 0 && !reqsLoading && !reqsFailed) loadReqs(); if (technologies.length === 0 && !techsLoading && !techsFailed) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading && !tsolFailed) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading && !archFailed) loadArchTemplates(); } },
                 { key: "domains",        label: "Орг. домены",            onClick: () => setActiveSection("domains") },
                 { key: "tech-domains",   label: "Тех. домены",            onClick: () => setActiveSection("tech-domains") },
                 { key: "technologies",   label: "Технологии",             onClick: () => setActiveSection("technologies") },
