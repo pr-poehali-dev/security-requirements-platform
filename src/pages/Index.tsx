@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
-import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin, getCacheStats } from "@/utils/apiCache";
+import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin } from "@/utils/apiCache";
 import Icon from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -253,7 +253,6 @@ interface ArchTemplate {
   version: string;
   tags: string[];
   tech_solution_ids: string[];
-  technology_ids: string[];
   approved_ib: boolean;
   approved_it: boolean;
   diagrams: MermaidDiagram[];
@@ -474,7 +473,6 @@ export default function Index() {
   const [checkError, setCheckError] = useState("");
   const [cacheTtlMin, setCacheTtlMinState] = useState<number>(() => getCacheTtlMin());
   const [cacheTtlInput, setCacheTtlInput] = useState<string>(() => String(getCacheTtlMin()));
-  const [cacheStats, setCacheStats] = useState<{ count: number; keys: string[] }>(() => getCacheStats());
   const [diagRunning, setDiagRunning] = useState(false);
   const [diagResults, setDiagResults] = useState<Record<string, { status: "idle"|"ok"|"error"|"checking"; ms?: number; detail?: string }>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -539,7 +537,6 @@ export default function Index() {
   const DOMAINS_API = getApiUrl("domains");
   const [domains, setDomains] = useState<OrgDomain[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(false);
-  const [domainsFailed, setDomainsFailed] = useState(false);
   const [sectionDesc, setSectionDesc] = useState("Реестр организационных доменов безопасности — создание, редактирование и управление статусами");
   const [sectionDescEditing, setSectionDescEditing] = useState(false);
   const [sectionDescDraft, setSectionDescDraft] = useState(sectionDesc);
@@ -549,7 +546,6 @@ export default function Index() {
   const [editingDomain, setEditingDomain] = useState<OrgDomain | null>(null);
   const [viewDomain, setViewDomain] = useState<OrgDomain | null>(null);
   const [domainSearch, setDomainSearch] = useState("");
-  const [domainSortBy, setDomainSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
 
   const makeEmptyForm = (count: number): OrgDomain => ({
     id: `org-dom-${String(count + 1).padStart(3, "0")}`,
@@ -584,7 +580,6 @@ export default function Index() {
   };
 
   const loadDomains = async () => {
-    if (domainsFailed) return;
     const cached = getCached("domains");
     if (cached) {
       const data = cached as { domains?: OrgDomain[]; section_description?: string };
@@ -596,14 +591,14 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("domains"));
       const data = await res.json();
-      setCache("domains", data); setCacheStats(getCacheStats());
+      setCache("domains", data);
       const normalized = (data.domains || []).map((d: OrgDomain & { created_at?: string }) => ({
         ...d,
         createdAt: d.createdAt || d.created_at || new Date().toISOString(),
       }));
       setDomains(normalized);
       if (data.section_description) setSectionDesc(data.section_description);
-    } catch { setDomainsFailed(true); } finally {
+    } finally {
       setDomainsLoading(false);
     }
   };
@@ -668,25 +663,17 @@ export default function Index() {
     });
   };
 
-  const filteredDomains = (() => {
-    const STATUS_ORDER: DomainStatus[] = ["Активен", "В разработке", "Не активен", "Архив"];
-    const filtered = domains.filter((d) =>
-      d.name.toLowerCase().includes(domainSearch.toLowerCase()) ||
-      d.id.toLowerCase().includes(domainSearch.toLowerCase()) ||
-      d.owner.toLowerCase().includes(domainSearch.toLowerCase())
-    );
-    if (domainSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-    if (domainSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
-    if (domainSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredDomains = domains.filter((d) =>
+    d.name.toLowerCase().includes(domainSearch.toLowerCase()) ||
+    d.id.toLowerCase().includes(domainSearch.toLowerCase()) ||
+    d.owner.toLowerCase().includes(domainSearch.toLowerCase())
+  );
 
   // ── Tech Domains state ──────────────────────────────────────────
   const TECH_DOMAINS_API = getApiUrl("tech-domains");
   const [techDomains, setTechDomains] = useState<TechDomain[]>([]);
   const [techOrgRefs, setTechOrgRefs] = useState<OrgDomainRef[]>([]);
   const [techLoading, setTechLoading] = useState(false);
-  const [techFailed, setTechFailed] = useState(false);
   const [techSectionDesc, setTechSectionDesc] = useState("Реестр технических доменов безопасности — создание, редактирование и управление архитектурными компонентами");
   const [techSectionDescEditing, setTechSectionDescEditing] = useState(false);
   const [techSectionDescDraft, setTechSectionDescDraft] = useState(techSectionDesc);
@@ -697,7 +684,6 @@ export default function Index() {
   const [editingTech, setEditingTech] = useState<TechDomain | null>(null);
   const [viewTech, setViewTech] = useState<TechDomain | null>(null);
   const [techSearch, setTechSearch] = useState("");
-  const [techSortBy, setTechSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [techTagInput, setTechTagInput] = useState("");
   const [techNameError, setTechNameError] = useState("");
 
@@ -714,7 +700,6 @@ export default function Index() {
   const [techForm, setTechForm] = useState<TechDomain>(makeEmptyTechForm(0));
 
   const loadTechDomains = async () => {
-    if (techFailed) return;
     const cached = getCached("tech-domains");
     if (cached) {
       const data = cached as { tech_domains?: TechDomain[]; org_domains?: OrgDomainRef[]; section_description?: string };
@@ -727,11 +712,11 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("tech-domains"));
       const data = await res.json();
-      setCache("tech-domains", data); setCacheStats(getCacheStats());
+      setCache("tech-domains", data);
       setTechDomains(data.tech_domains || []);
       setTechOrgRefs(data.org_domains || []);
       if (data.section_description) setTechSectionDesc(data.section_description);
-    } catch { setTechFailed(true); } finally {
+    } finally {
       setTechLoading(false);
     }
   };
@@ -829,18 +814,11 @@ export default function Index() {
     });
   };
 
-  const filteredTechDomains = (() => {
-    const STATUS_ORDER: DomainStatus[] = ["Активен", "В разработке", "Не активен", "Архив"];
-    const filtered = techDomains.filter((d) =>
-      d.name.toLowerCase().includes(techSearch.toLowerCase()) ||
-      d.id.toLowerCase().includes(techSearch.toLowerCase()) ||
-      d.owner.toLowerCase().includes(techSearch.toLowerCase())
-    );
-    if (techSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-    if (techSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
-    if (techSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredTechDomains = techDomains.filter((d) =>
+    d.name.toLowerCase().includes(techSearch.toLowerCase()) ||
+    d.id.toLowerCase().includes(techSearch.toLowerCase()) ||
+    d.owner.toLowerCase().includes(techSearch.toLowerCase())
+  );
 
   // ── Technologies state ──────────────────────────────────────────
   const TECH_STATUS_META: Record<TechStatus, { color: string; bg: string; icon: string }> = {
@@ -859,7 +837,6 @@ export default function Index() {
   const [techSectionDesc2Editing, setTechSectionDesc2Editing] = useState(false);
   const [techSectionDesc2Draft, setTechSectionDesc2Draft] = useState(techSectionDesc2);
   const [techsLoading, setTechsLoading] = useState(false);
-  const [techsFailed, setTechsFailed] = useState(false);
   const [techDialogOpen2, setTechDialogOpen2] = useState(false);
   const [techSaving2, setTechSaving2] = useState(false);
   const [techSaveError2, setTechSaveError2] = useState("");
@@ -867,7 +844,6 @@ export default function Index() {
   const [editingTech2, setEditingTech2] = useState<Technology | null>(null);
   const [viewTech2, setViewTech2] = useState<Technology | null>(null);
   const [techSearch2, setTechSearch2] = useState("");
-  const [techSortBy2, setTechSortBy2] = useState<"id-asc"|"id-desc">("id-asc");
   const [techTagInput2, setTechTagInput2] = useState("");
   const [techNameError2, setTechNameError2] = useState("");
   const [techVersionInput, setTechVersionInput] = useState("");
@@ -904,7 +880,6 @@ export default function Index() {
   const [techForm2, setTechForm2] = useState<Technology>(makeEmptyTechForm2(0));
 
   const loadTechnologies = async () => {
-    if (techsFailed) return;
     const cached = getCached("technologies");
     if (cached) {
       const data = cached as { items?: Technology[]; tech_domains?: TechDomainRef[]; section_description?: string };
@@ -917,11 +892,11 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("technologies"));
       const data = await res.json();
-      setCache("technologies", data); setCacheStats(getCacheStats());
+      setCache("technologies", data);
       setTechnologies(data.items || []);
       setTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setTechSectionDesc2(data.section_description);
-    } catch { setTechsFailed(true); } finally {
+    } finally {
       setTechsLoading(false);
     }
   };
@@ -1076,18 +1051,11 @@ export default function Index() {
     });
   };
 
-  const filteredTechnologies = (() => {
-    const STATUS_ORDER: TechStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
-    const filtered = technologies.filter((t) =>
-      t.name.toLowerCase().includes(techSearch2.toLowerCase()) ||
-      t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
-      (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
-    );
-    if (techSortBy2 === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-    if (techSortBy2 === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
-    if (techSortBy2 === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredTechnologies = technologies.filter((t) =>
+    t.name.toLowerCase().includes(techSearch2.toLowerCase()) ||
+    t.id.toLowerCase().includes(techSearch2.toLowerCase()) ||
+    (t.tags || []).some((tag) => tag.toLowerCase().includes(techSearch2.toLowerCase()))
+  );
 
   // ── Requirements state ──────────────────────────────────────────
   const REQUIREMENTS_API = getApiUrl("requirements");
@@ -1095,7 +1063,6 @@ export default function Index() {
   const [reqTechRefs, setReqTechRefs] = useState<{ id: string; name: string }[]>([]);
   const [reqTechDomainRefs, setReqTechDomainRefs] = useState<{ id: string; name: string }[]>([]);
   const [reqsLoading, setReqsLoading] = useState(false);
-  const [reqsFailed, setReqsFailed] = useState(false);
   const [reqSectionDesc, setReqSectionDesc] = useState("Реестр требований безопасности — организационные, функциональные и технические требования");
   const [reqSectionDescEditing, setReqSectionDescEditing] = useState(false);
   const [reqSectionDescDraft, setReqSectionDescDraft] = useState(reqSectionDesc);
@@ -1106,7 +1073,6 @@ export default function Index() {
   const [editingReq, setEditingReq] = useState<Req | null>(null);
   const [viewReq, setViewReq] = useState<Req | null>(null);
   const [reqSearch, setReqSearch] = useState("");
-  const [reqSortBy, setReqSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [reqFilterType, setReqFilterType] = useState<string>("Все");
   const [reqFilterCrit, setReqFilterCrit] = useState<string>("Все");
   const [reqFilterStatus, setReqFilterStatus] = useState<string>("Все");
@@ -1139,7 +1105,6 @@ export default function Index() {
   const [reqForm, setReqForm] = useState<Req>(makeEmptyReqForm(0));
 
   const loadReqs = async () => {
-    if (reqsFailed) return;
     const cached = getCached("requirements");
     if (cached) {
       const data = cached as { items?: Req[]; technologies?: unknown[]; tech_domains?: unknown[]; section_description?: string };
@@ -1153,12 +1118,12 @@ export default function Index() {
     try {
       const res = await fetch(getApiUrl("requirements"));
       const data = await res.json();
-      setCache("requirements", data); setCacheStats(getCacheStats());
+      setCache("requirements", data);
       setReqs(data.items || []);
       setReqTechRefs(data.technologies || []);
       setReqTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setReqSectionDesc(data.section_description);
-    } catch { setReqsFailed(true); } finally {
+    } finally {
       setReqsLoading(false);
     }
   };
@@ -1246,33 +1211,25 @@ export default function Index() {
     });
   };
 
-  const filteredReqs = (() => {
-    const STATUS_ORDER: ReqStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
-    const filtered = reqs.filter((r) => {
-      const q = reqSearch.toLowerCase();
-      const matchSearch = !q ||
-        r.name.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q) ||
-        r.control_metric.toLowerCase().includes(q) ||
-        (r.tags || []).some((t) => t.toLowerCase().includes(q)) ||
-        (r.norm_doc_link || "").toLowerCase().includes(q);
-      const matchType = reqFilterType === "Все" || r.req_type === reqFilterType;
-      const matchCrit = reqFilterCrit === "Все" || r.criticality === reqFilterCrit;
-      const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
-      return matchSearch && matchType && matchCrit && matchStatus;
-    });
-    if (reqSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-    if (reqSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
-    if (reqSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredReqs = reqs.filter((r) => {
+    const q = reqSearch.toLowerCase();
+    const matchSearch = !q ||
+      r.name.toLowerCase().includes(q) ||
+      r.id.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      r.control_metric.toLowerCase().includes(q) ||
+      (r.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+      (r.norm_doc_link || "").toLowerCase().includes(q);
+    const matchType = reqFilterType === "Все" || r.req_type === reqFilterType;
+    const matchCrit = reqFilterCrit === "Все" || r.criticality === reqFilterCrit;
+    const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
+    return matchSearch && matchType && matchCrit && matchStatus;
+  });
 
   // ── Tech Solutions state ─────────────────────────────────────────
   const TECH_SOLUTIONS_API = getApiUrl("tech-solutions");
   const [techSolutions, setTechSolutions] = useState<TechSolution[]>([]);
   const [tsolLoading, setTsolLoading] = useState(false);
-  const [tsolFailed, setTsolFailed] = useState(false);
   const [tsolSectionDesc, setTsolSectionDesc] = useState("Реестр технических решений — архитектурные и проектные решения, согласованные с ИБ и ИТ");
   const [tsolSectionDescEditing, setTsolSectionDescEditing] = useState(false);
   const [tsolSectionDescDraft, setTsolSectionDescDraft] = useState(tsolSectionDesc);
@@ -1283,7 +1240,6 @@ export default function Index() {
   const [editingTsol, setEditingTsol] = useState<TechSolution | null>(null);
   const [viewTsol, setViewTsol] = useState<TechSolution | null>(null);
   const [tsolSearch, setTsolSearch] = useState("");
-  const [tsolSortBy, setTsolSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [tsolFilterStatus, setTsolFilterStatus] = useState<string>("Все");
   const [tsolFilterTag, setTsolFilterTag] = useState<string>("");
   const [tsolTagInput, setTsolTagInput] = useState("");
@@ -1311,7 +1267,6 @@ export default function Index() {
   const [tsolForm, setTsolForm] = useState<TechSolution>(makeEmptyTsolForm(0));
 
   const loadTechSolutions = async () => {
-    if (tsolFailed) return;
     const cached = getCached("tech-solutions");
     if (cached) {
       const data = cached as { items?: TechSolution[]; section_description?: string };
@@ -1327,14 +1282,14 @@ export default function Index() {
         technologies.length === 0 ? fetch(getApiUrl("technologies")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("tech-solutions", data); setCacheStats(getCacheStats());
+      setCache("tech-solutions", data);
       setTechSolutions(data.items || []);
       if (data.section_description) setTsolSectionDesc(data.section_description);
       if (techRes) {
         const techData = await techRes.json();
         setTechnologies(techData.items || []);
       }
-    } catch { setTsolFailed(true); } finally {
+    } finally {
       setTsolLoading(false);
     }
   };
@@ -1420,27 +1375,19 @@ export default function Index() {
     });
   };
 
-  const filteredTsols = (() => {
-    const STATUS_ORDER: TechSolutionStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
-    const filtered = techSolutions.filter((s) => {
-      const q = tsolSearch.toLowerCase();
-      const matchQ = !q || (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q) || (s.description||"").toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
-      const matchStatus = tsolFilterStatus === "Все" || s.status === tsolFilterStatus;
-      const matchTag = !tsolFilterTag || (s.tags||[]).some((t) => t.toLowerCase().includes(tsolFilterTag.toLowerCase()));
-      return matchQ && matchStatus && matchTag;
-    });
-    if (tsolSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
-    if (tsolSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
-    if (tsolSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredTsols = techSolutions.filter((s) => {
+    const q = tsolSearch.toLowerCase();
+    const matchQ = !q || (s.name||"").toLowerCase().includes(q) || (s.id||"").toLowerCase().includes(q) || (s.description||"").toLowerCase().includes(q) || (s.author||"").toLowerCase().includes(q) || (s.tags||[]).some((t) => t.toLowerCase().includes(q));
+    const matchStatus = tsolFilterStatus === "Все" || s.status === tsolFilterStatus;
+    const matchTag = !tsolFilterTag || (s.tags||[]).some((t) => t.toLowerCase().includes(tsolFilterTag.toLowerCase()));
+    return matchQ && matchStatus && matchTag;
+  });
   // ─────────────────────────────────────────────────────────────────
 
   // ── Hardening state ──────────────────────────────────────────────
   const HARDENING_API = getApiUrl("hardening");
   const [hardenings, setHardenings] = useState<Hardening[]>([]);
   const [hardLoading, setHardLoading] = useState(false);
-  const [hardFailed, setHardFailed] = useState(false);
   const [hardSectionDesc, setHardSectionDesc] = useState("Реестр харденингов технических решений — настройки безопасности развёртывания и функционала");
   const [hardSectionDescEditing, setHardSectionDescEditing] = useState(false);
   const [hardSectionDescDraft, setHardSectionDescDraft] = useState(hardSectionDesc);
@@ -1451,7 +1398,6 @@ export default function Index() {
   const [editingHard, setEditingHard] = useState<Hardening | null>(null);
   const [viewHard, setViewHard] = useState<Hardening | null>(null);
   const [hardSearch, setHardSearch] = useState("");
-  const [hardSortBy, setHardSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [hardFilterStatus, setHardFilterStatus] = useState<string>("Все");
   const [hardFilterTag, setHardFilterTag] = useState<string>("");
   const [hardFilterTsol, setHardFilterTsol] = useState<string>("");
@@ -1475,7 +1421,6 @@ export default function Index() {
   const [hardForm, setHardForm] = useState<Hardening>(makeEmptyHardForm(0));
 
   const loadHardenings = async () => {
-    if (hardFailed) return;
     const cached = getCached("hardening");
     if (cached) {
       const data = cached as { items?: Hardening[]; section_description?: string };
@@ -1491,14 +1436,14 @@ export default function Index() {
         techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("hardening", data); setCacheStats(getCacheStats());
+      setCache("hardening", data);
       setHardenings(data.items || []);
       if (data.section_description) setHardSectionDesc(data.section_description);
       if (tsolRes) {
         const td = await tsolRes.json();
         setTechSolutions(td.items || []);
       }
-    } catch { setHardFailed(true); } finally {
+    } finally {
       setHardLoading(false);
     }
   };
@@ -1573,27 +1518,19 @@ export default function Index() {
     });
   };
 
-  const filteredHardenings = (() => {
-    const STATUS_ORDER: HardeningStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
-    const filtered = hardenings.filter((h) => {
-      const q = hardSearch.toLowerCase();
-      const matchQ = !q || (h.id||"").toLowerCase().includes(q) || (h.name||"").toLowerCase().includes(q) || (h.author||"").toLowerCase().includes(q) || (h.tech_solution_id||"").toLowerCase().includes(q) || (h.deploy_hardening||"").toLowerCase().includes(q) || (h.functional_hardening||"").toLowerCase().includes(q) || (h.tags||[]).some((t) => t.toLowerCase().includes(q));
-      const matchStatus = hardFilterStatus === "Все" || h.status === hardFilterStatus;
-      const matchTag = !hardFilterTag || (h.tags||[]).some((t) => t.toLowerCase().includes(hardFilterTag.toLowerCase()));
-      const matchTsol = !hardFilterTsol || (h.tech_solution_id||"") === hardFilterTsol;
-      return matchQ && matchStatus && matchTag && matchTsol;
-    });
-    if (hardSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
-    if (hardSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
-    if (hardSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredHardenings = hardenings.filter((h) => {
+    const q = hardSearch.toLowerCase();
+    const matchQ = !q || (h.id||"").toLowerCase().includes(q) || (h.name||"").toLowerCase().includes(q) || (h.author||"").toLowerCase().includes(q) || (h.tech_solution_id||"").toLowerCase().includes(q) || (h.deploy_hardening||"").toLowerCase().includes(q) || (h.functional_hardening||"").toLowerCase().includes(q) || (h.tags||[]).some((t) => t.toLowerCase().includes(q));
+    const matchStatus = hardFilterStatus === "Все" || h.status === hardFilterStatus;
+    const matchTag = !hardFilterTag || (h.tags||[]).some((t) => t.toLowerCase().includes(hardFilterTag.toLowerCase()));
+    const matchTsol = !hardFilterTsol || (h.tech_solution_id||"") === hardFilterTsol;
+    return matchQ && matchStatus && matchTag && matchTsol;
+  });
   // ── ArchTemplates state ───────────────────────────────────────────
   const ARCH_TEMPLATES_API = getApiUrl("arch-templates");
   const [archTemplates, setArchTemplates] = useState<ArchTemplate[]>([]);
   const [archLoading, setArchLoading] = useState(false);
   const [archFetched, setArchFetched] = useState(false);
-  const [archFailed, setArchFailed] = useState(false);
   const [archSectionDesc, setArchSectionDesc] = useState("Реестр типовых архитектур безопасности — шаблоны для проектирования защищённых систем");
   const [archSectionDescEditing, setArchSectionDescEditing] = useState(false);
   const [archSectionDescDraft, setArchSectionDescDraft] = useState(archSectionDesc);
@@ -1607,14 +1544,10 @@ export default function Index() {
   const [archFilterStatuses, setArchFilterStatuses] = useState<string[]>([]);
   const [archFilterTag, setArchFilterTag] = useState<string>("");
   const [archFilterTsol, setArchFilterTsol] = useState<string>("");
-  const [archFilterTech, setArchFilterTech] = useState<string>("");
   const [archFilterIb, setArchFilterIb] = useState<string>("Все");
   const [archFilterIt, setArchFilterIt] = useState<string>("Все");
-  const [archSortBy, setArchSortBy] = useState<"id-asc" | "id-desc" | "status">("id-asc");
   const [archTagInput, setArchTagInput] = useState("");
   const [archTsolSearch, setArchTsolSearch] = useState("");
-  const [archTechSearch, setArchTechSearch] = useState("");
-  const [archTechStatusFilter, setArchTechStatusFilter] = useState<string | null>(null);
   const [reqTechSearch, setReqTechSearch] = useState("");
   const [archTsolStatusFilter, setArchTsolStatusFilter] = useState<string | null>(null);
   const [archActiveDiagramTab, setArchActiveDiagramTab] = useState(0);
@@ -1634,7 +1567,6 @@ export default function Index() {
     version: "1.0.0",
     tags: [],
     tech_solution_ids: [],
-    technology_ids: [],
     approved_ib: false,
     approved_it: false,
     diagrams: [],
@@ -1643,7 +1575,6 @@ export default function Index() {
   const [archForm, setArchForm] = useState<ArchTemplate>(makeEmptyArchForm(0));
 
   const loadArchTemplates = async () => {
-    if (archFailed) return;
     const cached = getCached("arch-templates");
     if (cached) {
       const data = cached as { items?: ArchTemplate[]; section_description?: string };
@@ -1660,7 +1591,7 @@ export default function Index() {
         techSolutions.length === 0 ? fetch(getApiUrl("tech-solutions")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("arch-templates", data); setCacheStats(getCacheStats());
+      setCache("arch-templates", data);
       setArchTemplates(data.items || []);
       setArchFetched(true);
       if (data.section_description) setArchSectionDesc(data.section_description);
@@ -1668,7 +1599,7 @@ export default function Index() {
         const td = await tsolRes.json();
         setTechSolutions(td.items || []);
       }
-    } catch { setArchFailed(true); } finally {
+    } finally {
       setArchLoading(false);
     }
   };
@@ -1686,18 +1617,16 @@ export default function Index() {
   const openNewArch = () => {
     setEditingArch(null);
     setArchForm(makeEmptyArchForm(archTemplates.length));
-    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch(""); setArchTechSearch(""); setArchTechStatusFilter(null);
+    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch("");
     if (techSolutions.length === 0) loadTechSolutions();
-    if (technologies.length === 0) loadTechnologies();
     setArchDialogOpen(true);
   };
 
   const openEditArch = (a: ArchTemplate) => {
     setEditingArch(a);
-    setArchForm({ ...a, tags: a.tags || [], tech_solution_ids: a.tech_solution_ids || [], technology_ids: a.technology_ids || [], diagrams: a.diagrams || [] });
-    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch(""); setArchTechSearch(""); setArchTechStatusFilter(null);
+    setArchForm({ ...a, tags: a.tags || [], tech_solution_ids: a.tech_solution_ids || [], diagrams: a.diagrams || [] });
+    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch("");
     if (techSolutions.length === 0) loadTechSolutions();
-    if (technologies.length === 0) loadTechnologies();
     setArchDialogOpen(true);
   };
 
@@ -1733,30 +1662,22 @@ export default function Index() {
     setDeleteArchId(null);
   };
 
-  const filteredArchTemplates = (() => {
-    const STATUS_ORDER: ArchTemplateStatus[] = ["Активен", "Релиз-кандидат", "В разработке", "Не активен", "Архив", "Устарел"];
-    const filtered = archTemplates.filter((a) => {
-      const q = archSearch.toLowerCase();
-      const matchQ = !q ||
-        (a.id||"").toLowerCase().includes(q) ||
-        (a.name||"").toLowerCase().includes(q) ||
-        (a.description||"").toLowerCase().includes(q) ||
-        (a.author||"").toLowerCase().includes(q) ||
-        (a.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
-        (a.tech_solution_ids||[]).some((id) => id.toLowerCase().includes(q));
-      const matchStatus = archFilterStatuses.length === 0 || archFilterStatuses.includes(a.status);
-      const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
-      const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
-      const matchTech = !archFilterTech || (a.technology_ids||[]).includes(archFilterTech);
-      const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
-      const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
-      return matchQ && matchStatus && matchTag && matchTsol && matchTech && matchIb && matchIt;
-    });
-    if (archSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
-    if (archSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
-    if (archSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status as ArchTemplateStatus) - STATUS_ORDER.indexOf(b.status as ArchTemplateStatus));
-    return filtered;
-  })();
+  const filteredArchTemplates = archTemplates.filter((a) => {
+    const q = archSearch.toLowerCase();
+    const matchQ = !q ||
+      (a.id||"").toLowerCase().includes(q) ||
+      (a.name||"").toLowerCase().includes(q) ||
+      (a.description||"").toLowerCase().includes(q) ||
+      (a.author||"").toLowerCase().includes(q) ||
+      (a.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
+      (a.tech_solution_ids||[]).some((id) => id.toLowerCase().includes(q));
+    const matchStatus = archFilterStatuses.length === 0 || archFilterStatuses.includes(a.status);
+    const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
+    const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
+    const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
+    const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
+    return matchQ && matchStatus && matchTag && matchTsol && matchIb && matchIt;
+  });
   // ── Data IO state ─────────────────────────────────────────────────
   const [importResult, setImportResult] = useState<{ ok: string[]; errors: string[] } | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -1785,7 +1706,6 @@ export default function Index() {
   const PRODUCTS_API = getApiUrl("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [prodLoading, setProdLoading] = useState(false);
-  const [prodFailed, setProdFailed] = useState(false);
   const [prodSectionDesc, setProdSectionDesc] = useState("Реестр бизнес-продуктов — привязка к типовым архитектурам безопасности и требованиям");
   const [prodSectionDescEditing, setProdSectionDescEditing] = useState(false);
   const [prodSectionDescDraft, setProdSectionDescDraft] = useState("");
@@ -1796,7 +1716,6 @@ export default function Index() {
   const [editingProd, setEditingProd] = useState<Product | null>(null);
   const [viewProd, setViewProd] = useState<Product | null>(null);
   const [prodSearch, setProdSearch] = useState("");
-  const [prodSortBy, setProdSortBy] = useState<"id-asc"|"id-desc"|"status">("id-asc");
   const [prodFilterStatus, setProdFilterStatus] = useState<string>("Все");
   const [prodFilterTag, setProdFilterTag] = useState<string>("");
   const [prodFilterArch, setProdFilterArch] = useState<string>("");
@@ -1822,7 +1741,6 @@ export default function Index() {
   const [prodForm, setProdForm] = useState<Product>(makeEmptyProdForm(0));
 
   const loadProducts = async () => {
-    if (prodFailed) return;
     const cached = getCached("products");
     if (cached) {
       const data = cached as { items?: Product[]; section_description?: string };
@@ -1838,11 +1756,11 @@ export default function Index() {
         archTemplates.length === 0 ? fetch(getApiUrl("arch-templates")) : Promise.resolve(null),
       ]);
       const data = await res.json();
-      setCache("products", data); setCacheStats(getCacheStats());
+      setCache("products", data);
       setProducts(data.items || []);
       if (data.section_description) setProdSectionDesc(data.section_description);
       if (archRes) { const d = await archRes.json(); setArchTemplates(d.items || []); }
-    } catch { setProdFailed(true); } finally { setProdLoading(false); }
+    } finally { setProdLoading(false); }
   };
 
   const handleSaveProdSectionDesc = async () => {
@@ -1899,30 +1817,23 @@ export default function Index() {
     setDeleteProdId(null);
   };
 
-  const filteredProducts = (() => {
-    const STATUS_ORDER: ProductStatus[] = ["Активен", "В разработке", "Не активен", "Архив", "Устарел"];
-    const filtered = products.filter((p) => {
-      const q = prodSearch.toLowerCase();
-      const matchQ = !q ||
-        (p.id||"").toLowerCase().includes(q) ||
-        (p.name||"").toLowerCase().includes(q) ||
-        (p.description||"").toLowerCase().includes(q) ||
-        (p.author||"").toLowerCase().includes(q) ||
-        (p.cmdb_mnemonic||"").toLowerCase().includes(q) ||
-        (p.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
-        (p.arch_template_ids||[]).some((id) => id.toLowerCase().includes(q));
-      const matchStatus = prodFilterStatus === "Все" || p.status === prodFilterStatus;
-      const matchTag = !prodFilterTag || (p.tags||[]).some((t) => t.toLowerCase().includes(prodFilterTag.toLowerCase()));
-      const matchArch = !prodFilterArch || (p.arch_template_ids||[]).includes(prodFilterArch);
-      const matchIb = prodFilterIb === "Все" || (prodFilterIb === "Да" ? p.approved_ib : !p.approved_ib);
-      const matchIt = prodFilterIt === "Все" || (prodFilterIt === "Да" ? p.approved_it : !p.approved_it);
-      return matchQ && matchStatus && matchTag && matchArch && matchIb && matchIt;
-    });
-    if (prodSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
-    if (prodSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
-    if (prodSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
-    return filtered;
-  })();
+  const filteredProducts = products.filter((p) => {
+    const q = prodSearch.toLowerCase();
+    const matchQ = !q ||
+      (p.id||"").toLowerCase().includes(q) ||
+      (p.name||"").toLowerCase().includes(q) ||
+      (p.description||"").toLowerCase().includes(q) ||
+      (p.author||"").toLowerCase().includes(q) ||
+      (p.cmdb_mnemonic||"").toLowerCase().includes(q) ||
+      (p.tags||[]).some((t) => t.toLowerCase().includes(q)) ||
+      (p.arch_template_ids||[]).some((id) => id.toLowerCase().includes(q));
+    const matchStatus = prodFilterStatus === "Все" || p.status === prodFilterStatus;
+    const matchTag = !prodFilterTag || (p.tags||[]).some((t) => t.toLowerCase().includes(prodFilterTag.toLowerCase()));
+    const matchArch = !prodFilterArch || (p.arch_template_ids||[]).includes(prodFilterArch);
+    const matchIb = prodFilterIb === "Все" || (prodFilterIb === "Да" ? p.approved_ib : !p.approved_ib);
+    const matchIt = prodFilterIt === "Все" || (prodFilterIt === "Да" ? p.approved_it : !p.approved_it);
+    return matchQ && matchStatus && matchTag && matchArch && matchIb && matchIt;
+  });
   // ─────────────────────────────────────────────────────────────────
 
   const isConnected = dbMode === "cloud" || (dbMode === "local" && dbExternalConnected);
@@ -1942,7 +1853,6 @@ export default function Index() {
     setCheckState("idle");
     setCheckError("");
     setSkipCheck(false);
-    setCacheStats(getCacheStats());
     setDbDialogOpen(true);
   };
 
@@ -1984,7 +1894,7 @@ export default function Index() {
       setDbExternalConnected(true);
     }
     if (modeChanged) {
-      invalidateAll(); setCacheStats(getCacheStats());
+      invalidateAll();
       setReqs([]);
       setTechnologies([]);
       setTechSolutions([]);
@@ -1994,14 +1904,6 @@ export default function Index() {
       setDomains([]);
       setProducts([]);
       setTechDomains([]);
-      setReqsFailed(false);
-      setTechsFailed(false);
-      setTsolFailed(false);
-      setArchFailed(false);
-      setHardFailed(false);
-      setDomainsFailed(false);
-      setProdFailed(false);
-      setTechFailed(false);
     }
     setDbDialogOpen(false);
   };
@@ -2180,15 +2082,6 @@ export default function Index() {
               >
                 {dbMode === "cloud" ? "cloud" : "local"}
               </span>
-              {cacheStats.count > 0 && (
-                <span
-                  className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                  style={{ background: "rgba(0,212,255,0.1)", color: "rgba(0,212,255,0.7)", border: "1px solid rgba(0,212,255,0.2)" }}
-                  title={`Закэшировано: ${cacheStats.keys.join(", ")}`}
-                >
-                  ⚡{cacheStats.count}
-                </span>
-              )}
               <Icon name="Settings2" size={14} className="text-slate-400" />
             </button>
           </div>
@@ -2199,8 +2092,8 @@ export default function Index() {
           <div className="max-w-7xl mx-auto px-6">
             <nav className="flex items-center gap-1 overflow-x-auto">
               {[
-                { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading && !reqsFailed) loadReqs(); if (technologies.length === 0 && !techsLoading && !techsFailed) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading && !tsolFailed) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading && !archFailed) loadArchTemplates(); } },
-                { key: "test-library",   label: "Тест",                   onClick: () => { setActiveSection("test-library"); if (reqs.length === 0 && !reqsLoading && !reqsFailed) loadReqs(); if (technologies.length === 0 && !techsLoading && !techsFailed) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading && !tsolFailed) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading && !archFailed) loadArchTemplates(); } },
+                { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
+                { key: "test-library",   label: "Тест",                   onClick: () => { setActiveSection("test-library"); if (reqs.length === 0 && !reqsLoading) loadReqs(); if (technologies.length === 0 && !techsLoading) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading) loadArchTemplates(); } },
                 { key: "domains",        label: "Орг. домены",            onClick: () => setActiveSection("domains") },
                 { key: "tech-domains",   label: "Тех. домены",            onClick: () => setActiveSection("tech-domains") },
                 { key: "technologies",   label: "Технологии",             onClick: () => setActiveSection("technologies") },
@@ -4889,11 +4782,6 @@ export default function Index() {
                   onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
                 />
               </div>
-              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button key={opt.value} onClick={() => setDomainSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: domainSortBy === opt.value ? "rgba(0,102,255,0.18)" : "transparent", color: domainSortBy === opt.value ? "#6ea8ff" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                ))}
-              </div>
               {/* Stats badges */}
               <div className="flex items-center gap-2 ml-auto">
                 {DOMAIN_STATUSES.map((s) => {
@@ -5062,11 +4950,6 @@ export default function Index() {
                   onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.5)")}
                   onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.08)")}
                 />
-              </div>
-              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button key={opt.value} onClick={() => setTechSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: techSortBy === opt.value ? "rgba(139,92,246,0.18)" : "transparent", color: techSortBy === opt.value ? "#a78bfa" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                ))}
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 {DOMAIN_STATUSES.map((s) => {
@@ -5242,11 +5125,6 @@ export default function Index() {
                   className="pl-9 text-sm"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
                 />
-              </div>
-              <div className="flex items-center gap-1 h-9 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button key={opt.value} onClick={() => setTechSortBy2(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: techSortBy2 === opt.value ? "rgba(16,185,129,0.18)" : "transparent", color: techSortBy2 === opt.value ? "#34d399" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                ))}
               </div>
               <span className="text-sm font-mono px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#34d399" }}>
                 {filteredTechnologies.length} / {technologies.length}
@@ -5721,14 +5599,6 @@ export default function Index() {
                   );
                 })}
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>Сортировка:</span>
-                <div className="flex items-center gap-1 h-8 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                    <button key={opt.value} onClick={() => setReqSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: reqSortBy === opt.value ? "rgba(245,158,11,0.18)" : "transparent", color: reqSortBy === opt.value ? "#fbbf24" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Loading */}
@@ -5906,11 +5776,6 @@ export default function Index() {
                   Сбросить
                 </button>
               )}
-              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button key={opt.value} onClick={() => setTsolSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: tsolSortBy === opt.value ? "rgba(167,139,250,0.18)" : "transparent", color: tsolSortBy === opt.value ? "#a78bfa" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                ))}
-              </div>
               <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredTsols.length} / {techSolutions.length}</span>
             </div>
 
@@ -6101,11 +5966,6 @@ export default function Index() {
                   Сбросить
                 </button>
               )}
-              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button key={opt.value} onClick={() => setHardSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: hardSortBy === opt.value ? "rgba(239,68,68,0.18)" : "transparent", color: hardSortBy === opt.value ? "#f87171" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                ))}
-              </div>
               <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredHardenings.length} / {hardenings.length}</span>
             </div>
 
@@ -6295,23 +6155,6 @@ export default function Index() {
                 <option value="Да">ИТ: согласован</option>
                 <option value="Нет">ИТ: не согласован</option>
               </select>
-              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([
-                  { value: "id-asc",  label: "ID ↑" },
-                  { value: "id-desc", label: "ID ↓" },
-                  { value: "status",  label: "Статус" },
-                ] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setArchSortBy(opt.value)}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all"
-                    style={{
-                      background: archSortBy === opt.value ? "rgba(6,182,212,0.18)" : "transparent",
-                      color: archSortBy === opt.value ? "#22d3ee" : "rgba(180,200,230,0.45)",
-                    }}
-                  >{opt.label}</button>
-                ))}
-              </div>
               {archFilterTsol && (
                 <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#22d3ee" }}>
                   <Icon name="Link2" size={11} />
@@ -6319,15 +6162,8 @@ export default function Index() {
                   <button onClick={() => setArchFilterTsol("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
                 </span>
               )}
-              {archFilterTech && (
-                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "#34d399" }}>
-                  <Icon name="Cpu" size={11} />
-                  {technologies.find((t) => t.id === archFilterTech)?.name ?? archFilterTech}
-                  <button onClick={() => setArchFilterTech("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
-                </span>
-              )}
-              {(archSearch || archFilterStatuses.length > 0 || archFilterTag || archFilterTsol || archFilterTech || archFilterIb !== "Все" || archFilterIt !== "Все") && (
-                <button onClick={() => { setArchSearch(""); setArchFilterStatuses([]); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterTech(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+              {(archSearch || archFilterStatuses.length > 0 || archFilterTag || archFilterTsol || archFilterIb !== "Все" || archFilterIt !== "Все") && (
+                <button onClick={() => { setArchSearch(""); setArchFilterStatuses([]); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
                   Сбросить
                 </button>
               )}
@@ -6363,7 +6199,6 @@ export default function Index() {
                 {filteredArchTemplates.map((a) => {
                   const sm = ARCH_TEMPLATE_STATUS_META[a.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
                   const linkedTsols = techSolutions.filter((ts) => (a.tech_solution_ids||[]).includes(ts.id));
-                  const linkedTechs = technologies.filter((t) => (a.technology_ids||[]).includes(t.id));
                   return (
                     <div
                       key={a.id}
@@ -6401,18 +6236,6 @@ export default function Index() {
                             </span>
                           ))}
                           {linkedTsols.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{linkedTsols.length - 3}</span>}
-                        </div>
-                      )}
-
-                      {/* Linked technologies */}
-                      {linkedTechs.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {linkedTechs.slice(0, 3).map((t) => (
-                            <span key={t.id} onClick={(e) => { e.stopPropagation(); setArchFilterTech(t.id); }} className="text-[10px] px-2 py-0.5 rounded font-mono cursor-pointer transition-all hover:opacity-80" style={{ background: archFilterTech === t.id ? "rgba(52,211,153,0.2)" : "rgba(52,211,153,0.08)", color: "rgba(52,211,153,0.7)", border: `1px solid ${archFilterTech === t.id ? "rgba(52,211,153,0.4)" : "rgba(52,211,153,0.15)"}` }}>
-                              <Icon name="Cpu" size={8} className="inline mr-1" />{t.id}
-                            </span>
-                          ))}
-                          {linkedTechs.length > 3 && <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.35)" }}>+{linkedTechs.length - 3}</span>}
                         </div>
                       )}
 
@@ -6795,11 +6618,6 @@ export default function Index() {
               {(prodSearch || prodFilterStatus !== "Все" || prodFilterTag || prodFilterArch || prodFilterIb !== "Все" || prodFilterIt !== "Все") && (
                 <button onClick={() => { setProdSearch(""); setProdFilterStatus("Все"); setProdFilterTag(""); setProdFilterArch(""); setProdFilterIb("Все"); setProdFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>Сбросить</button>
               )}
-              <div className="flex items-center gap-1 h-10 px-1 rounded-lg" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                {([{ value: "id-asc", label: "ID ↑" }, { value: "id-desc", label: "ID ↓" }, { value: "status", label: "Статус" }] as { value: "id-asc"|"id-desc"|"status"; label: string }[]).map((opt) => (
-                  <button key={opt.value} onClick={() => setProdSortBy(opt.value)} className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: prodSortBy === opt.value ? "rgba(245,158,11,0.18)" : "transparent", color: prodSortBy === opt.value ? "#fbbf24" : "rgba(180,200,230,0.45)" }}>{opt.label}</button>
-                ))}
-              </div>
               <span className="text-xs ml-auto" style={{ color: "rgba(180,200,230,0.35)" }}>{filteredProducts.length} / {products.length}</span>
             </div>
 
@@ -10723,111 +10541,6 @@ export default function Index() {
               )}
             </div>
 
-            {/* Technology link */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Связанные технологии</Label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setArchTechSearch(archTechSearch === "\x00open" ? "" : "\x00open")}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: (archForm.technology_ids||[]).length ? "rgba(210,225,245,0.9)" : "rgba(180,200,230,0.35)" }}
-                >
-                  <span>{(archForm.technology_ids||[]).length ? `Выбрано: ${(archForm.technology_ids||[]).length}` : "Выберите технологии..."}</span>
-                  <Icon name="ChevronsUpDown" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
-                </button>
-                {(archTechSearch === "\x00open" || (archTechSearch !== "" && archTechSearch !== "\x00open")) && (
-                  <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(15,22,41,0.98)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                    <div className="p-2 space-y-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                      <div className="relative">
-                        <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
-                        <input
-                          autoFocus
-                          value={archTechSearch === "\x00open" ? "" : archTechSearch}
-                          onChange={(e) => setArchTechSearch(e.target.value || "\x00open")}
-                          placeholder="Поиск..."
-                          className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md outline-none"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(["Все", ...TECH_STATUSES] as const).map((st) => {
-                          const active = (archTechStatusFilter ?? "Все") === st;
-                          const m = st !== "Все" ? TECH_STATUS_META[st as TechStatus] : null;
-                          return (
-                            <button key={st} type="button" onClick={() => setArchTechStatusFilter(st === "Все" ? null : st)}
-                              className="text-[10px] px-2 py-0.5 rounded transition-all"
-                              style={{ background: active ? (m ? m.bg : "rgba(52,211,153,0.15)") : "rgba(255,255,255,0.05)", color: active ? (m ? m.color : "#34d399") : "rgba(180,200,230,0.4)", border: `1px solid ${active ? (m ? m.color + "55" : "rgba(52,211,153,0.3)") : "rgba(255,255,255,0.08)"}` }}>
-                              {st}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {technologies
-                        .filter((t) => {
-                          const q = archTechSearch === "\x00open" ? "" : archTechSearch.toLowerCase();
-                          const matchQ = (t.name||"").toLowerCase().includes(q) || (t.id||"").toLowerCase().includes(q);
-                          const matchSt = !archTechStatusFilter || t.status === archTechStatusFilter;
-                          return matchQ && matchSt;
-                        })
-                        .map((t) => {
-                          const selected = (archForm.technology_ids||[]).includes(t.id);
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => {
-                                setArchForm((f) => ({
-                                  ...f,
-                                  technology_ids: selected
-                                    ? (f.technology_ids||[]).filter((id) => id !== t.id)
-                                    : [...(f.technology_ids||[]), t.id],
-                                }));
-                              }}
-                              className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
-                              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                            >
-                              <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: selected ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${selected ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.1)"}` }}>
-                                {selected && <Icon name="Check" size={10} style={{ color: "#34d399" }} />}
-                              </span>
-                              <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{t.name}</span>
-                              <span className="font-mono text-[10px] flex-shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
-                              {t.status && (() => { const m = TECH_STATUS_META[t.status as TechStatus]; return m ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: m.color, background: m.bg }}>{t.status}</span> : null; })()}
-                            </button>
-                          );
-                        })}
-                      {technologies.filter((t) => {
-                        const q = archTechSearch === "\x00open" ? "" : archTechSearch.toLowerCase();
-                        const matchQ = (t.name||"").toLowerCase().includes(q) || (t.id||"").toLowerCase().includes(q);
-                        const matchSt = !archTechStatusFilter || t.status === archTechStatusFilter;
-                        return matchQ && matchSt;
-                      }).length === 0 && (
-                        <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ничего не найдено</div>
-                      )}
-                    </div>
-                    <div className="px-3 py-2 border-t flex justify-end" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                      <button type="button" onClick={() => { setArchTechSearch(""); setArchTechStatusFilter(null); }} className="text-xs px-3 py-1 rounded-md" style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: "#34d399" }}>Готово</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {(archForm.technology_ids||[]).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {(archForm.technology_ids||[]).map((tId) => {
-                    const tech = technologies.find((t) => t.id === tId);
-                    return (
-                      <span key={tId} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
-                        {tech ? tech.name : tId}
-                        <button type="button" onClick={() => setArchForm((f) => ({ ...f, technology_ids: (f.technology_ids||[]).filter((id) => id !== tId) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* Mermaid diagrams */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -10930,7 +10643,6 @@ export default function Index() {
           {viewArch && (() => {
             const sm = ARCH_TEMPLATE_STATUS_META[viewArch.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
             const linkedTsols = techSolutions.filter((ts) => (viewArch.tech_solution_ids||[]).includes(ts.id));
-            const linkedTechs = technologies.filter((t) => (viewArch.technology_ids||[]).includes(t.id));
             const linkedReqs = linkedTsols.flatMap((ts) => reqs.filter((r) => ts.technology_ids?.includes(r.technology_id)));
             const uniqueReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
             const filteredViewReqs = uniqueReqs.filter((r) => {
@@ -11521,26 +11233,6 @@ renderReqs(REQS);
                             <span className="font-mono text-[10px]" style={{ color: "rgba(167,139,250,0.5)" }}>{ts.id}</span>
                           </span>
                         ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Linked technologies */}
-                  {linkedTechs.length > 0 && (
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Связанные технологии</div>
-                      <div className="flex flex-wrap gap-2">
-                        {linkedTechs.map((t) => {
-                          const m = TECH_STATUS_META[t.status];
-                          return (
-                            <span key={t.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(52,211,153,0.08)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
-                              <Icon name="Cpu" size={11} />
-                              {t.name}
-                              <span className="font-mono text-[10px]" style={{ color: "rgba(52,211,153,0.5)" }}>{t.id}</span>
-                              {m && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: m.color, background: m.bg }}>{t.status}</span>}
-                            </span>
-                          );
-                        })}
                       </div>
                     </div>
                   )}
@@ -12434,16 +12126,6 @@ renderReqs(REQS);
               <p className="text-xs mb-3" style={{ color: "rgba(180,200,230,0.45)" }}>
                 Данные хранятся в памяти браузера и не запрашиваются повторно до истечения TTL. При переключении режима кэш сбрасывается автоматически.
               </p>
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg" style={{ background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.12)" }}>
-                <span className="text-[11px] font-mono" style={{ color: "#00d4ff" }}>⚡ Закэшировано: {cacheStats.count} / 8</span>
-                {cacheStats.count > 0 ? (
-                  <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.4)" }}>
-                    — {cacheStats.keys.join(", ")}
-                  </span>
-                ) : (
-                  <span className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>— кэш пуст</span>
-                )}
-              </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 flex-1">
                   <input
@@ -12466,7 +12148,7 @@ renderReqs(REQS);
                     setCacheTtlMin(val);
                     setCacheTtlMinState(val);
                     setCacheTtlInput(String(val));
-                    invalidateAll(); setCacheStats(getCacheStats());
+                    invalidateAll();
                   }}
                   className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{ background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", color: "#00d4ff" }}
@@ -12482,7 +12164,7 @@ renderReqs(REQS);
                       setCacheTtlMin(v);
                       setCacheTtlMinState(v);
                       setCacheTtlInput(String(v));
-                      invalidateAll(); setCacheStats(getCacheStats());
+                      invalidateAll();
                     }}
                     className="px-3 py-1 rounded-lg text-[11px] font-mono transition-all"
                     style={{

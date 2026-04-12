@@ -50,14 +50,3 @@ export function invalidateCache(key: string): void {
 export function invalidateAll(): void {
   store.clear();
 }
-
-export function getCacheStats(): { count: number; keys: string[] } {
-  const ttl = getTtlMs();
-  const now = Date.now();
-  const keys: string[] = [];
-  for (const [k, v] of store) {
-    if (ttl > 0 && now - v.ts <= ttl) keys.push(k);
-    else store.delete(k);
-  }
-  return { count: keys.length, keys };
-}
