@@ -253,6 +253,7 @@ interface ArchTemplate {
   version: string;
   tags: string[];
   tech_solution_ids: string[];
+  technology_ids: string[];
   approved_ib: boolean;
   approved_it: boolean;
   diagrams: MermaidDiagram[];
@@ -1611,6 +1612,8 @@ export default function Index() {
   const [archSortBy, setArchSortBy] = useState<"id-asc" | "id-desc" | "status">("id-asc");
   const [archTagInput, setArchTagInput] = useState("");
   const [archTsolSearch, setArchTsolSearch] = useState("");
+  const [archTechSearch, setArchTechSearch] = useState("");
+  const [archTechStatusFilter, setArchTechStatusFilter] = useState<string | null>(null);
   const [reqTechSearch, setReqTechSearch] = useState("");
   const [archTsolStatusFilter, setArchTsolStatusFilter] = useState<string | null>(null);
   const [archActiveDiagramTab, setArchActiveDiagramTab] = useState(0);
@@ -1630,6 +1633,7 @@ export default function Index() {
     version: "1.0.0",
     tags: [],
     tech_solution_ids: [],
+    technology_ids: [],
     approved_ib: false,
     approved_it: false,
     diagrams: [],
@@ -1681,16 +1685,18 @@ export default function Index() {
   const openNewArch = () => {
     setEditingArch(null);
     setArchForm(makeEmptyArchForm(archTemplates.length));
-    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch("");
+    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch(""); setArchTechSearch(""); setArchTechStatusFilter(null);
     if (techSolutions.length === 0) loadTechSolutions();
+    if (technologies.length === 0) loadTechnologies();
     setArchDialogOpen(true);
   };
 
   const openEditArch = (a: ArchTemplate) => {
     setEditingArch(a);
-    setArchForm({ ...a, tags: a.tags || [], tech_solution_ids: a.tech_solution_ids || [], diagrams: a.diagrams || [] });
-    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch("");
+    setArchForm({ ...a, tags: a.tags || [], tech_solution_ids: a.tech_solution_ids || [], technology_ids: a.technology_ids || [], diagrams: a.diagrams || [] });
+    setArchTagInput(""); setArchSaveError(""); setArchTsolSearch(""); setArchTechSearch(""); setArchTechStatusFilter(null);
     if (techSolutions.length === 0) loadTechSolutions();
+    if (technologies.length === 0) loadTechnologies();
     setArchDialogOpen(true);
   };
 
@@ -10688,6 +10694,111 @@ export default function Index() {
                       <span key={tsId} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}>
                         {ts ? ts.name : tsId}
                         <button type="button" onClick={() => setArchForm((f) => ({ ...f, tech_solution_ids: f.tech_solution_ids.filter((id) => id !== tsId) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Technology link */}
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Связанные технологии</Label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setArchTechSearch(archTechSearch === "\x00open" ? "" : "\x00open")}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left"
+                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: (archForm.technology_ids||[]).length ? "rgba(210,225,245,0.9)" : "rgba(180,200,230,0.35)" }}
+                >
+                  <span>{(archForm.technology_ids||[]).length ? `Выбрано: ${(archForm.technology_ids||[]).length}` : "Выберите технологии..."}</span>
+                  <Icon name="ChevronsUpDown" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
+                </button>
+                {(archTechSearch === "\x00open" || (archTechSearch !== "" && archTechSearch !== "\x00open")) && (
+                  <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(15,22,41,0.98)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                    <div className="p-2 space-y-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                      <div className="relative">
+                        <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
+                        <input
+                          autoFocus
+                          value={archTechSearch === "\x00open" ? "" : archTechSearch}
+                          onChange={(e) => setArchTechSearch(e.target.value || "\x00open")}
+                          placeholder="Поиск..."
+                          className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(["Все", ...TECH_STATUSES] as const).map((st) => {
+                          const active = (archTechStatusFilter ?? "Все") === st;
+                          const m = st !== "Все" ? TECH_STATUS_META[st as TechStatus] : null;
+                          return (
+                            <button key={st} type="button" onClick={() => setArchTechStatusFilter(st === "Все" ? null : st)}
+                              className="text-[10px] px-2 py-0.5 rounded transition-all"
+                              style={{ background: active ? (m ? m.bg : "rgba(52,211,153,0.15)") : "rgba(255,255,255,0.05)", color: active ? (m ? m.color : "#34d399") : "rgba(180,200,230,0.4)", border: `1px solid ${active ? (m ? m.color + "55" : "rgba(52,211,153,0.3)") : "rgba(255,255,255,0.08)"}` }}>
+                              {st}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {technologies
+                        .filter((t) => {
+                          const q = archTechSearch === "\x00open" ? "" : archTechSearch.toLowerCase();
+                          const matchQ = (t.name||"").toLowerCase().includes(q) || (t.id||"").toLowerCase().includes(q);
+                          const matchSt = !archTechStatusFilter || t.status === archTechStatusFilter;
+                          return matchQ && matchSt;
+                        })
+                        .map((t) => {
+                          const selected = (archForm.technology_ids||[]).includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                setArchForm((f) => ({
+                                  ...f,
+                                  technology_ids: selected
+                                    ? (f.technology_ids||[]).filter((id) => id !== t.id)
+                                    : [...(f.technology_ids||[]), t.id],
+                                }));
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
+                              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                            >
+                              <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: selected ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${selected ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                                {selected && <Icon name="Check" size={10} style={{ color: "#34d399" }} />}
+                              </span>
+                              <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{t.name}</span>
+                              <span className="font-mono text-[10px] flex-shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
+                              {t.status && (() => { const m = TECH_STATUS_META[t.status as TechStatus]; return m ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: m.color, background: m.bg }}>{t.status}</span> : null; })()}
+                            </button>
+                          );
+                        })}
+                      {technologies.filter((t) => {
+                        const q = archTechSearch === "\x00open" ? "" : archTechSearch.toLowerCase();
+                        const matchQ = (t.name||"").toLowerCase().includes(q) || (t.id||"").toLowerCase().includes(q);
+                        const matchSt = !archTechStatusFilter || t.status === archTechStatusFilter;
+                        return matchQ && matchSt;
+                      }).length === 0 && (
+                        <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ничего не найдено</div>
+                      )}
+                    </div>
+                    <div className="px-3 py-2 border-t flex justify-end" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                      <button type="button" onClick={() => { setArchTechSearch(""); setArchTechStatusFilter(null); }} className="text-xs px-3 py-1 rounded-md" style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: "#34d399" }}>Готово</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {(archForm.technology_ids||[]).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {(archForm.technology_ids||[]).map((tId) => {
+                    const tech = technologies.find((t) => t.id === tId);
+                    return (
+                      <span key={tId} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono" style={{ background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                        {tech ? tech.name : tId}
+                        <button type="button" onClick={() => setArchForm((f) => ({ ...f, technology_ids: (f.technology_ids||[]).filter((id) => id !== tId) }))} className="hover:opacity-70 ml-0.5"><Icon name="X" size={10} /></button>
                       </span>
                     );
                   })}
