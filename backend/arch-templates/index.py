@@ -55,6 +55,7 @@ def handler(event: dict, context) -> dict:
             item["updated_at"] = item["updated_at"].isoformat() if item.get("updated_at") else None
             item["diagrams"] = item.get("diagrams") or []
             item["tech_solution_ids"] = item.get("tech_solution_ids") or []
+            item["technology_ids"] = item.get("technology_ids") or []
             item["tags"] = item.get("tags") or []
 
         cur.execute("SELECT value FROM arch_templates_settings WHERE key = 'section_description'")
@@ -82,8 +83,8 @@ def handler(event: dict, context) -> dict:
         cur.execute(
             """INSERT INTO arch_templates
                (id, name, description, status, author, version, tags,
-                tech_solution_ids, approved_ib, approved_it, diagrams)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                tech_solution_ids, technology_ids, approved_ib, approved_it, diagrams)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                RETURNING *""",
             (
                 tid, name,
@@ -93,6 +94,7 @@ def handler(event: dict, context) -> dict:
                 body.get("version", "1.0.0"),
                 body.get("tags", []),
                 body.get("tech_solution_ids", []),
+                body.get("technology_ids", []),
                 body.get("approved_ib", False),
                 body.get("approved_it", False),
                 json.dumps(body.get("diagrams", [])),
@@ -103,6 +105,7 @@ def handler(event: dict, context) -> dict:
         item["created_at"] = item["created_at"].isoformat() if item.get("created_at") else None
         item["updated_at"] = item["updated_at"].isoformat() if item.get("updated_at") else None
         item["diagrams"] = item.get("diagrams") or []
+        item["technology_ids"] = item.get("technology_ids") or []
         cur.close(); conn.close()
         return {"statusCode": 200, "headers": cors_headers(), "body": json.dumps(item)}
 
@@ -124,7 +127,7 @@ def handler(event: dict, context) -> dict:
         cur.execute(
             """UPDATE arch_templates SET
                name=%s, description=%s, status=%s, author=%s, version=%s,
-               tags=%s, tech_solution_ids=%s, approved_ib=%s, approved_it=%s,
+               tags=%s, tech_solution_ids=%s, technology_ids=%s, approved_ib=%s, approved_it=%s,
                diagrams=%s, updated_at=NOW()
                WHERE id=%s RETURNING *""",
             (
@@ -135,6 +138,7 @@ def handler(event: dict, context) -> dict:
                 body.get("version", "1.0.0"),
                 body.get("tags", []),
                 body.get("tech_solution_ids", []),
+                body.get("technology_ids", []),
                 body.get("approved_ib", False),
                 body.get("approved_it", False),
                 json.dumps(body.get("diagrams", [])),
@@ -146,6 +150,7 @@ def handler(event: dict, context) -> dict:
         item["created_at"] = item["created_at"].isoformat() if item.get("created_at") else None
         item["updated_at"] = item["updated_at"].isoformat() if item.get("updated_at") else None
         item["diagrams"] = item.get("diagrams") or []
+        item["technology_ids"] = item.get("technology_ids") or []
         cur.close(); conn.close()
         return {"statusCode": 200, "headers": cors_headers(), "body": json.dumps(item)}
 

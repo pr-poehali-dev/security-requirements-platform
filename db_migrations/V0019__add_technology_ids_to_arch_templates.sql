@@ -1,0 +1,1 @@
+ALTER TABLE arch_templates ADD COLUMN IF NOT EXISTS technology_ids TEXT[] DEFAULT '{}';

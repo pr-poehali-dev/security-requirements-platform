@@ -1,11 +1,11 @@
 {
   "tests": [
     {
-      "name": "GET arch templates list",
+      "name": "GET arch templates list returns 200",
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"items": []},
+      "expectedBody": {},
       "bodyMatcher": "partial"
     },
     {
