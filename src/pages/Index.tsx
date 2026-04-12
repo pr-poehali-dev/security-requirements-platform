@@ -10931,7 +10931,10 @@ export default function Index() {
             const sm = ARCH_TEMPLATE_STATUS_META[viewArch.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
             const linkedTsols = techSolutions.filter((ts) => (viewArch.tech_solution_ids||[]).includes(ts.id));
             const linkedTechs = technologies.filter((t) => (viewArch.technology_ids||[]).includes(t.id));
-            const linkedReqs = linkedTsols.flatMap((ts) => reqs.filter((r) => ts.technology_ids?.includes(r.technology_id)));
+            const linkedReqs = [
+              ...linkedTsols.flatMap((ts) => reqs.filter((r) => ts.technology_ids?.includes(r.technology_id))),
+              ...linkedTechs.flatMap((t) => reqs.filter((r) => r.technology_id === t.id)),
+            ];
             const uniqueReqs = linkedReqs.filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx);
             const filteredViewReqs = uniqueReqs.filter((r) => {
               const q = viewArchReqSearch.toLowerCase();
