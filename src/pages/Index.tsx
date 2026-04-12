@@ -1607,6 +1607,7 @@ export default function Index() {
   const [archFilterStatuses, setArchFilterStatuses] = useState<string[]>([]);
   const [archFilterTag, setArchFilterTag] = useState<string>("");
   const [archFilterTsol, setArchFilterTsol] = useState<string>("");
+  const [archFilterTech, setArchFilterTech] = useState<string>("");
   const [archFilterIb, setArchFilterIb] = useState<string>("Все");
   const [archFilterIt, setArchFilterIt] = useState<string>("Все");
   const [archSortBy, setArchSortBy] = useState<"id-asc" | "id-desc" | "status">("id-asc");
@@ -1746,9 +1747,10 @@ export default function Index() {
       const matchStatus = archFilterStatuses.length === 0 || archFilterStatuses.includes(a.status);
       const matchTag = !archFilterTag || (a.tags||[]).some((t) => t.toLowerCase().includes(archFilterTag.toLowerCase()));
       const matchTsol = !archFilterTsol || (a.tech_solution_ids||[]).includes(archFilterTsol);
+      const matchTech = !archFilterTech || (a.technology_ids||[]).includes(archFilterTech);
       const matchIb = archFilterIb === "Все" || (archFilterIb === "Да" ? a.approved_ib : !a.approved_ib);
       const matchIt = archFilterIt === "Все" || (archFilterIt === "Да" ? a.approved_it : !a.approved_it);
-      return matchQ && matchStatus && matchTag && matchTsol && matchIb && matchIt;
+      return matchQ && matchStatus && matchTag && matchTsol && matchTech && matchIb && matchIt;
     });
     if (archSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
     if (archSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
@@ -6317,8 +6319,15 @@ export default function Index() {
                   <button onClick={() => setArchFilterTsol("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
                 </span>
               )}
-              {(archSearch || archFilterStatuses.length > 0 || archFilterTag || archFilterTsol || archFilterIb !== "Все" || archFilterIt !== "Все") && (
-                <button onClick={() => { setArchSearch(""); setArchFilterStatuses([]); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+              {archFilterTech && (
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "#34d399" }}>
+                  <Icon name="Cpu" size={11} />
+                  {technologies.find((t) => t.id === archFilterTech)?.name ?? archFilterTech}
+                  <button onClick={() => setArchFilterTech("")} className="ml-1 hover:opacity-70"><Icon name="X" size={10} /></button>
+                </span>
+              )}
+              {(archSearch || archFilterStatuses.length > 0 || archFilterTag || archFilterTsol || archFilterTech || archFilterIb !== "Все" || archFilterIt !== "Все") && (
+                <button onClick={() => { setArchSearch(""); setArchFilterStatuses([]); setArchFilterTag(""); setArchFilterTsol(""); setArchFilterTech(""); setArchFilterIb("Все"); setArchFilterIt("Все"); }} className="text-xs px-3 py-2 rounded-lg transition-all" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
                   Сбросить
                 </button>
               )}
@@ -6399,7 +6408,7 @@ export default function Index() {
                       {linkedTechs.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {linkedTechs.slice(0, 3).map((t) => (
-                            <span key={t.id} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(52,211,153,0.08)", color: "rgba(52,211,153,0.7)", border: "1px solid rgba(52,211,153,0.15)" }}>
+                            <span key={t.id} onClick={(e) => { e.stopPropagation(); setArchFilterTech(t.id); }} className="text-[10px] px-2 py-0.5 rounded font-mono cursor-pointer transition-all hover:opacity-80" style={{ background: archFilterTech === t.id ? "rgba(52,211,153,0.2)" : "rgba(52,211,153,0.08)", color: "rgba(52,211,153,0.7)", border: `1px solid ${archFilterTech === t.id ? "rgba(52,211,153,0.4)" : "rgba(52,211,153,0.15)"}` }}>
                               <Icon name="Cpu" size={8} className="inline mr-1" />{t.id}
                             </span>
                           ))}
