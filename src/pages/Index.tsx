@@ -10454,6 +10454,7 @@ export default function Index() {
                               <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{t.name}</span>
                               <span className="font-mono text-[10px] flex-shrink-0" style={{ color: "rgba(180,200,230,0.35)" }}>{t.id}</span>
                               {t.status && (() => { const m = TECH_STATUS_META[t.status as TechStatus]; return m ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: m.color, background: m.bg }}>{t.status}</span> : null; })()}
+                              {(() => { const cnt = reqs.filter((r) => r.technology_id === t.id).length; return cnt > 0 ? <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 font-mono" style={{ color: "rgba(148,163,184,0.7)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>{cnt} req</span> : null; })()}
                             </button>
                           );
                         })}
