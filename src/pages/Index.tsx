@@ -1225,10 +1225,10 @@ export default function Index() {
     const filtered = reqs.filter((r) => {
       const q = reqSearch.toLowerCase();
       const matchSearch = !q ||
-        r.name.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q) ||
-        r.control_metric.toLowerCase().includes(q) ||
+        (r.name||"").toLowerCase().includes(q) ||
+        (r.id||"").toLowerCase().includes(q) ||
+        (r.description||"").toLowerCase().includes(q) ||
+        (r.control_metric||"").toLowerCase().includes(q) ||
         (r.tags || []).some((t) => t.toLowerCase().includes(q)) ||
         (r.norm_doc_link || "").toLowerCase().includes(q);
       const matchType = reqFilterType === "Все" || r.req_type === reqFilterType;
@@ -1236,8 +1236,8 @@ export default function Index() {
       const matchStatus = reqFilterStatus === "Все" || r.status === reqFilterStatus;
       return matchSearch && matchType && matchCrit && matchStatus;
     });
-    if (reqSortBy === "id-asc") return [...filtered].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-    if (reqSortBy === "id-desc") return [...filtered].sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+    if (reqSortBy === "id-asc") return [...filtered].sort((a, b) => (a.id||"").localeCompare(b.id||"", undefined, { numeric: true }));
+    if (reqSortBy === "id-desc") return [...filtered].sort((a, b) => (b.id||"").localeCompare(a.id||"", undefined, { numeric: true }));
     if (reqSortBy === "status") return [...filtered].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
     return filtered;
   })();
