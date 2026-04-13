@@ -1721,6 +1721,7 @@ export default function Index() {
   const [csvImportEntity, setCsvImportEntity] = useState<string>("tech_solutions");
   const [jsonImportMode, setJsonImportMode] = useState<"auto" | "section">("auto");
   const [jsonImportEntity, setJsonImportEntity] = useState<string>("requirements");
+  const [importOverwrite, setImportOverwrite] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
 
   const loadAllForExport = async () => {
@@ -6456,18 +6457,32 @@ export default function Index() {
             arch_templates: "https://functions.poehali.dev/642afaea-b869-4493-9e87-b7d0e8d368fa",
           };
 
-          const importRows = async (entityKey: string, rows: Record<string, unknown>[], label: string, ok: string[], errors: string[]) => {
+          const importRows = async (entityKey: string, rows: Record<string, unknown>[], label: string, ok: string[], errors: string[], overwrite = false) => {
             const url = apiMap[entityKey];
             if (!url) { errors.push(`${label}: неизвестный тип`); return; }
-            let imported = 0; let skipped = 0;
+            let imported = 0; let updated = 0; let skipped = 0;
             for (const row of rows) {
               try {
-                const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
-                const data = await res.json();
-                if (!data.error) imported++; else skipped++;
+                const postRes = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
+                const postData = await postRes.json();
+                if (!postData.error) {
+                  imported++;
+                } else if (overwrite && row.id) {
+                  try {
+                    const putRes = await fetch(`${url}/${row.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
+                    const putData = await putRes.json();
+                    if (!putData.error) updated++; else skipped++;
+                  } catch { skipped++; }
+                } else {
+                  skipped++;
+                }
               } catch { skipped++; }
             }
-            ok.push(`${label}: импортировано ${imported}${skipped > 0 ? `, пропущено ${skipped}` : ""} из ${rows.length}`);
+            const parts: string[] = [];
+            if (imported > 0) parts.push(`создано ${imported}`);
+            if (updated > 0) parts.push(`обновлено ${updated}`);
+            if (skipped > 0) parts.push(`пропущено ${skipped}`);
+            ok.push(`${label}: ${parts.join(", ")} из ${rows.length}`);
           };
 
           const handleImportFile = async (file: File) => {
@@ -6490,7 +6505,7 @@ export default function Index() {
                     if (!rows || !Array.isArray(rows) || rows.length === 0) {
                       errors.push(`Раздел "${entity.label}" не найден в файле или пуст`);
                     } else {
-                      await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors);
+                      await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors, importOverwrite);
                     }
                   }
                 } else {
@@ -6498,7 +6513,7 @@ export default function Index() {
                   for (const entity of entities) {
                     const rows = bundle[entity.key];
                     if (!rows || !Array.isArray(rows) || rows.length === 0) continue;
-                    await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors);
+                    await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors, importOverwrite);
                   }
                   if (ok.length === 0 && errors.length === 0) errors.push("В файле не найдено ни одной известной сущности");
                 }
@@ -6509,7 +6524,7 @@ export default function Index() {
                 else {
                   const entity = entities.find((e) => e.key === csvImportEntity);
                   if (!entity) { errors.push("Выберите тип данных для CSV-импорта"); }
-                  else await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors);
+                  else await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors, importOverwrite);
                 }
               }
             } catch {
@@ -6680,6 +6695,27 @@ export default function Index() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  {/* Overwrite toggle */}
+                  <div className="mb-4 flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: importOverwrite ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.03)", border: `1px solid ${importOverwrite ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)"}`, transition: "all 0.2s" }}>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: importOverwrite ? "#f87171" : "rgba(180,200,230,0.7)" }}>Перезаписывать существующие записи</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: "rgba(180,200,230,0.35)" }}>
+                        {importOverwrite ? "Записи с совпадающим ID будут обновлены" : "Записи с совпадающим ID будут пропущены"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImportOverwrite((v) => !v)}
+                      className="relative w-10 h-5 rounded-full transition-all shrink-0"
+                      style={{ background: importOverwrite ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.08)", border: `1px solid ${importOverwrite ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.12)"}` }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                        style={{ background: importOverwrite ? "#f87171" : "rgba(180,200,230,0.4)", left: importOverwrite ? "calc(100% - 18px)" : "2px" }}
+                      />
+                    </button>
                   </div>
 
                   {/* Drop zone */}
