@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, memo, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,16 +103,19 @@ function RequirementFormDialog({ open, onOpenChange, editingReq, initialForm, te
   const [saveError, setSaveError] = useState("");
 
   // Reset form when dialog opens
-  const handleOpenChange = useCallback((o: boolean) => {
-    if (o) {
+  useEffect(() => {
+    if (open) {
       setForm(initialForm);
       setTechSearch("");
       setTechOpen(false);
       setTagInput("");
       setSaveError("");
     }
+  }, [open, initialForm]);
+
+  const handleOpenChange = useCallback((o: boolean) => {
     onOpenChange(o);
-  }, [initialForm, onOpenChange]);
+  }, [onOpenChange]);
 
   const filteredTechs = useMemo(() => {
     const q = techSearch.toLowerCase();
