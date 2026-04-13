@@ -6464,14 +6464,12 @@ export default function Index() {
             for (const row of rows) {
               try {
                 const postRes = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
-                const postData = await postRes.json();
-                if (!postData.error) {
+                if (postRes.ok) {
                   imported++;
                 } else if (overwrite && row.id) {
                   try {
                     const putRes = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
-                    const putData = await putRes.json();
-                    if (!putData.error) updated++; else skipped++;
+                    if (putRes.ok) updated++; else skipped++;
                   } catch { skipped++; }
                 } else {
                   skipped++;

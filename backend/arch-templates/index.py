@@ -74,6 +74,12 @@ def handler(event: dict, context) -> dict:
             return {"statusCode": 400, "headers": cors_headers(),
                     "body": json.dumps({"error": "ID и название обязательны"})}
 
+        cur.execute("SELECT id FROM arch_templates WHERE id = %s", (tid,))
+        if cur.fetchone():
+            cur.close(); conn.close()
+            return {"statusCode": 400, "headers": cors_headers(),
+                    "body": json.dumps({"error": f"Шаблон с ID «{tid}» уже существует"})}
+
         cur.execute("SELECT id FROM arch_templates WHERE name = %s", (name,))
         if cur.fetchone():
             cur.close(); conn.close()
