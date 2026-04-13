@@ -1136,22 +1136,26 @@ export default function Index() {
     score_value: 1,
     score_weight: 1,
   });
+  const [reqNextId, setReqNextId] = useState<string>("");
   const [reqForm, setReqForm] = useState<Req>(makeEmptyReqForm(0));
 
   const initialReqForm = useMemo<Req>(() => {
     if (editingReq) return { ...editingReq, tags: editingReq.tags || [], environments: editingReq.environments || [], stages: editingReq.stages || [] };
-    return makeEmptyReqForm(reqs.length);
-  }, [editingReq, reqs.length]);
+    const emptyForm = makeEmptyReqForm(reqs.length);
+    if (reqNextId) emptyForm.id = reqNextId;
+    return emptyForm;
+  }, [editingReq, reqs.length, reqNextId]);
 
   const loadReqs = async () => {
     if (reqsFailed) return;
     const cached = getCached("requirements");
     if (cached) {
-      const data = cached as { items?: Req[]; technologies?: unknown[]; tech_domains?: unknown[]; section_description?: string };
+      const data = cached as { items?: Req[]; technologies?: unknown[]; tech_domains?: unknown[]; section_description?: string; next_id?: string };
       setReqs(data.items || []);
       setReqTechRefs((data.technologies || []) as Parameters<typeof setReqTechRefs>[0]);
       setReqTechDomainRefs((data.tech_domains || []) as Parameters<typeof setReqTechDomainRefs>[0]);
       if (data.section_description) setReqSectionDesc(data.section_description);
+      if (data.next_id) setReqNextId(data.next_id);
       return;
     }
     setReqsLoading(true);
@@ -1163,6 +1167,7 @@ export default function Index() {
       setReqTechRefs(data.technologies || []);
       setReqTechDomainRefs(data.tech_domains || []);
       if (data.section_description) setReqSectionDesc(data.section_description);
+      if (data.next_id) setReqNextId(data.next_id);
     } catch { setReqsFailed(true); } finally {
       setReqsLoading(false);
     }
@@ -1194,6 +1199,9 @@ export default function Index() {
       setReqs((prev) => prev.map((r) => (r.id === editingReq.id ? data : r)));
     } else {
       setReqs((prev) => [...prev, data]);
+      const savedId = data.id || form.id;
+      const match = savedId.match(/^req-(\d+)$/);
+      if (match) setReqNextId(`req-${String(parseInt(match[1]) + 1).padStart(3, "0")}`);
     }
     setReqDialogOpen(false);
   }, [editingReq, REQUIREMENTS_API]);

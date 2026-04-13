@@ -89,11 +89,17 @@ def handler(event: dict, context) -> dict:
             row = cur.fetchone()
             section_description = row[0] if row else ""
 
+            cur.execute(f"SELECT id FROM {SCHEMA}.requirements WHERE id ~ '^req-[0-9]+$'")
+            existing_nums = [int(r[0].split('-')[1]) for r in cur.fetchall()]
+            next_num = (max(existing_nums) + 1) if existing_nums else 1
+            next_id = f"req-{str(next_num).zfill(3)}"
+
             return ok({
                 "items": items,
                 "technologies": technologies,
                 "tech_domains": tech_domains,
                 "section_description": section_description,
+                "next_id": next_id,
             })
 
         # POST /
