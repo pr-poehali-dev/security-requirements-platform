@@ -1719,6 +1719,8 @@ export default function Index() {
   const [importResult, setImportResult] = useState<{ ok: string[]; errors: string[] } | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [csvImportEntity, setCsvImportEntity] = useState<string>("tech_solutions");
+  const [jsonImportMode, setJsonImportMode] = useState<"auto" | "section">("auto");
+  const [jsonImportEntity, setJsonImportEntity] = useState<string>("requirements");
   const [exportLoading, setExportLoading] = useState(false);
 
   const loadAllForExport = async () => {
@@ -6479,7 +6481,20 @@ export default function Index() {
               if (isJson) {
                 const bundle = parseJsonBundle(text);
                 if (!bundle) { errors.push("Не удалось разобрать JSON файл"); }
-                else {
+                else if (jsonImportMode === "section") {
+                  // Import only selected section
+                  const entity = entities.find((e) => e.key === jsonImportEntity);
+                  if (!entity) { errors.push("Выберите раздел для импорта"); }
+                  else {
+                    const rows = bundle[entity.key];
+                    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+                      errors.push(`Раздел "${entity.label}" не найден в файле или пуст`);
+                    } else {
+                      await importRows(entity.key, rows as Record<string, unknown>[], entity.label, ok, errors);
+                    }
+                  }
+                } else {
+                  // Auto — import all sections found in bundle
                   for (const entity of entities) {
                     const rows = bundle[entity.key];
                     if (!rows || !Array.isArray(rows) || rows.length === 0) continue;
@@ -6608,22 +6623,63 @@ export default function Index() {
                     </div>
                   </div>
 
-                  {/* CSV entity selector */}
-                  <div className="mb-4 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <p className="text-[11px] font-medium mb-2" style={{ color: "rgba(180,200,230,0.5)" }}>Тип данных для CSV-импорта</p>
-                    <select
-                      value={csvImportEntity}
-                      onChange={(e) => setCsvImportEntity(e.target.value)}
-                      className="w-full rounded-lg px-3 py-2 text-xs outline-none"
-                      style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
-                    >
-                      {entities.map((e) => (
-                        <option key={e.key} value={e.key}>{e.label}</option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] mt-1.5" style={{ color: "rgba(180,200,230,0.3)" }}>
-                      Выбор применяется только при загрузке .csv файла. JSON-бандл определяет тип автоматически.
-                    </p>
+                  {/* Import mode selector */}
+                  <div className="mb-4 space-y-3">
+                    {/* JSON section */}
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] font-medium" style={{ color: "rgba(180,200,230,0.6)" }}>
+                          <span className="font-mono mr-1.5" style={{ color: "#818cf8" }}>.json</span>Режим импорта
+                        </p>
+                        <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                          {([["auto", "Весь бандл"], ["section", "По разделу"]] as [string, string][]).map(([val, lbl]) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setJsonImportMode(val as "auto" | "section")}
+                              className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all"
+                              style={{
+                                background: jsonImportMode === val ? "rgba(99,102,241,0.25)" : "transparent",
+                                color: jsonImportMode === val ? "#818cf8" : "rgba(180,200,230,0.4)",
+                                border: jsonImportMode === val ? "1px solid rgba(99,102,241,0.4)" : "1px solid transparent",
+                              }}
+                            >{lbl}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {jsonImportMode === "section" ? (
+                        <select
+                          value={jsonImportEntity}
+                          onChange={(e) => setJsonImportEntity(e.target.value)}
+                          className="w-full rounded-lg px-3 py-2 text-xs outline-none"
+                          style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(99,102,241,0.25)", color: "white" }}
+                        >
+                          {entities.map((e) => (
+                            <option key={e.key} value={e.key}>{e.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-[10px]" style={{ color: "rgba(180,200,230,0.3)" }}>
+                          Все разделы из бандла будут импортированы автоматически.
+                        </p>
+                      )}
+                    </div>
+                    {/* CSV section */}
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.12)" }}>
+                      <p className="text-[11px] font-medium mb-2" style={{ color: "rgba(180,200,230,0.6)" }}>
+                        <span className="font-mono mr-1.5" style={{ color: "#34d399" }}>.csv</span>Раздел для импорта
+                      </p>
+                      <select
+                        value={csvImportEntity}
+                        onChange={(e) => setCsvImportEntity(e.target.value)}
+                        className="w-full rounded-lg px-3 py-2 text-xs outline-none"
+                        style={{ background: "rgba(15,22,41,0.9)", border: "1px solid rgba(16,185,129,0.2)", color: "white" }}
+                      >
+                        {entities.map((e) => (
+                          <option key={e.key} value={e.key}>{e.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {/* Drop zone */}
