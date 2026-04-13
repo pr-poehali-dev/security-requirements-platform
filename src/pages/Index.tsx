@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import RequirementFormDialog from "@/components/RequirementFormDialog";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
 import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin, getCacheStats } from "@/utils/apiCache";
 import Icon from "@/components/ui/icon";
@@ -1100,8 +1101,7 @@ export default function Index() {
   const [reqSectionDescEditing, setReqSectionDescEditing] = useState(false);
   const [reqSectionDescDraft, setReqSectionDescDraft] = useState(reqSectionDesc);
   const [reqDialogOpen, setReqDialogOpen] = useState(false);
-  const [reqSaving, setReqSaving] = useState(false);
-  const [reqSaveError, setReqSaveError] = useState("");
+
   const [deleteReqId, setDeleteReqId] = useState<string | null>(null);
   const [editingReq, setEditingReq] = useState<Req | null>(null);
   const [viewReq, setViewReq] = useState<Req | null>(null);
@@ -1110,7 +1110,7 @@ export default function Index() {
   const [reqFilterType, setReqFilterType] = useState<string>("Все");
   const [reqFilterCrit, setReqFilterCrit] = useState<string>("Все");
   const [reqFilterStatus, setReqFilterStatus] = useState<string>("Все");
-  const [reqTagInput, setReqTagInput] = useState("");
+
 
   const makeEmptyReqForm = (count: number): Req => ({
     id: `req-${String(count + 1).padStart(3, "0")}`,
@@ -1137,6 +1137,11 @@ export default function Index() {
     score_weight: 1,
   });
   const [reqForm, setReqForm] = useState<Req>(makeEmptyReqForm(0));
+
+  const initialReqForm = useMemo<Req>(() => {
+    if (editingReq) return { ...editingReq, tags: editingReq.tags || [], environments: editingReq.environments || [], stages: editingReq.stages || [] };
+    return makeEmptyReqForm(reqs.length);
+  }, [editingReq, reqs.length]);
 
   const loadReqs = async () => {
     if (reqsFailed) return;
@@ -1166,63 +1171,32 @@ export default function Index() {
   const openCreateReq = () => {
     setEditingReq(null);
     setReqForm(makeEmptyReqForm(reqs.length));
-    setReqTagInput(""); setReqSaveError("");
     setReqDialogOpen(true);
   };
 
   const openEditReq = (r: Req) => {
     setEditingReq(r);
     setReqForm({ ...r, tags: r.tags || [], environments: r.environments || [], stages: r.stages || [] });
-    setReqTagInput(""); setReqSaveError("");
     setReqDialogOpen(true);
   };
 
-  const addReqTag = (raw: string) => {
-    const tag = raw.trim().replace(/\s+/g, "-").toLowerCase();
-    if (!tag || reqForm.tags.includes(tag) || reqForm.tags.length >= 10) return;
-    setReqForm((f) => ({ ...f, tags: [...f.tags, tag] }));
-    setReqTagInput("");
-  };
-
-  const toggleReqEnv = (env: ReqEnv) => {
-    setReqForm((f) => ({
-      ...f,
-      environments: f.environments.includes(env)
-        ? f.environments.filter((e) => e !== env)
-        : [...f.environments, env],
-    }));
-  };
-
-  const toggleReqStage = (s: ReqStage) => {
-    setReqForm((f) => ({
-      ...f,
-      stages: f.stages.includes(s) ? f.stages.filter((x) => x !== s) : [...f.stages, s],
-    }));
-  };
-
-  const handleSaveReq = async () => {
-    if (!reqForm.name.trim() || !reqForm.id.trim()) { setReqSaveError("Название и ID обязательны"); return; }
-    setReqSaving(true); setReqSaveError("");
+  const handleSaveReqForm = useCallback(async (form: typeof reqForm) => {
     invalidateCache("requirements");
-    try {
-      const method = editingReq ? "PUT" : "POST";
-      const res = await fetch(REQUIREMENTS_API, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reqForm),
-      });
-      const data = await res.json();
-      if (data.error) { setReqSaveError(data.error); return; }
-      if (editingReq) {
-        setReqs((prev) => prev.map((r) => (r.id === editingReq.id ? data : r)));
-      } else {
-        setReqs((prev) => [...prev, data]);
-      }
-      setReqDialogOpen(false);
-    } finally {
-      setReqSaving(false);
+    const method = editingReq ? "PUT" : "POST";
+    const res = await fetch(REQUIREMENTS_API, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (editingReq) {
+      setReqs((prev) => prev.map((r) => (r.id === editingReq.id ? data : r)));
+    } else {
+      setReqs((prev) => [...prev, data]);
     }
-  };
+    setReqDialogOpen(false);
+  }, [editingReq, REQUIREMENTS_API]);
 
   const handleDeleteReq = async (id: string) => {
     invalidateCache("requirements");
@@ -1615,7 +1589,7 @@ export default function Index() {
   const [archTsolSearch, setArchTsolSearch] = useState("");
   const [archTechSearch, setArchTechSearch] = useState("");
   const [archTechStatusFilter, setArchTechStatusFilter] = useState<string | null>(null);
-  const [reqTechSearch, setReqTechSearch] = useState("");
+
   const [archTsolStatusFilter, setArchTsolStatusFilter] = useState<string | null>(null);
   const [archActiveDiagramTab, setArchActiveDiagramTab] = useState(0);
   const [viewArchReqSearch, setViewArchReqSearch] = useState("");
@@ -7296,331 +7270,8 @@ export default function Index() {
       </Sheet>
 
       {/* ── Requirement Create/Edit Dialog ── */}
-      <Dialog open={reqDialogOpen} onOpenChange={(o) => { if (!o) setReqDialogOpen(false); }}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
-          <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 z-10" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.06)" }}>
-            <DialogTitle className="text-white flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
-                <Icon name="FileCheck" size={15} style={{ color: "#f59e0b" }} />
-              </div>
-              {editingReq ? "Редактировать требование" : "Добавить требование"}
-            </DialogTitle>
-          </DialogHeader>
+      <RequirementFormDialog open={reqDialogOpen} onOpenChange={(o) => { if (!o) setReqDialogOpen(false); }} editingReq={editingReq} initialForm={initialReqForm} techRefs={reqTechRefs} techDomainRefs={reqTechDomainRefs} onSave={handleSaveReqForm} />
 
-          <div className="px-6 py-5 space-y-5">
-            {/* ID */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>ID требования</Label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-sm" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#f59e0b" }}>
-                <Icon name="Hash" size={13} style={{ color: "rgba(245,158,11,0.4)" }} />
-                {reqForm.id}
-              </div>
-            </div>
-
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Название требования *</Label>
-              <Input value={reqForm.name} onChange={(e) => setReqForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Например: Многофакторная аутентификация для привилегированных пользователей"
-                className="text-sm" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-            </div>
-
-            {/* Technology + Tech Domain */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технология</Label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setReqTechSearch(reqTechSearch === "\x00open" ? "" : "\x00open")}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left"
-                    style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: reqForm.technology_id ? "rgba(210,225,245,0.9)" : "rgba(180,200,230,0.35)" }}
-                  >
-                    <span className="truncate">{reqForm.technology_id ? (reqTechRefs.find((t) => t.id === reqForm.technology_id)?.name ?? reqForm.technology_id) : "— не выбрано —"}</span>
-                    <Icon name="ChevronsUpDown" size={13} style={{ color: "rgba(180,200,230,0.4)" }} />
-                  </button>
-                  {(reqTechSearch === "\x00open" || (reqTechSearch !== "" && reqTechSearch !== "\x00open")) && (
-                    <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(15,22,41,0.98)", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                      <div className="p-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                        <div className="relative">
-                          <Icon name="Search" size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(180,200,230,0.35)" }} />
-                          <input
-                            autoFocus
-                            value={reqTechSearch === "\x00open" ? "" : reqTechSearch}
-                            onChange={(e) => setReqTechSearch(e.target.value || "\x00open")}
-                            placeholder="Поиск..."
-                            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md outline-none"
-                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white" }}
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-48 overflow-y-auto">
-                        <button
-                          type="button"
-                          onClick={() => { setReqForm((f) => ({ ...f, technology_id: "" })); setReqTechSearch(""); }}
-                          className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
-                          style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                        >
-                          <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: !reqForm.technology_id ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${!reqForm.technology_id ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
-                            {!reqForm.technology_id && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
-                          </span>
-                          <span style={{ color: "rgba(180,200,230,0.5)" }}>— не выбрано —</span>
-                        </button>
-                        {reqTechRefs
-                          .filter((t) => {
-                            const q = reqTechSearch === "\x00open" ? "" : reqTechSearch.toLowerCase();
-                            return (t.name || "").toLowerCase().includes(q) || (t.id || "").toLowerCase().includes(q);
-                          })
-                          .map((t) => {
-                            const selected = reqForm.technology_id === t.id;
-                            return (
-                              <button
-                                key={t.id}
-                                type="button"
-                                onClick={() => { setReqForm((f) => ({ ...f, technology_id: t.id })); setReqTechSearch(""); }}
-                                className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-all"
-                                style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                              >
-                                <span className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center" style={{ background: selected ? "rgba(99,176,255,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${selected ? "rgba(99,176,255,0.5)" : "rgba(255,255,255,0.1)"}` }}>
-                                  {selected && <Icon name="Check" size={10} style={{ color: "#63b0ff" }} />}
-                                </span>
-                                <span className="flex-1 truncate" style={{ color: "rgba(210,225,245,0.85)" }}>{t.name}</span>
-                              </button>
-                            );
-                          })}
-                        {reqTechRefs.filter((t) => {
-                          const q = reqTechSearch === "\x00open" ? "" : reqTechSearch.toLowerCase();
-                          return (t.name || "").toLowerCase().includes(q) || (t.id || "").toLowerCase().includes(q);
-                        }).length === 0 && (
-                          <div className="px-3 py-4 text-center text-xs" style={{ color: "rgba(180,200,230,0.35)" }}>Ничего не найдено</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Технический домен</Label>
-                <select value={reqForm.tech_domain_id} onChange={(e) => setReqForm((f) => ({ ...f, tech_domain_id: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: reqForm.tech_domain_id ? "white" : "rgba(180,200,230,0.4)" }}>
-                  <option value="">— не выбрано —</option>
-                  {reqTechDomainRefs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание требования</Label>
-              <textarea value={reqForm.description} onChange={(e) => setReqForm((f) => ({ ...f, description: e.target.value }))}
-                rows={3} placeholder="Подробное описание требования, его цель и область применения..."
-                className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
-                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-            </div>
-
-            {/* Type + Criticality + Status */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Тип требования</Label>
-                <div className="flex flex-col gap-1.5">
-                  {REQ_TYPES.map((t) => {
-                    const m = REQ_TYPE_META[t]; const active = reqForm.req_type === t;
-                    return <button key={t} onClick={() => setReqForm((f) => ({ ...f, req_type: t }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
-                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{t}
-                    </button>;
-                  })}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Критичность</Label>
-                <div className="flex flex-col gap-1.5">
-                  {REQ_CRITICALITIES.map((c) => {
-                    const m = REQ_CRITICALITY_META[c]; const active = reqForm.criticality === c;
-                    return <button key={c} onClick={() => setReqForm((f) => ({ ...f, criticality: c }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
-                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{c}
-                    </button>;
-                  })}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
-                <div className="flex flex-col gap-1.5">
-                  {REQ_STATUSES.map((s) => {
-                    const m = REQ_STATUS_META[s]; const active = reqForm.status === s;
-                    return <button key={s} onClick={() => setReqForm((f) => ({ ...f, status: s }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
-                      <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{s}
-                    </button>;
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Control metric + description */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Метрика контроля</Label>
-                <Input value={reqForm.control_metric} onChange={(e) => setReqForm((f) => ({ ...f, control_metric: e.target.value }))}
-                  placeholder="Например: % систем с MFA" className="text-sm"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Описание способа контроля</Label>
-                <Input value={reqForm.control_description} onChange={(e) => setReqForm((f) => ({ ...f, control_description: e.target.value }))}
-                  placeholder="Как проверяется выполнение..." className="text-sm"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-            </div>
-
-            {/* Version + Norm doc link */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Версия</Label>
-                <Input value={reqForm.version} onChange={(e) => setReqForm((f) => ({ ...f, version: e.target.value }))}
-                  placeholder="1.0.0" className="text-sm font-mono"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Ссылка на нормативный документ</Label>
-                <Input value={reqForm.norm_doc_link} onChange={(e) => setReqForm((f) => ({ ...f, norm_doc_link: e.target.value }))}
-                  placeholder="ГОСТ Р 57580, ISO 27001..." className="text-sm"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-              </div>
-            </div>
-
-            {/* Environments */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Среда применения</Label>
-              <div className="flex gap-2 flex-wrap">
-                {REQ_ENVS.map((env) => {
-                  const active = reqForm.environments.includes(env);
-                  return <button key={env} onClick={() => toggleReqEnv(env)} className="px-3 py-1.5 rounded-lg text-xs font-medium font-mono transition-all" style={{ background: active ? "rgba(99,176,255,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(99,176,255,0.35)" : "rgba(255,255,255,0.08)"}`, color: active ? "#63b0ff" : "rgba(180,200,230,0.5)" }}>
-                    {active && <Icon name="Check" size={11} className="inline mr-1" />}{env}
-                  </button>;
-                })}
-              </div>
-            </div>
-
-            {/* Stages */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Стадия применения</Label>
-              <div className="flex gap-2 flex-wrap">
-                {REQ_STAGES.map((s) => {
-                  const active = reqForm.stages.includes(s);
-                  return <button key={s} onClick={() => toggleReqStage(s)} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(167,139,250,0.35)" : "rgba(255,255,255,0.08)"}`, color: active ? "#a78bfa" : "rgba(180,200,230,0.5)" }}>
-                    {active && <Icon name="Check" size={11} className="inline mr-1" />}{s}
-                  </button>;
-                })}
-              </div>
-            </div>
-
-            {/* Procurement */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Закупки</Label>
-              <textarea value={reqForm.procurement} onChange={(e) => setReqForm((f) => ({ ...f, procurement: e.target.value }))}
-                rows={2} placeholder="Требования к закупаемым компонентам, сертификаты, стандарты..."
-                className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none"
-                style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} />
-            </div>
-
-            {/* Interactions */}
-            <div className="space-y-2">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Взаимодействие</Label>
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                {([
-                  { key: "ext_with_iod" as const, label: "Внешнее с ИОД" },
-                  { key: "ext_without_iod" as const, label: "Внешнее без ИОД" },
-                  { key: "int_with_iod" as const, label: "Внутреннее с ИОД" },
-                  { key: "int_without_iod" as const, label: "Внутреннее без ИОД" },
-                ] as { key: "ext_with_iod" | "ext_without_iod" | "int_with_iod" | "int_without_iod"; label: string }[]).map(({ key, label }) => (
-                  <div key={key} className="space-y-1">
-                    <span className="text-[11px]" style={{ color: "rgba(180,200,230,0.5)" }}>{label}</span>
-                    <div className="flex gap-1 flex-wrap">
-                      {REQ_INTERACTIONS.map((v) => {
-                        const m = REQ_INTERACTION_META[v]; const active = reqForm[key] === v;
-                        return <button key={v} onClick={() => setReqForm((f) => ({ ...f, [key]: v }))} className="px-2 py-1 rounded-md text-[11px] font-medium transition-all" style={{ background: active ? `${m.color}15` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "40" : "rgba(255,255,255,0.06)"}`, color: active ? m.color : "rgba(180,200,230,0.4)" }}>{v}</button>;
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Score */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Скор.Балл (1–4)</Label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4].map((v) => (
-                    <button key={v} onClick={() => setReqForm((f) => ({ ...f, score_value: v }))}
-                      className="flex-1 py-2 rounded-lg text-sm font-bold transition-all"
-                      style={{ background: reqForm.score_value === v ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${reqForm.score_value === v ? "rgba(245,158,11,0.4)" : "rgba(255,255,255,0.08)"}`, color: reqForm.score_value === v ? "#f59e0b" : "rgba(180,200,230,0.4)" }}>
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Скор.Вес (1–10)</Label>
-                <div className="flex gap-1 flex-wrap">
-                  {[1,2,3,4,5,6,7,8,9,10].map((v) => (
-                    <button key={v} onClick={() => setReqForm((f) => ({ ...f, score_weight: v }))}
-                      className="flex-1 min-w-[2rem] py-2 rounded-lg text-sm font-bold transition-all"
-                      style={{ background: reqForm.score_weight === v ? "rgba(99,176,255,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${reqForm.score_weight === v ? "rgba(99,176,255,0.4)" : "rgba(255,255,255,0.08)"}`, color: reqForm.score_weight === v ? "#63b0ff" : "rgba(180,200,230,0.4)" }}>
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Tags */}
-            <div className="space-y-1.5">
-              <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Теги</Label>
-              <div className="flex gap-2">
-                <Input value={reqTagInput} onChange={(e) => setReqTagInput(e.target.value)}
-                  placeholder="mfa, authn, gost..." className="text-sm flex-1"
-                  style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addReqTag(reqTagInput); } }} />
-                <button onClick={() => addReqTag(reqTagInput)} className="px-3 rounded-lg text-xs font-medium" style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.2)", color: "#a78bfa" }}>
-                  <Icon name="Plus" size={14} />
-                </button>
-              </div>
-              {reqForm.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {reqForm.tags.map((tag) => (
-                    <span key={tag} className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.08)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.15)" }}>
-                      {tag}
-                      <button onClick={() => setReqForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="hover:text-red-400 transition-colors"><Icon name="X" size={10} /></button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Error */}
-            {reqSaveError && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                <Icon name="AlertTriangle" size={14} style={{ color: "#ef4444" }} />
-                <span className="text-xs" style={{ color: "#ef4444" }}>{reqSaveError}</span>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1 text-sm" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(180,200,230,0.7)" }} onClick={() => setReqDialogOpen(false)}>
-                Отмена
-              </Button>
-              <button onClick={handleSaveReq} disabled={reqSaving || !reqForm.name.trim()}
-                className="flex-1 rounded-lg text-sm font-medium py-2 flex items-center justify-center gap-2 transition-all"
-                style={{ background: reqSaving || !reqForm.name.trim() ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)", color: reqSaving || !reqForm.name.trim() ? "rgba(180,200,230,0.3)" : "white", cursor: reqSaving || !reqForm.name.trim() ? "not-allowed" : "pointer" }}>
-                {reqSaving && <Icon name="Loader" size={14} className="animate-spin" />}
-                {editingReq ? "Сохранить изменения" : "Добавить требование"}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Requirement Detail Sheet ── */}
       <Sheet open={!!viewReq} onOpenChange={(o) => { if (!o) setViewReq(null); }}>
