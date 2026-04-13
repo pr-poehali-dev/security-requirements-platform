@@ -510,31 +510,7 @@ export default function Index() {
   const [libIntWithIodFilter, setLibIntWithIodFilter] = useState("Все");
   const [libIntWithoutIodFilter, setLibIntWithoutIodFilter] = useState("Все");
 
-  // === TEST LIBRARY state (duplicate of library) ===
-  const [testQuery, setTestQuery] = useState("");
-  const [testSection, setTestSection] = useState<"all" | "reqs" | "technologies" | "techsolutions" | "arch">("all");
-  const [testStatusFilter, setTestStatusFilter] = useState("Все");
-  const [testTypeFilter, setTestTypeFilter] = useState("Все");
-  const [testSelected, setTestSelected] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
-  const [testExpanded, setTestExpanded] = useState<{ kind: "req" | "tech" | "tsol" | "arch"; id: string } | null>(null);
-  const [testExpandedDiagramTab, setTestExpandedDiagramTab] = useState(0);
-  const [testReqSearch, setTestReqSearch] = useState("");
-  const [testReqFilterStatus, setTestReqFilterStatus] = useState("Все");
-  const [testReqFilterCriticality, setTestReqFilterCriticality] = useState("Все");
-  const [testReqFilterType, setTestReqFilterType] = useState("Все");
-  const [testReqFilterEnv, setTestReqFilterEnv] = useState("Все");
-  const [testReqFilterStage, setTestReqFilterStage] = useState("Все");
-  const [testCriticalityFilter, setTestCriticalityFilter] = useState("Все");
-  const [testEnvFilter, setTestEnvFilter] = useState("Все");
-  const [testStageFilter, setTestStageFilter] = useState("Все");
-  const [testApprovedIbFilter, setTestApprovedIbFilter] = useState("Все");
-  const [testApprovedItFilter, setTestApprovedItFilter] = useState("Все");
-  const [testAuthorFilter, setTestAuthorFilter] = useState("Все");
-  const [testShowFilters, setTestShowFilters] = useState(false);
-  const [testExtWithIodFilter, setTestExtWithIodFilter] = useState("Все");
-  const [testExtWithoutIodFilter, setTestExtWithoutIodFilter] = useState("Все");
-  const [testIntWithIodFilter, setTestIntWithIodFilter] = useState("Все");
-  const [testIntWithoutIodFilter, setTestIntWithoutIodFilter] = useState("Все");
+
 
   // Domains state
   const DOMAINS_API = getApiUrl("domains");
@@ -2182,7 +2158,7 @@ export default function Index() {
             <nav className="flex items-center gap-1 overflow-x-auto">
               {[
                 { key: "library",        label: "Библиотека потребителя", onClick: () => { setActiveSection("library"); if (reqs.length === 0 && !reqsLoading && !reqsFailed) loadReqs(); if (technologies.length === 0 && !techsLoading && !techsFailed) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading && !tsolFailed) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading && !archFailed) loadArchTemplates(); } },
-                { key: "test-library",   label: "Тест",                   onClick: () => { setActiveSection("test-library"); if (reqs.length === 0 && !reqsLoading && !reqsFailed) loadReqs(); if (technologies.length === 0 && !techsLoading && !techsFailed) loadTechnologies(); if (techSolutions.length === 0 && !tsolLoading && !tsolFailed) loadTechSolutions(); if (archTemplates.length === 0 && !archLoading && !archFailed) loadArchTemplates(); } },
+
                 { key: "domains",        label: "Орг. домены",            onClick: () => setActiveSection("domains") },
                 { key: "tech-domains",   label: "Тех. домены",            onClick: () => setActiveSection("tech-domains") },
                 { key: "technologies",   label: "Технологии",             onClick: () => setActiveSection("technologies") },
@@ -3818,8 +3794,7 @@ export default function Index() {
           );
         })()}
 
-        {/* === TEST LIBRARY SECTION === */}
-        {activeSection === "test-library" && (() => {
+        {activeSection === "test-library-disabled" && (() => {
           // load all data on first visit
           if (reqs.length === 0 && !reqsLoading) loadReqs();
           if (technologies.length === 0 && !techsLoading) loadTechnologies();
