@@ -6469,7 +6469,7 @@ export default function Index() {
                   imported++;
                 } else if (overwrite && row.id) {
                   try {
-                    const putRes = await fetch(`${url}/${row.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
+                    const putRes = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row) });
                     const putData = await putRes.json();
                     if (!putData.error) updated++; else skipped++;
                   } catch { skipped++; }
