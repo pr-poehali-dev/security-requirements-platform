@@ -5030,7 +5030,7 @@ export default function Index() {
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 {DOMAIN_STATUSES.map((s) => {
-                  const meta = DOMAIN_STATUS_META[s];
+                  const meta = DOMAIN_STATUS_META[s] ?? DOMAIN_STATUS_META["Активен"];
                   const cnt = techDomains.filter((d) => d.status === s).length;
                   return (
                     <span key={s} className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: meta.bg, color: meta.color }}>
@@ -5060,7 +5060,7 @@ export default function Index() {
             ) : (
               <div className="grid grid-cols-3 gap-4">
                 {filteredTechDomains.map((td) => {
-                  const meta = DOMAIN_STATUS_META[td.status];
+                  const meta = DOMAIN_STATUS_META[td.status] ?? DOMAIN_STATUS_META["Активен"];
                   const linkedOrgs = techOrgRefs.filter((o) => td.org_domain_ids.includes(o.id));
                   return (
                     <div key={td.id}
@@ -6097,7 +6097,7 @@ export default function Index() {
             {!hardLoading && filteredHardenings.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredHardenings.map((h) => {
-                  const sm = HARDENING_STATUS_META[h.status];
+                  const sm = HARDENING_STATUS_META[h.status] ?? HARDENING_STATUS_META["Активен"];
                   const linkedTsol = techSolutions.find((s) => s.id === h.tech_solution_id);
                   return (
                     <div key={h.id} className="glass-card rounded-xl p-5 flex flex-col gap-3 transition-all hover:border-red-500/20 cursor-pointer group" style={{ borderColor: "rgba(255,255,255,0.06)" }} onClick={() => setViewHard(h)}>
@@ -7124,7 +7124,7 @@ export default function Index() {
       <Sheet open={!!viewTsol} onOpenChange={(o) => { if (!o) setViewTsol(null); }}>
         <SheetContent side="right" className="p-0 border-l flex flex-col" style={{ background: "#080f1e", borderColor: "rgba(255,255,255,0.08)", width: "min(860px, 95vw)", maxWidth: "none" }}>
           {viewTsol && (() => {
-            const sm = TECH_SOLUTION_STATUS_META[viewTsol.status];
+            const sm = TECH_SOLUTION_STATUS_META[viewTsol.status] ?? TECH_SOLUTION_STATUS_META["Активен"];
             const linkedTechs = technologies.filter((t) => (viewTsol.technology_ids || []).includes(t.id));
             const relatedSolutions = techSolutions.filter((s) => (viewTsol.related_solution_ids || []).includes(s.id));
             const linkedTechIds = linkedTechs.map((t) => t.id);
@@ -10015,7 +10015,7 @@ export default function Index() {
                 <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Статус</Label>
                 <div className="flex flex-col gap-1.5">
                   {HARDENING_STATUSES.map((s) => {
-                    const m = HARDENING_STATUS_META[s]; const active = hardForm.status === s;
+                    const m = HARDENING_STATUS_META[s] ?? HARDENING_STATUS_META["Активен"]; const active = hardForm.status === s;
                     return <button key={s} onClick={() => setHardForm((f) => ({ ...f, status: s }))} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: active ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${active ? m.color + "50" : "rgba(255,255,255,0.08)"}`, color: active ? m.color : "rgba(180,200,230,0.5)" }}>
                       <Icon name={m.icon as Parameters<typeof Icon>[0]["name"]} size={12} />{s}
                     </button>;
@@ -10104,7 +10104,7 @@ export default function Index() {
       <Dialog open={!!viewHard} onOpenChange={(o) => { if (!o) setViewHard(null); }}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden border" style={{ background: "#0b1628", borderColor: "rgba(255,255,255,0.08)", maxHeight: "92vh", overflowY: "auto" }}>
           {viewHard && (() => {
-            const sm = HARDENING_STATUS_META[viewHard.status];
+            const sm = HARDENING_STATUS_META[viewHard.status] ?? HARDENING_STATUS_META["Активен"];
             const linkedTsol = techSolutions.find((s) => s.id === viewHard.tech_solution_id);
             const linkedReqs = reqs.filter((r) => linkedTsol && (r.technology_id === linkedTsol.technology_ids?.[0] || linkedTsol.technology_ids?.includes(r.technology_id)));
             return (
