@@ -10894,6 +10894,9 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
     </div>
   </div>
 </div>`).join("\n");
+              const archTagsHtml = (viewArch.tags || []).length > 0
+                ? (viewArch.tags || []).map(tg => `<span class="arch-tag">#${tg}</span>`).join("")
+                : "";
               const tsolsHtml = linkedTsols.length > 0
                 ? linkedTsols.map(ts => `<div class="tsol-chip"><span class="tsol-name">${ts.name}</span><span class="tsol-id">${ts.id}</span></div>`).join("")
                 : '<span style="color:#6b7280">—</span>';
@@ -10983,6 +10986,8 @@ td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
 .score-weight{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(99,176,255,0.1);color:#63b0ff}
 .iod-req{color:#f87171}.iod-rec{color:#fbbf24}.iod-no{color:rgba(180,200,230,0.35)}.iod-ban{color:#6b7280}
 .no-results{text-align:center;padding:24px;color:rgba(180,200,230,0.35);font-size:12px}
+.arch-tags-list{display:flex;flex-wrap:wrap;gap:6px}
+.arch-tag{display:inline-block;padding:3px 10px;border-radius:20px;font-family:monospace;font-size:11px;font-weight:500;background:rgba(99,176,255,0.08);color:rgba(99,176,255,0.7);border:1px solid rgba(99,176,255,0.18)}
 </style>
 </head>
 <body>
@@ -11003,6 +11008,7 @@ td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
     </div>
   </div>
   ${viewArch.description ? `<div class="section"><div class="sec-title">Описание</div><div class="desc-text">${viewArch.description.replace(/</g,"&lt;")}</div></div>` : ""}
+  ${archTagsHtml ? `<div class="section"><div class="sec-title">Теги</div><div class="arch-tags-list">${archTagsHtml}</div></div>` : ""}
   <div class="section"><div class="sec-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
   <div class="section"><div class="sec-title">Связанные технологии</div><div class="tsol-list">${techsHtml}</div></div>
   <div class="section" style="display:flex;align-items:center;gap:20px;padding:16px 22px">
