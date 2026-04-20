@@ -1576,6 +1576,7 @@ export default function Index() {
 
   const [archTsolStatusFilter, setArchTsolStatusFilter] = useState<string | null>(null);
   const [archActiveDiagramTab, setArchActiveDiagramTab] = useState(0);
+  const [archDiagramTheme, setArchDiagramTheme] = useState("dark");
   const [viewArchReqSearch, setViewArchReqSearch] = useState("");
   const [viewArchReqFilterLevel, setViewArchReqFilterLevel] = useState("Все");
   const [viewArchReqFilterCat, setViewArchReqFilterCat] = useState("Все");
@@ -11338,12 +11339,33 @@ renderReqs(REQS);
                       </div>
                       {/* Active diagram */}
                       <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                        <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="px-4 py-2.5 flex items-center justify-between gap-2 flex-wrap" style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                           <span className="text-xs font-medium text-white">{viewArch.diagrams[archActiveDiagramTab]?.name}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>mermaid</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] uppercase tracking-wider mr-1" style={{ color: "rgba(180,200,230,0.3)" }}>Тема:</span>
+                            {[
+                              { id: "dark", label: "Dark" },
+                              { id: "default", label: "Light" },
+                              { id: "forest", label: "Forest" },
+                              { id: "neutral", label: "Neutral" },
+                              { id: "base", label: "Base" },
+                            ].map((t) => (
+                              <button
+                                key={t.id}
+                                onClick={() => setArchDiagramTheme(t.id)}
+                                className="text-[10px] px-2 py-0.5 rounded transition-all"
+                                style={{
+                                  background: archDiagramTheme === t.id ? "rgba(99,176,255,0.15)" : "rgba(255,255,255,0.04)",
+                                  border: `1px solid ${archDiagramTheme === t.id ? "rgba(99,176,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                                  color: archDiagramTheme === t.id ? "#63b0ff" : "rgba(180,200,230,0.45)",
+                                }}
+                              >{t.label}</button>
+                            ))}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono ml-1" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee" }}>mermaid</span>
+                          </div>
                         </div>
                         <div className="p-4">
-                          <MermaidViewer content={viewArch.diagrams[archActiveDiagramTab]?.content || ""} />
+                          <MermaidViewer content={viewArch.diagrams[archActiveDiagramTab]?.content || ""} theme={archDiagramTheme} />
                         </div>
                       </div>
                     </div>

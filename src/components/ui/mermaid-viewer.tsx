@@ -1,33 +1,51 @@
 import { useEffect, useState } from "react";
 import mermaid from "mermaid";
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "dark",
-  themeVariables: {
-    background: "#0a1120",
-    primaryColor: "#1e3a5f",
-    primaryTextColor: "#e2e8f0",
-    primaryBorderColor: "#34d399",
-    lineColor: "#63b0ff",
-    secondaryColor: "#1a2d4a",
-    tertiaryColor: "#162035",
-    edgeLabelBackground: "#0a1120",
-    clusterBkg: "#111c30",
-    titleColor: "#e2e8f0",
-    fontFamily: "ui-monospace, monospace",
-  },
-  securityLevel: "loose",
-});
-
 let idCounter = 0;
+
+const THEMES: Record<string, { theme: string; themeVariables?: Record<string, string>; bg: string }> = {
+  dark: {
+    theme: "dark",
+    themeVariables: {
+      background: "#0a1120",
+      primaryColor: "#1e3a5f",
+      primaryTextColor: "#e2e8f0",
+      primaryBorderColor: "#34d399",
+      lineColor: "#63b0ff",
+      secondaryColor: "#1a2d4a",
+      tertiaryColor: "#162035",
+      edgeLabelBackground: "#0a1120",
+      clusterBkg: "#111c30",
+      titleColor: "#e2e8f0",
+      fontFamily: "ui-monospace, monospace",
+    },
+    bg: "rgba(10,17,32,0.6)",
+  },
+  default: {
+    theme: "default",
+    bg: "#ffffff",
+  },
+  forest: {
+    theme: "forest",
+    bg: "#f4f9f4",
+  },
+  neutral: {
+    theme: "neutral",
+    bg: "#f5f5f5",
+  },
+  base: {
+    theme: "base",
+    bg: "#faf9f8",
+  },
+};
 
 interface MermaidViewerProps {
   content: string;
   className?: string;
+  theme?: string;
 }
 
-export default function MermaidViewer({ content, className }: MermaidViewerProps) {
+export default function MermaidViewer({ content, className, theme = "dark" }: MermaidViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [svg, setSvg] = useState<string>("");
 
@@ -36,13 +54,21 @@ export default function MermaidViewer({ content, className }: MermaidViewerProps
     setError(null);
     setSvg("");
 
+    const cfg = THEMES[theme] || THEMES.dark;
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: cfg.theme as Parameters<typeof mermaid.initialize>[0]["theme"],
+      themeVariables: cfg.themeVariables,
+      securityLevel: "loose",
+    });
+
     const renderId = `mermaid-${++idCounter}`;
     mermaid.render(renderId, content.trim()).then(({ svg }) => {
       setSvg(svg);
     }).catch((err) => {
       setError(err?.message || "Ошибка рендеринга диаграммы");
     });
-  }, [content]);
+  }, [content, theme]);
 
   if (error) {
     return (
@@ -64,10 +90,12 @@ export default function MermaidViewer({ content, className }: MermaidViewerProps
     );
   }
 
+  const bgColor = (THEMES[theme] || THEMES.dark).bg;
+
   return (
     <div
       className={`mermaid-output rounded-xl overflow-auto ${className}`}
-      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", padding: "16px" }}
+      style={{ background: bgColor, border: "1px solid rgba(255,255,255,0.06)", padding: "16px" }}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
