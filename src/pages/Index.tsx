@@ -10887,9 +10887,17 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
       <button onclick="resetZoom(${idx})">⊙</button>
       <button onclick="panReset(${idx})">⌖</button>
     </div>
+    <div class="theme-bar">
+      <span class="theme-label">Тема:</span>
+      <button class="theme-btn active" id="theme-btn-${idx}-dark" onclick="setDiagramTheme(${idx},'dark')">Dark</button>
+      <button class="theme-btn" id="theme-btn-${idx}-default" onclick="setDiagramTheme(${idx},'default')">Light</button>
+      <button class="theme-btn" id="theme-btn-${idx}-forest" onclick="setDiagramTheme(${idx},'forest')">Forest</button>
+      <button class="theme-btn" id="theme-btn-${idx}-neutral" onclick="setDiagramTheme(${idx},'neutral')">Neutral</button>
+      <button class="theme-btn" id="theme-btn-${idx}-base" onclick="setDiagramTheme(${idx},'base')">Base</button>
+    </div>
     <div class="mermaid-wrap" id="wrap-${idx}">
       <div class="mermaid-pan" id="pan-${idx}" style="transform-origin:0 0;transform:scale(1) translate(0px,0px);">
-        <pre class="mermaid">${d.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
+        <pre class="mermaid" id="mermaid-src-${idx}">${d.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
       </div>
     </div>
   </div>
@@ -10988,6 +10996,11 @@ td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
 .no-results{text-align:center;padding:24px;color:rgba(180,200,230,0.35);font-size:12px}
 .arch-tags-list{display:flex;flex-wrap:wrap;gap:6px}
 .arch-tag{display:inline-block;padding:3px 10px;border-radius:20px;font-family:monospace;font-size:11px;font-weight:500;background:rgba(99,176,255,0.08);color:rgba(99,176,255,0.7);border:1px solid rgba(99,176,255,0.18)}
+.theme-bar{display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(0,0,0,0.15);border-bottom:1px solid rgba(255,255,255,0.04)}
+.theme-label{font-size:10px;color:rgba(180,200,230,0.35);margin-right:2px;text-transform:uppercase;letter-spacing:.05em}
+.theme-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(180,200,230,0.55);border-radius:5px;padding:2px 9px;cursor:pointer;font-size:11px;transition:all .15s}
+.theme-btn:hover{background:rgba(255,255,255,0.1);color:#c8daf0}
+.theme-btn.active{background:rgba(99,176,255,0.15);border-color:rgba(99,176,255,0.4);color:#63b0ff}
 </style>
 </head>
 <body>
@@ -11062,7 +11075,24 @@ td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
 </div>
 <${SC}>
 var REQS=${reqsJson};
+var diagramSources={};
+document.querySelectorAll("[id^='mermaid-src-']").forEach(function(el){var idx=el.id.replace("mermaid-src-","");diagramSources[idx]=el.innerText||el.textContent;});
 mermaid.initialize({startOnLoad:true,theme:"dark",themeVariables:{background:"#0d1628",primaryColor:"#1e3a5f",primaryTextColor:"#c8daf0",lineColor:"#4a7fa5",edgeLabelBackground:"#0d1628"}});
+function setDiagramTheme(idx,theme){
+  var themeNames=["dark","default","forest","neutral","base"];
+  themeNames.forEach(function(t){var btn=document.getElementById("theme-btn-"+idx+"-"+t);if(btn){btn.classList.toggle("active",t===theme);}});
+  var pan=document.getElementById("pan-"+idx);
+  if(!pan)return;
+  var src=diagramSources[String(idx)];
+  if(!src)return;
+  var cfg={startOnLoad:false,theme:theme};
+  if(theme==="dark")cfg.themeVariables={background:"#0d1628",primaryColor:"#1e3a5f",primaryTextColor:"#c8daf0",lineColor:"#4a7fa5",edgeLabelBackground:"#0d1628"};
+  mermaid.initialize(cfg);
+  var uid="m-"+idx+"-"+Date.now();
+  pan.innerHTML='<div id="'+uid+'">'+src+'</div>';
+  mermaid.init(undefined,document.getElementById(uid));
+  scales[idx]=1;pans[idx]={x:0,y:0};applyTransform(idx);
+}
 var scales={},pans={},dragging={},dragStart={};
 function getState(i){if(!scales[i])scales[i]=1;if(!pans[i])pans[i]={x:0,y:0};return{s:scales[i],p:pans[i]}}
 function applyTransform(i){var st=getState(i);var el=document.getElementById("pan-"+i);if(el)el.style.transform="scale("+st.s+") translate("+st.p.x+"px,"+st.p.y+"px)"}
