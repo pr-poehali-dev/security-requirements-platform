@@ -10870,6 +10870,25 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
               URL.revokeObjectURL(url);
             };
 
+            const mdToHtml = (md: string): string => {
+              return md
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+                .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+                .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+                .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+                .replace(/\*(.+?)\*/g, "<em>$1</em>")
+                .replace(/`(.+?)`/g, "<code>$1</code>")
+                .replace(/^\s*[-*]\s+(.+)$/gm, "<li>$1</li>")
+                .replace(/(<li>.*<\/li>(\n|$))+/g, (m) => `<ul>${m}</ul>`)
+                .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
+                .replace(/^---$/gm, "<hr>")
+                .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>')
+                .replace(/\n\n+/g, "</p><p>")
+                .replace(/^(?!<[a-z])(.+)$/gm, (m) => m.trim() ? m : "")
+                .replace(/^(?!<)(.*\S.*)$/gm, "<p>$1</p>");
+            };
+
             const exportArchHTMLAll = () => {
               const statusColor: Record<string, string> = { "Активен": "#22c55e", "В разработке": "#f59e0b", "Архивен": "#6b7280" };
               const sColor = statusColor[viewArch.status] ?? "#6b7280";
@@ -10946,6 +10965,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(180,200,230,0.4);margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .sec-title::after{content:"";flex:1;height:1px;background:rgba(255,255,255,0.06)}
 .desc-text{font-size:13px;line-height:1.7;color:rgba(210,225,245,0.8);white-space:pre-wrap}
+.md-content{white-space:normal}
+.md-content p{margin:0 0 8px;font-size:13px;line-height:1.7;color:rgba(210,225,245,0.8)}
+.md-content h1{font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.md-content h2{font-size:14px;font-weight:600;color:#cbd5e1;margin:12px 0 6px}
+.md-content h3{font-size:13px;font-weight:600;color:#94a3b8;margin:10px 0 4px}
+.md-content ul,.md-content ol{margin:0 0 8px;padding-left:18px;color:rgba(210,225,245,0.8)}
+.md-content li{font-size:13px;line-height:1.6;margin-bottom:2px}
+.md-content code{font-family:monospace;font-size:11px;background:rgba(0,0,0,0.3);color:#86efac;padding:1px 5px;border-radius:4px}
+.md-content strong{font-weight:600;color:#e2e8f0}
+.md-content em{color:rgba(210,225,245,0.7)}
+.md-content a{color:#63b0ff}
+.md-content hr{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:10px 0}
 .tsol-list{display:flex;flex-wrap:wrap;gap:8px}
 .tsol-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:7px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25)}
 .tsol-name{font-size:12px;color:#a5b4fc}
@@ -11023,7 +11054,7 @@ td{padding:7px 10px;color:rgba(210,225,245,0.75);vertical-align:top}
       <div class="meta-item"><label>Согласован с ИТ</label><span style="color:${viewArch.approved_it ? "#22c55e" : "#f87171"}">${viewArch.approved_it ? "✓ Согласован" : "✗ Не согласован"}</span></div>
     </div>
   </div>
-  ${viewArch.description ? `<div class="section"><div class="sec-title">Описание</div><div class="desc-text">${viewArch.description.replace(/</g,"&lt;")}</div></div>` : ""}
+  ${viewArch.description ? `<div class="section"><div class="sec-title">Описание</div><div class="desc-text md-content">${mdToHtml(viewArch.description)}</div></div>` : ""}
   ${archTagsHtml ? `<div class="section"><div class="sec-title">Теги</div><div class="arch-tags-list">${archTagsHtml}</div></div>` : ""}
   <div class="section"><div class="sec-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
   <div class="section"><div class="sec-title">Связанные технологии</div><div class="tsol-list">${techsHtml}</div></div>
