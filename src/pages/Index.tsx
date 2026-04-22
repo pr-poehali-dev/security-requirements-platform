@@ -10871,22 +10871,50 @@ document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
             };
 
             const mdToHtml = (md: string): string => {
-              return md
-                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-                .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-                .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+              const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+              const inline = (s: string) => s
                 .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
                 .replace(/\*(.+?)\*/g, "<em>$1</em>")
                 .replace(/`(.+?)`/g, "<code>$1</code>")
-                .replace(/^\s*[-*]\s+(.+)$/gm, "<li>$1</li>")
-                .replace(/(<li>.*<\/li>(\n|$))+/g, (m) => `<ul>${m}</ul>`)
-                .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-                .replace(/^---$/gm, "<hr>")
-                .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>')
-                .replace(/\n\n+/g, "</p><p>")
-                .replace(/^(?!<[a-z])(.+)$/gm, (m) => m.trim() ? m : "")
-                .replace(/^(?!<)(.*\S.*)$/gm, "<p>$1</p>");
+                .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+
+              const lines = escape(md).split("\n");
+              const out: string[] = [];
+              let inUl = false, inOl = false, inP = false;
+
+              const closeUl = () => { if (inUl) { out.push("</ul>"); inUl = false; } };
+              const closeOl = () => { if (inOl) { out.push("</ol>"); inOl = false; } };
+              const closeP  = () => { if (inP)  { out.push("</p>"); inP = false; } };
+
+              for (const raw of lines) {
+                const line = raw.trimEnd();
+
+                if (/^### /.test(line)) { closeUl(); closeOl(); closeP(); out.push(`<h3>${inline(line.slice(4))}</h3>`); }
+                else if (/^## /.test(line)) { closeUl(); closeOl(); closeP(); out.push(`<h2>${inline(line.slice(3))}</h2>`); }
+                else if (/^# /.test(line)) { closeUl(); closeOl(); closeP(); out.push(`<h1>${inline(line.slice(2))}</h1>`); }
+                else if (/^---+$/.test(line)) { closeUl(); closeOl(); closeP(); out.push("<hr>"); }
+                else if (/^\s*[-*]\s+/.test(line)) {
+                  closeOl(); closeP();
+                  if (!inUl) { out.push("<ul>"); inUl = true; }
+                  out.push(`<li>${inline(line.replace(/^\s*[-*]\s+/, ""))}</li>`);
+                }
+                else if (/^\s*\d+\.\s+/.test(line)) {
+                  closeUl(); closeP();
+                  if (!inOl) { out.push("<ol>"); inOl = true; }
+                  out.push(`<li>${inline(line.replace(/^\s*\d+\.\s+/, ""))}</li>`);
+                }
+                else if (line.trim() === "") {
+                  closeUl(); closeOl(); closeP();
+                }
+                else {
+                  closeUl(); closeOl();
+                  if (!inP) { out.push("<p>"); inP = true; }
+                  else out.push("<br>");
+                  out.push(inline(line));
+                }
+              }
+              closeUl(); closeOl(); closeP();
+              return out.join("\n");
             };
 
             const exportArchHTMLAll = () => {
