@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
 import MarkdownEditor from "@/components/ui/markdown-editor";
+import MarkdownView from "@/components/ui/markdown-view";
 import {
   exportJson, exportCsv, exportAllJson,
   readFileAsText, parseCsv, parseJsonBundle,
@@ -11264,7 +11265,7 @@ renderReqs(REQS);
                   {viewArch.description && (
                     <div>
                       <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</div>
-                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.75)" }}>{viewArch.description}</p>
+                      <MarkdownView color="rgba(210,225,245,0.75)">{viewArch.description}</MarkdownView>
                     </div>
                   )}
 
