@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MermaidViewer from "@/components/ui/mermaid-viewer";
+import MarkdownEditor from "@/components/ui/markdown-editor";
 import {
   exportJson, exportCsv, exportAllJson,
   readFileAsText, parseCsv, parseJsonBundle,
@@ -10307,7 +10308,7 @@ export default function Index() {
             {/* Description */}
             <div className="space-y-1.5">
               <Label className="text-xs" style={{ color: "rgba(180,200,230,0.6)" }}>Краткое описание</Label>
-              <textarea value={archForm.description} onChange={(e) => setArchForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none" style={{ background: "rgba(15,22,41,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }} placeholder="Описание типовой архитектуры..." />
+              <MarkdownEditor value={archForm.description} onChange={(v) => setArchForm((f) => ({ ...f, description: v }))} placeholder="Описание типовой архитектуры..." rows={4} />
             </div>
 
             {/* Status + Author */}
