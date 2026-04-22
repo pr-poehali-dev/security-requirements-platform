@@ -11264,7 +11264,7 @@ renderReqs(REQS);
                   {viewArch.description && (
                     <div>
                       <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(180,200,230,0.35)" }}>Описание</div>
-                      <MarkdownView color="rgba(210,225,245,0.75)">{viewArch.description}</MarkdownView>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(210,225,245,0.75)" }}>{viewArch.description}</p>
                     </div>
                   )}
 
