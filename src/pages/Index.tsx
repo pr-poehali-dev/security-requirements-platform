@@ -10679,11 +10679,21 @@ export default function Index() {
             const reqStatuses = [...new Set(uniqueReqs.map((r) => r.status).filter(Boolean))];
             const reqEnvs = [...new Set(uniqueReqs.flatMap((r) => r.environments||[]).filter(Boolean))];
             const reqStages = [...new Set(uniqueReqs.flatMap((r) => r.stages||[]).filter(Boolean))];
-            const exportArchMD = () => {
-              const mermaidToImgUrl = (content: string): string => {
-                const encoded = btoa(unescape(encodeURIComponent(content)));
-                return `https://mermaid.ink/svg/${encoded}?theme=default&bgColor=ffffff`;
+            const exportArchMD = async () => {
+              const renderMermaidSvgMD = async (content: string, id: string): Promise<string> => {
+                try {
+                  const mermaid = (await import("mermaid")).default;
+                  mermaid.initialize({ startOnLoad: false, theme: "default" });
+                  const { svg } = await mermaid.render(`mermaid-md-${id}`, content);
+                  const b64 = btoa(unescape(encodeURIComponent(svg)));
+                  return `data:image/svg+xml;base64,${b64}`;
+                } catch {
+                  return "";
+                }
               };
+
+              const diagrams = (viewArch.diagrams || []);
+              const svgUrls = await Promise.all(diagrams.map((d, idx) => renderMermaidSvgMD(d.content, String(idx))));
 
               const lines: string[] = [];
               lines.push(`# ${viewArch.name}`);
@@ -10733,13 +10743,19 @@ export default function Index() {
               lines.push("");
               lines.push(`Количество связанных требований: **${uniqueReqs.length}**`);
               lines.push("");
-              if ((viewArch.diagrams || []).length > 0) {
+              if (diagrams.length > 0) {
                 lines.push("## Диаграммы архитектуры");
                 lines.push("");
-                viewArch.diagrams.forEach((d, idx) => {
+                diagrams.forEach((d, idx) => {
                   lines.push(`### ${idx + 1}. ${d.name}`);
                   lines.push("");
-                  lines.push(`![${d.name}](${mermaidToImgUrl(d.content)})`);
+                  if (svgUrls[idx]) {
+                    lines.push(`![${d.name}](${svgUrls[idx]})`);
+                  } else {
+                    lines.push("```mermaid");
+                    lines.push(d.content);
+                    lines.push("```");
+                  }
                   lines.push("");
                 });
               }
