@@ -10680,6 +10680,11 @@ export default function Index() {
             const reqEnvs = [...new Set(uniqueReqs.flatMap((r) => r.environments||[]).filter(Boolean))];
             const reqStages = [...new Set(uniqueReqs.flatMap((r) => r.stages||[]).filter(Boolean))];
             const exportArchMD = () => {
+              const mermaidToImgUrl = (content: string): string => {
+                const encoded = btoa(unescape(encodeURIComponent(content)));
+                return `https://mermaid.ink/img/${encoded}?theme=default&bgColor=ffffff`;
+              };
+
               const lines: string[] = [];
               lines.push(`# ${viewArch.name}`);
               lines.push("");
@@ -10695,10 +10700,13 @@ export default function Index() {
               lines.push(`| **Согласован с ИТ** | ${viewArch.approved_it ? "✅ Согласован" : "❌ Не согласован"} |`);
               lines.push(`| **Дата создания** | ${viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—"} |`);
               lines.push(`| **Дата изменения** | ${viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—"} |`);
-              if ((viewArch.tags || []).length > 0) {
-                lines.push(`| **Теги** | ${viewArch.tags.join(", ")} |`);
-              }
               lines.push("");
+              if ((viewArch.tags || []).length > 0) {
+                lines.push("## Теги");
+                lines.push("");
+                lines.push((viewArch.tags).map(t => `\`#${t}\``).join("  "));
+                lines.push("");
+              }
               if (viewArch.description) {
                 lines.push("## Описание");
                 lines.push("");
@@ -10713,6 +10721,14 @@ export default function Index() {
                 });
                 lines.push("");
               }
+              if (linkedTechs.length > 0) {
+                lines.push("## Связанные технологии");
+                lines.push("");
+                linkedTechs.forEach((t) => {
+                  lines.push(`- **${t.name}** (\`${t.id}\`)`);
+                });
+                lines.push("");
+              }
               lines.push("## Требования");
               lines.push("");
               lines.push(`Количество связанных требований: **${uniqueReqs.length}**`);
@@ -10723,9 +10739,7 @@ export default function Index() {
                 viewArch.diagrams.forEach((d, idx) => {
                   lines.push(`### ${idx + 1}. ${d.name}`);
                   lines.push("");
-                  lines.push("```mermaid");
-                  lines.push(d.content);
-                  lines.push("```");
+                  lines.push(`![${d.name}](${mermaidToImgUrl(d.content)})`);
                   lines.push("");
                 });
               }
