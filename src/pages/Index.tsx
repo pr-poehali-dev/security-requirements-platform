@@ -10751,7 +10751,7 @@ export default function Index() {
               URL.revokeObjectURL(url);
             };
 
-            const exportArchHTML = () => {
+            const exportArchHTML = async () => {
               const statusColor: Record<string, string> = {
                 "Активен": "#22c55e", "В разработке": "#f59e0b", "Архивен": "#6b7280"
               };
@@ -10759,10 +10759,20 @@ export default function Index() {
               const createdAt = viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—";
               const updatedAt = viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—";
               const diagrams = (viewArch.diagrams || []);
-              const mermaidImgUrl = (content: string) => {
-                const encoded = btoa(unescape(encodeURIComponent(content)));
-                return `https://mermaid.ink/svg/${encoded}?theme=default&bgColor=ffffff`;
+
+              const renderMermaidSvg = async (content: string, id: string): Promise<string> => {
+                try {
+                  const mermaid = (await import("mermaid")).default;
+                  mermaid.initialize({ startOnLoad: false, theme: "default" });
+                  const { svg } = await mermaid.render(`mermaid-export-${id}`, content);
+                  return svg;
+                } catch {
+                  return `<pre style="color:#f87171;font-size:12px;padding:12px">${content.replace(/</g,"&lt;")}</pre>`;
+                }
               };
+
+              const svgs = await Promise.all(diagrams.map((d, idx) => renderMermaidSvg(d.content, String(idx))));
+
               const diagramsHtml = diagrams.map((d, idx) => `
 <div class="diagram-block">
   <div class="diagram-header" onclick="toggleDiagram(${idx})">
@@ -10771,7 +10781,7 @@ export default function Index() {
     <span class="diagram-chevron" id="chev-${idx}">▼</span>
   </div>
   <div class="diagram-body" id="diag-body-${idx}">
-    <img src="${mermaidImgUrl(d.content)}" alt="${d.name}" style="max-width:100%;display:block;border-radius:0 0 12px 12px;background:#fff;padding:16px" loading="lazy"/>
+    <div style="background:#fff;padding:16px;border-radius:0 0 12px 12px;overflow:auto">${svgs[idx]}</div>
   </div>
 </div>`).join("\n");
               const tsolsHtml = linkedTsols.length > 0
