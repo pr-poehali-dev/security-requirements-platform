@@ -10682,7 +10682,7 @@ export default function Index() {
             const exportArchMD = () => {
               const mermaidToImgUrl = (content: string): string => {
                 const encoded = btoa(unescape(encodeURIComponent(content)));
-                return `https://mermaid.ink/img/${encoded}?theme=default&bgColor=ffffff`;
+                return `https://mermaid.ink/svg/${encoded}?theme=default&bgColor=ffffff`;
               };
 
               const lines: string[] = [];
@@ -10761,7 +10761,7 @@ export default function Index() {
               const diagrams = (viewArch.diagrams || []);
               const mermaidImgUrl = (content: string) => {
                 const encoded = btoa(unescape(encodeURIComponent(content)));
-                return `https://mermaid.ink/img/${encoded}?theme=default&bgColor=ffffff&width=1024&height=768`;
+                return `https://mermaid.ink/svg/${encoded}?theme=default&bgColor=ffffff`;
               };
               const diagramsHtml = diagrams.map((d, idx) => `
 <div class="diagram-block">
