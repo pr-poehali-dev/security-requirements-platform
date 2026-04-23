@@ -10759,38 +10759,36 @@ export default function Index() {
               const createdAt = viewArch.created_at ? new Date(viewArch.created_at).toLocaleDateString("ru-RU") : "—";
               const updatedAt = viewArch.updated_at ? new Date(viewArch.updated_at).toLocaleDateString("ru-RU") : "—";
               const diagrams = (viewArch.diagrams || []);
+              const mermaidImgUrl = (content: string) => {
+                const encoded = btoa(unescape(encodeURIComponent(content)));
+                return `https://mermaid.ink/img/${encoded}?theme=default&bgColor=ffffff&width=1024&height=768`;
+              };
               const diagramsHtml = diagrams.map((d, idx) => `
-                <div class="diagram-block" id="diagram-${idx}">
-                  <div class="diagram-header" onclick="toggleDiagram(${idx})">
-                    <span class="diagram-num">${idx + 1}</span>
-                    <span class="diagram-name">${d.name}</span>
-                    <span class="diagram-chevron" id="chev-${idx}">▼</span>
-                  </div>
-                  <div class="diagram-body" id="diag-body-${idx}">
-                    <div class="diagram-toolbar">
-                      <button onclick="zoomIn(${idx})" title="Увеличить">＋</button>
-                      <button onclick="zoomOut(${idx})" title="Уменьшить">－</button>
-                      <button onclick="resetZoom(${idx})" title="Сбросить масштаб">⊙</button>
-                      <button onclick="panReset(${idx})" title="Центрировать">⌖</button>
-                    </div>
-                    <div class="mermaid-wrap" id="wrap-${idx}">
-                      <div class="mermaid-pan" id="pan-${idx}" style="transform-origin:0 0;transform:scale(1) translate(0px,0px);">
-                        <pre class="mermaid">${d.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre>
-                      </div>
-                    </div>
-                  </div>
-                </div>`).join("\n");
+<div class="diagram-block">
+  <div class="diagram-header" onclick="toggleDiagram(${idx})">
+    <span class="diagram-num">${idx + 1}</span>
+    <span class="diagram-name">${d.name}</span>
+    <span class="diagram-chevron" id="chev-${idx}">▼</span>
+  </div>
+  <div class="diagram-body" id="diag-body-${idx}">
+    <img src="${mermaidImgUrl(d.content)}" alt="${d.name}" style="max-width:100%;display:block;border-radius:0 0 12px 12px;background:#fff;padding:16px" loading="lazy"/>
+  </div>
+</div>`).join("\n");
               const tsolsHtml = linkedTsols.length > 0
                 ? linkedTsols.map(ts => `<div class="tsol-chip"><span class="tsol-name">${ts.name}</span><span class="tsol-id">${ts.id}</span></div>`).join("")
                 : '<span style="color:#6b7280">—</span>';
-              const SC = "script";
+              const techsHtml = linkedTechs.length > 0
+                ? linkedTechs.map(t => `<div class="tsol-chip"><span class="tsol-name">${t.name}</span><span class="tsol-id">${t.id}</span></div>`).join("")
+                : '<span style="color:#6b7280">—</span>';
+              const archTagsHtml = (viewArch.tags || []).length > 0
+                ? (viewArch.tags).map(tg => `<span class="arch-tag">#${tg}</span>`).join("")
+                : "";
               const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${viewArch.name}</title>
-<${SC} src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></${SC}>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#080f1e;color:#c8daf0;min-height:100vh;padding:32px 16px}
@@ -10805,13 +10803,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .meta-item label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(180,200,230,0.35);display:block;margin-bottom:4px}
 .meta-item span{font-size:14px;color:rgba(210,225,245,0.85)}
 .section{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:22px 24px;margin-bottom:16px}
-.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(180,200,230,0.4);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.section-title::after{content:"";flex:1;height:1px;background:rgba(255,255,255,0.06)}
-.desc-text{font-size:14px;line-height:1.7;color:rgba(210,225,245,0.8);white-space:pre-wrap}
+.sec-title{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(180,200,230,0.4);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.sec-title::after{content:"";flex:1;height:1px;background:rgba(255,255,255,0.06)}
+.desc-text{font-size:14px;line-height:1.7;color:rgba(210,225,245,0.8)}
+.desc-text p{margin:0 0 10px}
+.desc-text h1{font-size:18px;font-weight:700;color:#e2e8f0;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.desc-text h2{font-size:15px;font-weight:600;color:#cbd5e1;margin:14px 0 7px}
+.desc-text h3{font-size:14px;font-weight:600;color:#94a3b8;margin:12px 0 5px}
+.desc-text ul,.desc-text ol{margin:0 0 10px;padding-left:20px}
+.desc-text li{font-size:14px;line-height:1.7;margin-bottom:3px}
+.desc-text code{font-family:monospace;font-size:12px;background:rgba(0,0,0,0.3);color:#86efac;padding:1px 6px;border-radius:4px}
+.desc-text strong{font-weight:600;color:#e2e8f0}
+.desc-text em{color:rgba(210,225,245,0.7)}
+.desc-text a{color:#63b0ff}
+.desc-text hr{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:12px 0}
 .tsol-list{display:flex;flex-wrap:wrap;gap:8px}
 .tsol-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25)}
 .tsol-name{font-size:13px;color:#a5b4fc}
 .tsol-id{font-family:monospace;font-size:11px;color:rgba(165,180,252,0.55)}
+.arch-tag{font-size:12px;padding:3px 10px;border-radius:20px;background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);color:#22d3ee;margin-right:6px;margin-bottom:4px;display:inline-block}
 .req-counter{font-size:28px;font-weight:700;color:#22d3ee;line-height:1}
 .req-label{font-size:12px;color:rgba(180,200,230,0.4);margin-top:4px}
 .diagram-block{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-bottom:12px;overflow:hidden}
@@ -10821,14 +10831,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .diagram-name{flex:1;font-size:14px;color:#e2eaf8;font-weight:500}
 .diagram-chevron{font-size:11px;color:rgba(180,200,230,0.4);transition:transform .2s}
 .diagram-body{display:block}
-.diagram-toolbar{display:flex;gap:6px;padding:8px 14px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.05)}
-.diagram-toolbar button{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:#c8daf0;border-radius:6px;width:30px;height:28px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:background .15s}
-.diagram-toolbar button:hover{background:rgba(255,255,255,0.14)}
-.mermaid-wrap{overflow:hidden;background:#0d1628;min-height:200px;cursor:grab;position:relative;padding:16px}
-.mermaid-wrap:active{cursor:grabbing}
-.mermaid-pan{display:inline-block}
-.mermaid pre{background:transparent!important}
-svg{max-width:none!important}
 </style>
 </head>
 <body>
@@ -10848,33 +10850,21 @@ svg{max-width:none!important}
       <div class="meta-item"><label>Согласован с ИТ</label><span style="color:${viewArch.approved_it ? "#22c55e" : "#f87171"}">${viewArch.approved_it ? "✓ Согласован" : "✗ Не согласован"}</span></div>
     </div>
   </div>
-  ${viewArch.description ? `<div class="section"><div class="section-title">Описание</div><div class="desc-text">${viewArch.description.replace(/</g,"&lt;")}</div></div>` : ""}
-  <div class="section"><div class="section-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
+  ${archTagsHtml ? `<div class="section"><div class="sec-title">Теги</div><div>${archTagsHtml}</div></div>` : ""}
+  ${viewArch.description ? `<div class="section"><div class="sec-title">Описание</div><div class="desc-text">${mdToHtml(viewArch.description)}</div></div>` : ""}
+  <div class="section"><div class="sec-title">Связанные технические решения</div><div class="tsol-list">${tsolsHtml}</div></div>
+  <div class="section"><div class="sec-title">Связанные технологии</div><div class="tsol-list">${techsHtml}</div></div>
   <div class="section" style="display:flex;align-items:center;gap:20px">
     <div>
       <div class="req-counter">${uniqueReqs.length}</div>
       <div class="req-label">связанных требований</div>
     </div>
   </div>
-  ${diagrams.length > 0 ? `<div class="section-title" style="margin-bottom:12px">Диаграммы архитектуры</div>${diagramsHtml}` : ""}
+  ${diagrams.length > 0 ? `<div class="section"><div class="sec-title">Диаграммы архитектуры</div>${diagramsHtml}</div>` : ""}
 </div>
 <script>
-mermaid.initialize({startOnLoad:true,theme:"dark",themeVariables:{background:"#0d1628",primaryColor:"#1e3a5f",primaryTextColor:"#c8daf0",lineColor:"#4a7fa5",edgeLabelBackground:"#0d1628"}});
-var scales={},pans={},dragging={},dragStart={};
-function getState(i){if(!scales[i])scales[i]=1;if(!pans[i])pans[i]={x:0,y:0};return{s:scales[i],p:pans[i]}}
-function applyTransform(i){var st=getState(i);var el=document.getElementById("pan-"+i);if(el)el.style.transform="scale("+st.s+") translate("+st.p.x+"px,"+st.p.y+"px)"}
-function zoomIn(i){var st=getState(i);scales[i]=Math.min(st.s+0.2,5);applyTransform(i)}
-function zoomOut(i){var st=getState(i);scales[i]=Math.max(st.s-0.2,0.2);applyTransform(i)}
-function resetZoom(i){scales[i]=1;applyTransform(i)}
-function panReset(i){pans[i]={x:0,y:0};applyTransform(i)}
 function toggleDiagram(i){var b=document.getElementById("diag-body-"+i);var c=document.getElementById("chev-"+i);if(b.style.display==="none"){b.style.display="block";if(c)c.style.transform=""}else{b.style.display="none";if(c)c.style.transform="rotate(-90deg)"}}
-document.querySelectorAll(".mermaid-wrap").forEach(function(wrap,i){
-  wrap.addEventListener("wheel",function(e){e.preventDefault();var delta=e.deltaY>0?-0.1:0.1;var st=getState(i);scales[i]=Math.max(0.2,Math.min(5,st.s+delta));applyTransform(i)},{passive:false});
-  wrap.addEventListener("mousedown",function(e){dragging[i]=true;var st=getState(i);dragStart[i]={mx:e.clientX,my:e.clientY,px:st.p.x,py:st.p.y}});
-  document.addEventListener("mousemove",function(e){if(!dragging[i])return;var ds=dragStart[i];var st=getState(i);pans[i]={x:ds.px+(e.clientX-ds.mx)/st.s,y:ds.py+(e.clientY-ds.my)/st.s};applyTransform(i)});
-  document.addEventListener("mouseup",function(){dragging[i]=false});
-});
-</${SC}>
+</script>
 </body>
 </html>`;
               const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
