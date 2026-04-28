@@ -11309,9 +11309,8 @@ renderReqs(REQS);
               <>
                 {/* Header */}
                 <div className="px-6 pt-6 pb-5 border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-4 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>{viewArch.id}</span>
                         <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/arch/${viewArch.id}`); toast.success("Ссылка скопирована", { description: `${window.location.origin}/arch/${viewArch.id}`, duration: 3000 }); }} className="flex items-center gap-1 text-xs rounded px-1.5 py-0.5 transition-opacity opacity-50 hover:opacity-100" title="Скопировать прямую ссылку" style={{ color: "#a5b4fc" }}>
                           <Icon name="Link" size={11} /> Ссылка
@@ -11320,8 +11319,6 @@ renderReqs(REQS);
                         <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
                           <Icon name={sm.icon} size={11} />{viewArch.status}
                         </span>
-                      </div>
-                      <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={exportArchHTMLAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>
@@ -11341,6 +11338,7 @@ renderReqs(REQS);
                       </button>
                     </div>
                   </div>
+                  <h2 className="text-xl font-semibold text-white leading-snug mt-3">{viewArch.name}</h2>
                 </div>
 
                 {/* Body */}
