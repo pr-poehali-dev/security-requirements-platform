@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 
 let idCounter = 0;
+let mermaidInitialized = false;
 
 const THEMES: Record<string, { theme: string; themeVariables?: Record<string, string>; bg: string }> = {
   dark: {
@@ -48,6 +49,7 @@ interface MermaidViewerProps {
 export default function MermaidViewer({ content, className, theme = "dark" }: MermaidViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [svg, setSvg] = useState<string>("");
+  const renderIdRef = useRef<string>("");
 
   useEffect(() => {
     if (!content?.trim()) return;
@@ -55,19 +57,43 @@ export default function MermaidViewer({ content, className, theme = "dark" }: Me
     setSvg("");
 
     const cfg = THEMES[theme] || THEMES.dark;
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: cfg.theme as Parameters<typeof mermaid.initialize>[0]["theme"],
-      themeVariables: cfg.themeVariables,
-      securityLevel: "loose",
-    });
+
+    if (!mermaidInitialized) {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: cfg.theme as Parameters<typeof mermaid.initialize>[0]["theme"],
+        themeVariables: cfg.themeVariables,
+        securityLevel: "loose",
+      });
+      mermaidInitialized = true;
+    }
+
+    // Чистим старый артефакт из DOM если он остался
+    if (renderIdRef.current) {
+      const old = document.getElementById(renderIdRef.current);
+      if (old) old.remove();
+    }
 
     const renderId = `mermaid-${++idCounter}`;
-    mermaid.render(renderId, content.trim()).then(({ svg }) => {
-      setSvg(svg);
+    renderIdRef.current = renderId;
+
+    let cancelled = false;
+
+    mermaid.render(renderId, content.trim()).then(({ svg: renderedSvg }) => {
+      if (!cancelled) setSvg(renderedSvg);
     }).catch((err) => {
-      setError(err?.message || "Ошибка рендеринга диаграммы");
+      if (!cancelled) setError(err?.message || "Ошибка рендеринга диаграммы");
+      // Чистим артефакт после ошибки
+      const el = document.getElementById(renderId);
+      if (el) el.remove();
     });
+
+    return () => {
+      cancelled = true;
+      // Чистим артефакт при размонтировании
+      const el = document.getElementById(renderId);
+      if (el) el.remove();
+    };
   }, [content, theme]);
 
   if (error) {
