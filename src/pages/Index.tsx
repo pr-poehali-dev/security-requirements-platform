@@ -1608,8 +1608,8 @@ export default function Index() {
 
   const [archForm, setArchForm] = useState<ArchTemplate>(makeEmptyArchForm(0));
 
-  const loadArchTemplates = async () => {
-    if (archFailed) return;
+  const loadArchTemplates = async (forceRetry = false) => {
+    if (archFailed && !forceRetry) return;
     const cached = getCached("arch-templates");
     if (cached) {
       const data = cached as { items?: ArchTemplate[]; section_description?: string };
@@ -1634,7 +1634,10 @@ export default function Index() {
         const td = await tsolRes.json();
         setTechSolutions(td.items || []);
       }
-    } catch { setArchFailed(true); } finally {
+    } catch {
+      setArchFailed(true);
+      setTimeout(() => setArchFailed(false), 5000);
+    } finally {
       setArchLoading(false);
     }
   };
@@ -2197,7 +2200,7 @@ export default function Index() {
                 { key: "requirements",   label: "Требования",             onClick: () => { setActiveSection("requirements"); loadReqs(); } },
                 { key: "tech-solutions", label: "Тех. решения",           onClick: () => { setActiveSection("tech-solutions"); loadTechSolutions(); } },
                 { key: "hardening",      label: "Харденинг",              onClick: () => { setActiveSection("hardening"); loadHardenings(); } },
-                { key: "arch-templates", label: "Типовые архитектуры",    onClick: () => { setActiveSection("arch-templates"); loadArchTemplates(); } },
+                { key: "arch-templates", label: "Типовые архитектуры",    onClick: () => { setActiveSection("arch-templates"); setArchFailed(false); loadArchTemplates(true); } },
                 { key: "products",       label: "Продукты",               onClick: () => { setActiveSection("products"); loadProducts(); } },
                 { key: "analytics",      label: "Аналитика",              onClick: () => setActiveSection("analytics") },
               ].map((item) => (
