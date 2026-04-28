@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import RequirementFormDialog from "@/components/RequirementFormDialog";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
 import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin, getCacheStats } from "@/utils/apiCache";
@@ -11320,7 +11321,7 @@ renderReqs(REQS);
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/arch/${viewArch.id}`); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" title={`${window.location.origin}/arch/${viewArch.id}`} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/arch/${viewArch.id}`); toast.success("Ссылка скопирована", { description: `${window.location.origin}/arch/${viewArch.id}`, duration: 3000 }); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" title={`${window.location.origin}/arch/${viewArch.id}`} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
                         <Icon name="Link" size={12} /> Ссылка
                       </button>
                       <button onClick={exportArchHTMLAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>
