@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import RequirementFormDialog from "@/components/RequirementFormDialog";
 import { getApiUrl, getApiMode, getLocalBase, setApiMode, setLocalBase, DEFAULT_LOCAL_BASE, type ApiMode } from "@/config/endpoints";
 import { getCached, setCache, invalidateCache, invalidateAll, getCacheTtlMin, setCacheTtlMin, getCacheStats } from "@/utils/apiCache";
@@ -456,6 +457,9 @@ const complianceData = [
 ];
 
 export default function Index() {
+  const { archId } = useParams<{ archId?: string }>();
+  const navigate = useNavigate();
+  const archDeepLinkHandled = useRef(false);
   const [activeSection, setActiveSection] = useState<Section>("library");
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
   // cloud = сервисная БД (платформа poehali.dev), local = локальный Docker
@@ -1633,6 +1637,27 @@ export default function Index() {
       setArchLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!archId || archDeepLinkHandled.current) return;
+    const openById = (items: ArchTemplate[]) => {
+      const found = items.find((a) => a.id === archId);
+      if (found) {
+        setActiveSection("arch-templates");
+        setViewArch(found);
+        setArchActiveDiagramTab(0);
+        archDeepLinkHandled.current = true;
+      }
+    };
+    if (archFetched) {
+      openById(archTemplates);
+    }
+  }, [archId, archFetched, archTemplates]);
+
+  useEffect(() => {
+    if (!archId || archDeepLinkHandled.current || archFetched) return;
+    loadArchTemplates();
+  }, [archId]);
 
   const handleSaveArchSectionDesc = async () => {
     setArchSectionDesc(archSectionDescDraft);
@@ -10654,7 +10679,7 @@ export default function Index() {
       </Dialog>
 
       {/* ── Arch Template View Dialog ── */}
-      <Dialog open={!!viewArch} onOpenChange={(o) => { if (!o) setViewArch(null); }}>
+      <Dialog open={!!viewArch} onOpenChange={(o) => { if (!o) { setViewArch(null); if (archId) navigate("/", { replace: true }); } }}>
         <DialogContent className="p-0 overflow-hidden border flex flex-col" style={{ background: "#080f1e", borderColor: "rgba(255,255,255,0.08)", width: "min(1000px, 96vw)", maxWidth: "none", maxHeight: "93vh" }}>
           {viewArch && (() => {
             const sm = ARCH_TEMPLATE_STATUS_META[viewArch.status] ?? ARCH_TEMPLATE_STATUS_META["В разработке"];
@@ -11295,6 +11320,9 @@ renderReqs(REQS);
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/arch/${viewArch.id}`); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" title={`${window.location.origin}/arch/${viewArch.id}`} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
+                        <Icon name="Link" size={12} /> Ссылка
+                      </button>
                       <button onClick={exportArchHTMLAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>
                         <Icon name="FileCode2" size={12} /> .HTML_ALL
                       </button>
