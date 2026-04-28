@@ -11313,6 +11313,9 @@ renderReqs(REQS);
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "rgba(6,182,212,0.1)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.2)" }}>{viewArch.id}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/arch/${viewArch.id}`); toast.success("Ссылка скопирована", { description: `${window.location.origin}/arch/${viewArch.id}`, duration: 3000 }); }} className="flex items-center gap-1 text-xs rounded px-1.5 py-0.5 transition-opacity opacity-50 hover:opacity-100" title="Скопировать прямую ссылку" style={{ color: "#a5b4fc" }}>
+                          <Icon name="Link" size={11} /> Ссылка
+                        </button>
                         <span className="font-mono text-xs" style={{ color: "rgba(180,200,230,0.4)" }}>v{viewArch.version}</span>
                         <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.color}30` }}>
                           <Icon name={sm.icon} size={11} />{viewArch.status}
@@ -11321,9 +11324,6 @@ renderReqs(REQS);
                       <h2 className="text-xl font-semibold text-white leading-snug">{viewArch.name}</h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/arch/${viewArch.id}`); toast.success("Ссылка скопирована", { description: `${window.location.origin}/arch/${viewArch.id}`, duration: 3000 }); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" title={`${window.location.origin}/arch/${viewArch.id}`} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
-                        <Icon name="Link" size={12} /> Ссылка
-                      </button>
                       <button onClick={exportArchHTMLAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399" }}>
                         <Icon name="FileCode2" size={12} /> .HTML_ALL
                       </button>
